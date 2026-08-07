@@ -61,7 +61,10 @@ serve(async (req) => {
     const { data: authUser, error: authError } = await admin.auth.admin.createUser({ email: `student_${studentNumber}@school.internal`, password, email_confirm: true });
     if (authError) return json({ error: authError.message }, 400);
     const { data: student, error } = await admin.from("student_accounts").insert({ class_id: classId, student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id }).select("id, student_number, student_name, created_at").single();
-    if (error) return json({ error: error.message }, 400);
+    if (error) {
+      await admin.auth.admin.deleteUser(authUser.user.id);
+      return json({ error: error.message }, 400);
+    }
     students.push(student);
   }
   return json({ students, duplicates });

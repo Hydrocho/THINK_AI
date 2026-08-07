@@ -1,7 +1,8 @@
 window.MasterAdminModule = {
+  escapeHtml: function (value) { const el = document.createElement('div'); el.textContent = value || ''; return el.innerHTML; },
   teacherRow: function (teacher, pending) {
     const action = pending ? `<button class="btn btn-primary" onclick="MasterAdminModule.approve('${teacher.id}')">승인</button><button class="btn btn-secondary" onclick="MasterAdminModule.reject('${teacher.id}')">거절</button>` : '';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--border-light);"><div><strong>${teacher.display_name || '교사'}</strong><div style="font-size:.85rem;color:var(--text-subtle);">${teacher.email || ''} · ${new Date(teacher.created_at).toLocaleDateString()}</div></div><div style="display:flex;gap:8px;">${action}</div></div>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--border-light);"><div><strong>${this.escapeHtml(teacher.display_name || '교사')}</strong><div style="font-size:.85rem;color:var(--text-subtle);">${this.escapeHtml(teacher.email || '')} · ${new Date(teacher.created_at).toLocaleDateString()}</div></div><div style="display:flex;gap:8px;">${action}</div></div>`;
   },
   renderMasterPanel: async function () {
     const container = document.getElementById('masterPendingListContainer');

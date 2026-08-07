@@ -3,6 +3,7 @@
    ========================================================================== */
 
 window.StudentManagerModule = {
+  escapeHtml: function (value) { const el = document.createElement('div'); el.textContent = value || ''; return el.innerHTML; },
   renderStudentManager: async function () {
     const tableBody = document.getElementById('studentAccountTableBody');
     if (!tableBody) return;
@@ -29,7 +30,7 @@ window.StudentManagerModule = {
       tableBody.innerHTML = students.map(st => `
         <tr style="border-bottom: 1px solid var(--border-light);">
           <td style="padding: 12px 16px; font-weight: 700; color: var(--primary-700);">${st.student_number}</td>
-          <td style="padding: 12px 16px;">${st.student_name || '-'}</td>
+          <td style="padding: 12px 16px;">${this.escapeHtml(st.student_name || '-')}</td>
           <td style="padding: 12px 16px; color: var(--text-subtle);">${new Date(st.created_at).toLocaleDateString()}</td>
           <td style="padding: 12px 16px;">
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="StudentManagerModule.resetPassword('${st.id}', '${st.student_number}')">비밀번호 재설정 🔑</button>
