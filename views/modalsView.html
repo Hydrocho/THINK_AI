@@ -1,0 +1,93 @@
+<!-- Create Project & Custom Lesson Modal Dialog -->
+<div id="createActivityModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 620px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 14px;">
+      <h3 style="font-size: 1.25rem; color: var(--text-main);">➕ 새 프로젝트 및 차시 추가 생성</h3>
+      <button onclick="App.closeActivityModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
+    </div>
+
+    <form onsubmit="App.handleCreateLesson(event)" style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="form-group">
+        <label class="form-label">프로젝트 주제 / 단원명</label>
+        <input type="text" id="newProjectTitle" class="form-input" placeholder="예: 인공지능 윤리와 미래 사회" required value="인공지능 윤리와 미래 사회">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">차시 번호</label>
+          <input type="number" id="newLessonNum" class="form-input" min="1" max="20" value="6" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">차시 제목</label>
+          <input type="text" id="newLessonTitle" class="form-input" placeholder="예: 자율주행차의 트롤리 고뇌" required value="자율주행 자동차 사고 시 누구를 먼저 보호해야 할까?">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">학생용 핵심 발문 질문</label>
+        <textarea id="newLessonQuestion" class="form-textarea" placeholder="학생들이 T 단계에서 혼자 생각하고 AI와 대화할 핵심 질문을 작성하세요." required style="min-height: 80px;">자율주행 자동차의 브레이크가 고장났을 때, 보행자와 운전자 중 누구의 안전을 우선하도록 프로그래밍해야 할까? 그 윤리적 근거는 무엇인가?</textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">AI 응답 방식</label>
+          <select id="newAiMode" class="form-select">
+            <option value="THOUGHT_PROVOKING">사고 촉진형 (답 대신 질문/반례 제시)</option>
+            <option value="GENERAL">일반 대화형 (개념 직접 설명)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">학생별 질문 제한 횟수</label>
+          <input type="number" id="newMaxQuestions" class="form-input" min="3" max="30" value="12" required>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+        <button type="button" class="btn btn-secondary" onclick="App.closeActivityModal()">취소</button>
+        <button type="submit" class="btn btn-primary">+ 프로젝트 차시 즉시 추가</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Batch Student Account Creation Modal -->
+<div id="batchStudentModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 520px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px;">
+      <h3 style="font-size: 1.2rem; color: var(--text-main);">➕ 학생 계정 일괄 생성 마법사</h3>
+      <button onclick="StudentManagerModule.closeBatchModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
+    </div>
+
+    <form onsubmit="StudentManagerModule.handleBatchCreate(event)" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">학년 (1자리)</label>
+          <input type="number" id="batchGradeNum" class="form-input" min="1" max="6" value="3" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">반 (1~2자리)</label>
+          <input type="number" id="batchClassNum" class="form-input" min="1" max="20" value="2" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">생성할 학생 수 (인원)</label>
+        <input type="number" id="batchStudentCount" class="form-input" min="1" max="50" value="28" required>
+        <p style="font-size: 0.8rem; color: var(--text-subtle); margin-top: 4px;">* 3학년 2반 지정 시 30201번 ~ 30228번 계정이 일괄 생성됩니다.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">초기 비밀번호 생성 규칙</label>
+        <select id="batchPwPattern" class="form-select">
+          <option value="STUDENT_NUM_EXCL">학번 + ! 특수문자 (예: 30201!)</option>
+          <option value="DEFAULT_NUM">123456 (공통 초기 비밀번호)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="StudentManagerModule.closeBatchModal()">취소</button>
+        <button type="submit" class="btn btn-primary">학생 계정 일괄 생성 실행</button>
+      </div>
+    </form>
+  </div>
+</div>

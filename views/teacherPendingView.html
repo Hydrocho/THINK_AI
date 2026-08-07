@@ -1,0 +1,16 @@
+<!-- Teacher Pending Approval Screen (Shown when approval_status is pending) -->
+<section id="teacherPendingSection" class="main-shell" style="display: none; grid-template-columns: 1fr;">
+  <div style="max-width: 580px; margin: 60px auto; width: 100%; padding: 32px; background: #ffffff; border: 2px dashed var(--warning-border); border-radius: var(--radius-xl); text-align: center; box-shadow: var(--shadow-md);">
+    <div style="font-size: 3rem; margin-bottom: 12px;">🛡️</div>
+    <h2 style="font-size: 1.4rem; color: var(--text-main); margin-bottom: 10px;">교사 권한 승인 대기 중</h2>
+    <p style="font-size: 0.95rem; color: var(--text-subtle); line-height: 1.6; margin-bottom: 24px;">
+      선생님의 Google 계정이 등록되었습니다.<br>
+      학생 개인정보 및 수업 관리 보호를 위해 <strong>마스터 관리자(Master Admin)의 승인</strong> 후 대시보드가 활성화됩니다.
+    </p>
+    <div style="background: var(--warning-bg); padding: 14px 20px; border-radius: var(--radius-md); font-size: 0.88rem; color: var(--warning-text); margin-bottom: 24px; text-align: left;">
+      • 마스터 관리자에게 학급 및 교사 성명 승인을 요청해 주세요.<br>
+      • 승인이 완료되면 새로고침 시 교사 대시보드로 자동 진입합니다.
+    </div>
+    <button class="btn btn-secondary" onclick="App.logout()">로그아웃 후 돌아가기</button>
+  </div>
+</section>

@@ -1,0 +1,72 @@
+<!-- Main App Content (Student THINK View - Hidden until student enters lesson) -->
+<main id="studentAppSection" class="main-shell" style="display: none; grid-template-columns: 280px 1fr; gap: 24px;">
+  
+  <!-- Sidebar Navigation: LMS Style Course Navigation -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-title">진행 중인 프로젝트</div>
+      <div class="activity-badge-box" style="margin-top: 10px;">
+        <div class="activity-topic-title">유전자 조작 기술, 인간에게 축복일까? 재앙일까?</div>
+        <div class="activity-lesson-num" id="currentLessonLabel">1차시 활동 진행 중</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <div class="sidebar-title" style="margin-bottom: 12px;">THINK 5단계 프로세스</div>
+      <ul class="think-steps-list">
+        <li class="think-step-item active" id="stepNavItem-1" onclick="App.goToStep(1)">
+          <span class="step-icon-badge">T</span>
+          <span>1. 개인 사고 형성</span>
+        </li>
+        <li class="think-step-item" id="stepNavItem-2" onclick="App.goToStep(2)">
+          <span class="step-icon-badge">H</span>
+          <span>2. 인간 협력 (의견 비교)</span>
+        </li>
+        <li class="think-step-item" id="stepNavItem-3" onclick="App.goToStep(3)">
+          <span class="step-icon-badge">I</span>
+          <span>3. AI 협업 (생각 확장)</span>
+        </li>
+        <li class="think-step-item" id="stepNavItem-4" onclick="App.goToStep(4)">
+          <span class="step-icon-badge">N</span>
+          <span>4. 검증과 종합 (판단 기준)</span>
+        </li>
+        <li class="think-step-item" id="stepNavItem-5" onclick="App.goToStep(5)">
+          <span class="step-icon-badge">K</span>
+          <span>5. 개인 재구성과 내면화</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Lesson Selector Dropdown -->
+    <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-light);">
+      <label class="form-label" style="font-size: 0.78rem;">수업 차시 선택</label>
+      <select id="lessonSelect" class="form-select" onchange="App.selectLesson(this.value)" style="font-size: 0.85rem; padding: 8px;">
+        <option value="0">1차시 · 유전 형질 생각하기</option>
+        <option value="1">2차시 · '우성'·'열성' 대체어 제안</option>
+        <option value="2">3차시 · 유전적 다양성 부족의 문제</option>
+        <option value="3">4차시 · 사람 대상 임의 개입의 윤리</option>
+        <option value="4">5차시 · 색각 다양한 사용자 디자인</option>
+      </select>
+    </div>
+  </aside>
+
+  <!-- Main Step View Panel -->
+  <section class="content-area">
+    
+    <!-- Step Header -->
+    <div class="step-header">
+      <div class="step-tag-row">
+        <span class="role-tag" id="stepTagBadge">T - STEP 1</span>
+        <span style="font-size: 0.85rem; color: var(--text-subtle);" id="stepSubTitleBadge">1단계 · 개인 사고 형성</span>
+      </div>
+      <h1 class="step-main-title" id="stepMainTitle">사람에게 나타나는 다양한 특징 중 부모에게서 물려받는 것은 어떤 것이 있을까?</h1>
+    </div>
+
+    <!-- Step Dynamic Body Container -->
+    <div id="stepContentContainer">
+      <!-- Step 1 to 5 dynamic contents injected by JS -->
+    </div>
+
+  </section>
+
+</main>

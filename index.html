@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[THINK] AI 활용 생각 교실</title>
+  
+  <!-- Global Stylesheet -->
+  <link rel="stylesheet" href="styles/main.css">
+
+  <!-- External Supabase JS Client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Navigation Top Bar Header -->
+    <header class="navbar" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+      <div class="navbar-brand" style="display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; color: var(--primary-700);">
+        <span class="brand-badge" style="background: linear-gradient(135deg, var(--primary-600), var(--accent-teal)); color: #ffffff; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 800;">[THINK]</span>
+        <span class="brand-title">AI 활용 생각 교실</span>
+      </div>
+      <div class="user-profile-badge" id="userNavArea" style="display: none; align-items: center; gap: 12px;">
+        <span class="role-tag" id="userRoleTag" style="background: var(--primary-50); border: 1px solid var(--primary-200); color: var(--primary-700); padding: 4px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: 800;">교사</span>
+        <span class="user-name" id="lblUserName" style="font-size: 0.88rem; font-weight: 700; color: var(--text-main);"></span>
+        <button class="btn btn-secondary" id="btnLogout" style="padding: 5px 12px; font-size: 0.82rem;" onclick="App.logout()">로그아웃</button>
+      </div>
+    </header>
+
+    <!-- Async View Container (Populated by js/componentLoader.js) -->
+    <div id="viewContainer"></div>
+  </div>
+
+  <!-- Application Service & Module Scripts -->
+  <script src="js/supabase-keys.js"></script>
+  <script src="js/supabase-client.js"></script>
+
+  <!-- Modular View Modules -->
+  <script src="js/modules/auth.js"></script>
+  <script src="js/modules/studentLobby.js"></script>
+  <script src="js/modules/studentThink.js"></script>
+  <script src="js/modules/studentManager.js"></script>
+  <script src="js/modules/masterAdmin.js"></script>
+  <script src="js/modules/teacherAdmin.js"></script>
+
+  <!-- Component Loader & Main App Script -->
+  <script src="js/componentLoader.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
