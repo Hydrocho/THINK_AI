@@ -74,7 +74,7 @@
     <form onsubmit="StudentManagerModule.handleBatchCreate(event)" style="display: flex; flex-direction: column; gap: 16px;">
       <div class="form-group">
         <label class="form-label">학생 명단 붙여넣기</label>
-        <textarea id="batchRosterText" class="form-input" rows="7" oninput="StudentManagerModule.previewRoster()" placeholder="3    2    1    김하늘&#10;3    2    2    이준호&#10;3    2    3    박서연" required></textarea>
+        <textarea id="batchRosterText" class="form-input" rows="7" oninput="StudentManagerModule.previewRoster()" placeholder="3 2 1 김하늘&#10;3 2 2 이준호&#10;3 2 10 이철수&#10;(공백, 탭, 쉼표 구분 모두 지원)" required></textarea>
         <div id="batchRosterPreview" style="margin-top:10px;font-size:.85rem;"></div>
       </div>
 
@@ -87,3 +87,54 @@
     </form>
   </div>
 </div>
+
+<!-- Create Class Modal Dialog -->
+<div id="createClassModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 480px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 14px;">
+      <h3 style="font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin: 0;">🏫 새 학급 개설</h3>
+      <button type="button" onclick="TeacherAdminModule.closeClassModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
+    </div>
+
+    <form onsubmit="TeacherAdminModule.handleCreateClassSubmit(event)" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">학년 선택</label>
+          <select id="selNewClassGrade" class="form-select" required style="padding: 10px 12px;">
+            <option value="1">1학년</option>
+            <option value="2">2학년</option>
+            <option value="3" selected>3학년</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">학급(반) 선택</label>
+          <select id="selNewClassNumber" class="form-select" required style="padding: 10px 12px;">
+            <option value="1">1반</option>
+            <option value="2" selected>2반</option>
+            <option value="3">3반</option>
+            <option value="4">4반</option>
+            <option value="5">5반</option>
+            <option value="6">6반</option>
+            <option value="7">7반</option>
+            <option value="8">8반</option>
+            <option value="9">9반</option>
+            <option value="10">10반</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: var(--radius-md); padding: 14px 16px; font-size: 0.85rem; color: var(--primary-900); line-height: 1.5;">
+        💡 <strong>학생 자동 배정 시스템</strong><br>
+        개설된 학년/반(예: 3학년 2반 ➔ 학번 <code>302XX</code>)에 해당하는 학생 계정이 시스템에 등록되는 즉시 해당 학급으로 자동 매칭 및 배정됩니다.
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="TeacherAdminModule.closeClassModal()">취소</button>
+        <button type="submit" class="btn btn-primary" id="btnSubmitCreateClass">🏫 학급 개설하기</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+

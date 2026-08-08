@@ -143,28 +143,40 @@
     },
 
     updateStepNav: function () {
-      for (let i = 1; i <= 5; i++) {
-        const item = document.getElementById(`stepNavItem-${i}`);
-        if (item) {
-          if (i === state.currentStep) item.className = 'think-step-item active';
-          else if (i < state.currentStep) item.className = 'think-step-item completed';
-          else item.className = 'think-step-item';
-        }
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      const activeStages = lesson?.think_stages || lesson?.thinkStages || ['T', 'H', 'I', 'N', 'K'];
+
+      const stageInfoMap = {
+        T: { code: 'T - STEP', title: '나의 처음 생각 (Think)', name: '나의 처음 생각' },
+        H: { code: 'H - STEP', title: '친구와 생각 나누기 (Human)', name: '친구와 생각 나누기' },
+        I: { code: 'I - STEP', title: '인공지능과 생각 넓히기 (Interaction)', name: '인공지능과 생각 넓히기' },
+        N: { code: 'N - STEP', title: '비판적으로 따져보기 (Navigation)', name: '비판적으로 따져보기' },
+        K: { code: 'K - STEP', title: '나의 최종 생각 (Knowledge)', name: '나의 최종 생각' }
+      };
+
+      const listEl = document.querySelector('.think-steps-list');
+      if (listEl) {
+        listEl.innerHTML = activeStages.map((stageCode, idx) => {
+          const stepIndex = idx + 1;
+          const isActive = stepIndex === state.currentStep;
+          const isCompleted = stepIndex < state.currentStep;
+          const info = stageInfoMap[stageCode] || { name: stageCode, code: stageCode };
+          return `
+            <li class="think-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" onclick="App.goToStep(${stepIndex})">
+              <span class="step-icon-badge">${stageCode}</span>
+              <span>${stepIndex}. ${info.name}</span>
+            </li>
+          `;
+        }).join('');
       }
 
-      const stepCodes = ['T - STEP 1', 'H - STEP 2', 'I - STEP 3', 'N - STEP 4', 'K - STEP 5'];
-      const stepTitles = [
-        '1단계 · 개인 사고 형성 (Think)',
-        '2단계 · 인간 협력 - 동료 의견 비교 (Human Collaboration)',
-        '3단계 · AI 협업 - Gemini 대화 (AI Interaction)',
-        '4단계 · 인간 중심 검증과 종합 (Navigation & Synthesis)',
-        '5단계 · 개인 재구성과 내면화 (Knowledge Restructuring)'
-      ];
+      const currentStageCode = activeStages[state.currentStep - 1] || activeStages[0] || 'T';
+      const info = stageInfoMap[currentStageCode] || { code: currentStageCode, title: currentStageCode };
 
       const badge = document.getElementById('stepCodeBadge');
       const title = document.getElementById('stepTitleText');
-      if (badge) badge.innerText = stepCodes[state.currentStep - 1];
-      if (title) title.innerText = stepTitles[state.currentStep - 1];
+      if (badge) badge.innerText = `${info.code} ${state.currentStep}/${activeStages.length}`;
+      if (title) title.innerText = info.title;
     },
 
     renderCurrentStep: function () {
@@ -181,11 +193,11 @@
         return;
       }
 
-      const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
       if (window.SupabaseService && window.SupabaseService.isConnected()) {
-        window.SupabaseService.saveSubmission(lesson.id || "activity-1", state.studentData.studentNumber, "initial_thought", state.studentData.initialThought);
+        window.SupabaseService.saveSubmission(lesson?.id || "activity-1", state.studentData.studentNumber, "initial_thought", state.studentData.initialThought);
       }
-      this.goToStep(2);
+      this.goToStep(state.currentStep + 1);
     },
 
     selectPeerOpinion: function (id) {
@@ -200,34 +212,24 @@
       if (!text) return;
 
       if (state.studentData.remainingQuestions <= 0) {
-        alert('설정된 질문 횟수 제한에 도달했습니다.');
+        alert('선생님이 허용하신 AI 질문 횟수를 모두 사용했습니다.');
         return;
       }
 
-      state.studentData.chatMessages.push({ role: 'user', text: text });
+      state.studentData.chatMessages.push({ role: 'user', text });
       state.studentData.remainingQuestions--;
       input.value = '';
-
       this.renderCurrentStep();
 
-      const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      
-      // Real Gemini API Call via Supabase Service
-      if (window.SupabaseService) {
-        const res = await window.SupabaseService.sendGeminiChat(
-          window.APP_CONFIG.PROJECT_TITLE,
-          lesson.question,
-          text,
-          state.studentData.chatMessages
-        );
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
 
-        if (res && res.reply) {
-          state.studentData.chatMessages.push({ role: 'ai', text: res.reply });
-          this.renderCurrentStep();
-          const box = document.getElementById('chatMessagesBox');
-          if (box) box.scrollTop = box.scrollHeight;
-        }
+      try {
+        const reply = await window.SupabaseService.sendGeminiChat(lesson?.question || "유전자 조작", text, state.studentData.chatMessages);
+        state.studentData.chatMessages.push({ role: 'ai', text: reply });
+      } catch (err) {
+        state.studentData.chatMessages.push({ role: 'ai', text: 'AI 응답 처리 중 오류가 발생했습니다: ' + err.message });
       }
+      this.renderCurrentStep();
     },
 
     savePeerRationale: function () {
@@ -239,11 +241,11 @@
         return;
       }
 
-      const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
       if (window.SupabaseService && window.SupabaseService.isConnected()) {
-        window.SupabaseService.savePeerReview(lesson.id || "activity-1", state.studentData.studentNumber, state.studentData.peerCriteria, state.studentData.peerRationale);
+        window.SupabaseService.savePeerReview(lesson?.id || "activity-1", state.studentData.studentNumber, state.studentData.peerCriteria, state.studentData.peerRationale);
       }
-      this.goToStep(5);
+      this.goToStep(state.currentStep + 1);
     },
 
     submitFinalReflection: function () {

@@ -28,16 +28,30 @@ serve(async (req) => {
   const body = await req.json().catch(() => null);
   if (!body?.action) return json({ error: "요청 형식이 올바르지 않습니다." }, 400);
 
-  if (body.action === "reset_password") {
-    if (!body.studentId) return json({ error: "학생 계정을 선택해 주세요." }, 400);
-    const { data: student } = await admin.from("student_accounts").select("id, student_number, student_name, auth_user_id").eq("id", body.studentId).single();
-    if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 404);
-    if (!student.auth_user_id) return json({ error: "로그인 계정이 연결되지 않은 학생입니다." }, 409);
-    const { error } = await admin.auth.admin.updateUserById(student.auth_user_id, { password: "000000" });
-    if (error) return json({ error: error.message }, 400);
-    const { error: flagError } = await admin.from("student_accounts").update({ must_change_password: true }).eq("id", student.id);
-    if (flagError) return json({ error: flagError.message }, 400);
-    return json({ student });
+  if (body.action === "delete_student") {
+    if (!body.studentId) return json({ error: "삭제할 학생 계정을 선택해 주세요." }, 400);
+
+    const { data: student } = await admin.from("student_accounts").select("id, auth_user_id").eq("id", body.studentId).maybeSingle();
+    if (!student) return json({ success: true });
+
+    // 1. Delete student submissions and activity history
+    await admin.from("messages").delete().eq("student_id", body.studentId);
+    await admin.from("submissions").delete().eq("student_id", body.studentId);
+    await admin.from("peer_reviews").delete().eq("reviewer_student_id", body.studentId);
+    await admin.from("peer_assignments").delete().or(`reviewer_student_id.eq.${body.studentId},author_student_id.eq.${body.studentId}`);
+    await admin.from("ai_evidence").delete().eq("student_id", body.studentId);
+    await admin.from("teacher_assessments").delete().eq("student_id", body.studentId);
+
+    // 2. Delete student account record
+    const { error: deleteAccErr } = await admin.from("student_accounts").delete().eq("id", body.studentId);
+    if (deleteAccErr) return json({ error: deleteAccErr.message }, 400);
+
+    // 3. Delete auth user if exists
+    if (student.auth_user_id) {
+      await admin.auth.admin.deleteUser(student.auth_user_id).catch(() => null);
+    }
+
+    return json({ success: true });
   }
 
   if (body.action !== "batch_create" || !Number.isInteger(body.grade) || !Number.isInteger(body.classNumber) || !Array.isArray(body.students) || body.students.length === 0) return json({ error: "학생 일괄 생성 요청이 올바르지 않습니다." }, 400);

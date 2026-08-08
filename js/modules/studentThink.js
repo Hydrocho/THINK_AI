@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Student THINK Workflow Module: T, H, I, N, K 5 Steps Controller
+   Student THINK Workflow Module: Dynamic T, H, I, N, K Steps Controller
    ========================================================================== */
 
 window.StudentThinkModule = {
@@ -7,39 +7,49 @@ window.StudentThinkModule = {
     const container = document.getElementById('stepViewContainer');
     if (!container) return;
 
-    const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex] || {
+    const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex] || {
       number: 1,
       title: "1차시",
       question: "질문 데이터를 불러오는 중입니다."
     };
 
-    switch (state.currentStep) {
-      case 1: // T: Individual Thought
+    const questionText = lesson.core_question || lesson.question || "질문 내용이 등록되지 않았습니다.";
+    const activeStages = lesson.think_stages || lesson.thinkStages || ['T', 'H', 'I', 'N', 'K'];
+    const currentStageCode = activeStages[state.currentStep - 1] || activeStages[0] || 'T';
+
+    const isFirstStep = state.currentStep === 1;
+    const isLastStep = state.currentStep === activeStages.length;
+    const prevStepIndex = state.currentStep - 1;
+    const nextStepIndex = state.currentStep + 1;
+
+    switch (currentStageCode) {
+      case 'T': // T: Individual Thought
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
             <div class="question-card">
-              <strong>[T] 혼자 생각하기 질문</strong><br>
-              ${lesson.question}
+              <strong>[T] 나의 처음 생각</strong><br>
+              ${questionText}
             </div>
             <div class="form-group">
               <label class="form-label">나의 초기 생각 작성</label>
               <textarea id="txtInitialThought" class="form-textarea" placeholder="질문에 대한 본인의 첫 번째 생각을 솔직하게 작성해 보세요.">${state.studentData.initialThought}</textarea>
             </div>
-            <div style="display: flex; justify-content: flex-end;">
-              <button class="btn btn-primary" onclick="App.saveInitialThought()">다음 단계 (H: 인간 협력) 이동 →</button>
+            <div style="display: flex; justify-content: ${isFirstStep ? 'flex-end' : 'space-between'};">
+              ${!isFirstStep ? `<button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>` : ''}
+              <button class="btn btn-primary" onclick="App.saveInitialThought()">${isLastStep ? '다음 이동 →' : '다음 단계 이동 →'}</button>
             </div>
           </div>
         `;
         break;
 
-      case 2: // H: Human Collaboration / Peer Comparison
+      case 'H': // H: Human Collaboration / Peer Comparison
         if (state.currentLessonIndex === 0) {
           // Lesson 1 Wordcloud
           container.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: 20px;">
               <div class="question-card">
-                <strong>[H] 학급 친구들의 의견 워드 클라우드 비교</strong><br>
-                우리 학급 친구들이 가장 많이 작성한 유전 형질 키워드입니다.
+                <strong>[H] 친구와 생각 나누기 (학급 워드 클라우드)</strong><br>
+                우리 학급 친구들이 가장 많이 작성한 키워드입니다.
               </div>
               <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 40px; text-align: center;">
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: center;">
@@ -51,20 +61,20 @@ window.StudentThinkModule = {
                 </div>
               </div>
               <div style="display: flex; justify-content: space-between;">
-                <button class="btn btn-secondary" onclick="App.goToStep(1)">← 이전 단계</button>
-                <button class="btn btn-primary" onclick="App.goToStep(3)">다음 단계 (I: AI 대화) 이동 →</button>
+                <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
+                <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
               </div>
             </div>
           `;
         } else {
-          // Lesson 2~5 Anonymous Peer Review
+          // Anonymous Peer Review
           const peerOpinions = state.peerOpinions || [];
 
           if (peerOpinions.length === 0) {
             container.innerHTML = `
               <div style="display: flex; flex-direction: column; gap: 20px;">
                 <div class="question-card">
-                  <strong>[H] 익명 의견 비교 단계</strong><br>
+                  <strong>[H] 친구와 생각 나누기 (익명 의견 비교)</strong><br>
                   친구들의 의견이 수집 및 배정 중입니다.
                 </div>
                 <div style="background: var(--bg-card); border: 1px dashed var(--border-medium); border-radius: var(--radius-lg); padding: 36px; text-align: center; color: var(--text-subtle);">
@@ -72,8 +82,8 @@ window.StudentThinkModule = {
                   잠시 후 다음 단계로 이동하거나 새로고침을 진행해 보세요.
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                  <button class="btn btn-secondary" onclick="App.goToStep(1)">← 이전 단계</button>
-                  <button class="btn btn-primary" onclick="App.goToStep(3)">다음 단계 (I: AI 대화) 이동 →</button>
+                  <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
+                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
                 </div>
               </div>
             `;
@@ -81,7 +91,7 @@ window.StudentThinkModule = {
             container.innerHTML = `
               <div style="display: flex; flex-direction: column; gap: 20px;">
                 <div class="question-card">
-                  <strong>[H] 무작위 균등 배정된 익명 의견 비교</strong><br>
+                  <strong>[H] 친구와 생각 나누기 (무작위 익명 의견)</strong><br>
                   친구들의 작성자 학번은 비공개로 안전하게 보호됩니다. 네 가지 의견을 차분히 읽어보세요.
                 </div>
 
@@ -98,8 +108,8 @@ window.StudentThinkModule = {
                 </div>
 
                 <div style="display: flex; justify-content: space-between; margin-top: 10px;">
-                  <button class="btn btn-secondary" onclick="App.goToStep(1)">← 이전 단계</button>
-                  <button class="btn btn-primary" onclick="App.goToStep(3)">다음 단계 (I: AI 대화) 이동 →</button>
+                  <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
+                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
                 </div>
               </div>
             `;
@@ -107,7 +117,7 @@ window.StudentThinkModule = {
         }
         break;
 
-      case 3: // I: AI Interaction (Gemini Chat)
+      case 'I': // I: AI Interaction (Gemini Chat)
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; background: var(--primary-50); border: 1px solid var(--primary-200); padding: 12px 18px; border-radius: var(--radius-md);">
@@ -123,8 +133,8 @@ window.StudentThinkModule = {
             <div class="chat-container">
               <div class="chat-messages" id="chatMessagesBox">
                 <div class="chat-bubble ai">
-                  안녕하세요! 선생님께서 설정하신 **사고 촉진형 AI**입니다.<br>
-                  질문: "${lesson.question}"<br><br>
+                  안녕하세요! 선생님께서 설정하신 **인공지능과 생각 넓히기 AI**입니다.<br>
+                  질문: "${questionText}"<br><br>
                   선생님과 학생 본인 외에는 이 대화를 볼 수 없어요. 어떤 근거나 관점에서 생각을 발전시키고 싶나요?
                 </div>
                 ${state.studentData.chatMessages.map(msg => `
@@ -138,18 +148,18 @@ window.StudentThinkModule = {
             </div>
 
             <div style="display: flex; justify-content: space-between;">
-              <button class="btn btn-secondary" onclick="App.goToStep(2)">← 이전 단계</button>
-              <button class="btn btn-primary" onclick="App.goToStep(4)">다음 단계 (N: 검증과 종합) 이동 →</button>
+              <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
+              <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
             </div>
           </div>
         `;
         break;
 
-      case 4: // N: Navigation & Criteria Synthesis
+      case 'N': // N: Navigation & Criteria Synthesis
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
             <div class="question-card">
-              <strong>[N] 가장 설득력 있는 의견 판단 기준 및 이유 작성</strong><br>
+              <strong>[N] 비판적으로 따져보기 (판단 기준 및 이유 작성)</strong><br>
               비교해 본 동료의 익명 의견 중 가장 설득력 있다고 판단한 기준을 선택하고 이유를 작성해 주세요.
             </div>
 
@@ -168,18 +178,19 @@ window.StudentThinkModule = {
             </div>
 
             <div style="display: flex; justify-content: space-between;">
-              <button class="btn btn-secondary" onclick="App.goToStep(3)">← 이전 단계</button>
-              <button class="btn btn-primary" onclick="App.savePeerRationale()">다음 단계 (K: 최종 생각) 이동 →</button>
+              <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
+              <button class="btn btn-primary" onclick="App.savePeerRationale()">다음 단계 이동 →</button>
             </div>
           </div>
         `;
         break;
 
-      case 5: // K: Knowledge Restructuring & Internalization
+      case 'K': // K: Knowledge Restructuring & Internalization
+      default:
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
             <div class="question-card">
-              <strong>[K] 개인 재구성과 내면화 (최종 제출)</strong><br>
+              <strong>[K] 나의 최종 생각 (최종 제출)</strong><br>
               AI와의 대화 및 동료 의견 비교를 통해 변화하고 깊어진 본인의 최종 생각을 정리하여 제출하세요.
             </div>
 
@@ -193,8 +204,8 @@ window.StudentThinkModule = {
               <textarea id="txtFinalThought" class="form-textarea" style="min-height: 140px;" placeholder="AI 대화와 동료 의견 비교 후 무엇이 달라졌나요? 최종 주장과 근거를 작성해 주세요.">${state.studentData.finalThought}</textarea>
             </div>
 
-            <div style="display: flex; justify-content: space-between;">
-              <button class="btn btn-secondary" onclick="App.goToStep(4)">← 이전 단계</button>
+            <div style="display: flex; justify-content: ${isFirstStep ? 'flex-end' : 'space-between'};">
+              ${!isFirstStep ? `<button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>` : ''}
               <button class="btn btn-primary" style="background: var(--success-text);" onclick="App.submitFinalReflection()">최종 생각 교사에게 제출 완료 ✓</button>
             </div>
           </div>

@@ -13,11 +13,186 @@
   <section class="teacher-content-shell">
     <header class="teacher-breadcrumb-bar"><button class="teacher-menu-toggle" onclick="TeacherAdminModule.toggleSidebar()" aria-label="메뉴 접기 또는 펼치기">☰</button><nav id="teacherBreadcrumb" aria-label="현재 위치">내 수업 › 수업 현황</nav></header>
     <div class="teacher-content">
-      <div class="teacher-page-heading"><h2 id="teacherPageTitle">수업 현황</h2><p id="teacherPageDescription">학생들의 THINK 단계 진행과 평가 상태를 확인합니다.</p></div>
-      <div id="panelTeacherOperation" class="teacher-panel"><div class="teacher-panel-header"><div><h3>🏫 수업 운영</h3><p>학급을 선택해 프로젝트와 차시를 운영합니다.</p></div></div><div id="classOperationCards">학급 정보를 불러오는 중입니다.</div></div>
-      <div id="panelTeacherDesign" class="teacher-panel" style="display:none"><div class="teacher-panel-header"><div><h3>🗂️ 수업 설계</h3><p>프로젝트와 차시별 활동 계획을 작성하고 공개합니다.</p></div><button class="btn btn-primary" onclick="TeacherAdminModule.createProjectPrompt()">＋ 새 프로젝트</button></div><div id="projectDesignList">프로젝트를 불러오는 중입니다.</div></div>
-      <div id="panelTeacherEval" class="teacher-panel"><div class="teacher-panel-title">학생별 THINK 대화 내역 및 AI 근거 기반 평가</div><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>학번</th><th>현재 단계</th><th>AI 질문 사용</th><th>익명 비교 사유</th><th>교사 최종 평가</th><th>작업</th></tr></thead><tbody id="teacherStudentTableBody"></tbody></table></div>
-      <div id="panelTeacherStudents" class="teacher-panel" style="display:none"><div class="teacher-panel-header"><div><h3>👥 학생 관리</h3><p>모든 승인된 교사가 함께 관리하는 전체 학생 계정 목록입니다.</p></div><div><button class="btn btn-secondary" onclick="StudentManagerModule.exportCSV()">📄 계정 명단 CSV 다운로드</button><button class="btn btn-primary" onclick="StudentManagerModule.showBatchModal()">＋ 학생 계정 일괄 생성</button></div></div><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>학번</th><th>이름</th><th>생성 일자</th><th>비밀번호 관리</th></tr></thead><tbody id="studentAccountTableBody"></tbody></table></div>
+      <div id="panelTeacherOperation" class="teacher-panel">
+        <!-- Sub View 1: Class Card Grid -->
+        <div id="classListSubView">
+          <div class="teacher-panel-header">
+            <div>
+              <h3>🏫 수업 운영</h3>
+              <p>학급 카드를 클릭하여 연결된 프로젝트와 차시별 수업을 세부 운영합니다.</p>
+            </div>
+            <button class="btn btn-primary" onclick="TeacherAdminModule.createClassPrompt()">＋ 새 학급 추가</button>
+          </div>
+          <div id="classOperationCards">학급 정보를 불러오는 중입니다.</div>
+        </div>
+
+        <!-- Sub View 2: Class Detail Operations Page -->
+        <div id="classDetailSubView" style="display:none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <button class="btn btn-secondary" onclick="TeacherAdminModule.showClassListSubView()" style="padding: 8px 16px; font-weight: 600;">
+                ← 학급 목록으로
+              </button>
+              <div>
+                <h3 id="classDetailTitle" style="font-size: 1.35rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 10px; color: var(--text-main);">
+                  🏫 학급 상세 운영
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--text-subtle); margin: 4px 0 0 0;">
+                  이 학급에 프로젝트를 연결하고, 진행할 차시를 선택하여 학생들에게 오픈하세요.
+                </p>
+              </div>
+            </div>
+            <div id="classDetailHeaderActions">
+              <button class="btn btn-primary" onclick="TeacherAdminModule.attachProjectToActiveClassPrompt()">
+                ＋ 프로젝트 불러오기
+              </button>
+            </div>
+          </div>
+
+          <!-- Connected Project & Lessons Section -->
+          <div id="classDetailContent">
+            학급 세부 정보를 불러오는 중입니다...
+          </div>
+        </div>
+      </div>
+      <div id="panelTeacherDesign" class="teacher-panel" style="display:none">
+        <!-- Sub View 1: Projects Card Grid -->
+        <div id="projectListSubView">
+          <div class="teacher-panel-header">
+            <div>
+              <h3>🗂️ 수업 설계</h3>
+              <p>프로젝트와 차시별 활동 계획을 작성하고 공개합니다.</p>
+            </div>
+            <button class="btn btn-primary" onclick="TeacherAdminModule.createProjectPrompt()">＋ 새 프로젝트</button>
+          </div>
+          <div id="projectDesignList">프로젝트를 불러오는 중입니다.</div>
+        </div>
+
+        <!-- Sub View 2: Project Detail & Lesson Accordion Editor Page -->
+        <div id="projectDetailSubView" style="display:none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <button class="btn btn-secondary" onclick="TeacherAdminModule.showProjectListSubView()" style="padding: 8px 16px; font-weight: 600;">
+                ← 프로젝트 목록으로
+              </button>
+              <div>
+                <h3 id="projectDetailTitle" style="font-size: 1.35rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 10px; color: var(--text-main);">
+                  🗂️ 프로젝트 상세 설계
+                </h3>
+                <p id="projectDetailSubText" style="font-size: 0.85rem; color: var(--text-subtle); margin: 4px 0 0 0;">
+                  차시를 추가하고 항목을 펼쳐 핵심 발문 질문을 수정하세요. 핸들(⋮⋮)을 드래그하여 차시 순서를 변경할 수 있습니다.
+                </p>
+              </div>
+            </div>
+            <div id="projectDetailHeaderActions" style="display: flex; align-items: center; gap: 10px;">
+              <!-- Dynamically populated with status badge and publish button -->
+            </div>
+          </div>
+
+          <!-- Accordion List Section -->
+          <div style="margin-bottom: 28px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
+                📋 차시 목록 (드래그하여 순서 재배치)
+              </h4>
+              <button class="btn btn-primary" onclick="TeacherAdminModule.showAddLessonForm()">
+                ＋ 새 차시 추가
+              </button>
+            </div>
+            
+            <div id="lessonAccordionContainer" style="display: flex; flex-direction: column; gap: 14px;">
+              <!-- Dynamically rendered accordion items -->
+            </div>
+          </div>
+
+          <!-- Add Lesson Section (Inline/Collapsible Form) -->
+          <div id="addLessonFormBox" style="display: none; background: var(--bg-subtle, #f8fafc); border: 2px dashed var(--primary-300, #93c5fd); border-radius: var(--radius-lg); padding: 24px; margin-top: 20px;">
+            <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
+              ➕ 새 차시 추가
+            </h4>
+            <form onsubmit="TeacherAdminModule.handleAddLessonToProject(event)" style="display: flex; flex-direction: column; gap: 16px;">
+              <input type="hidden" id="detailVersionId" value="">
+              
+              <div class="form-group">
+                <label class="form-label" style="font-weight: 600;">차시 제목</label>
+                <input type="text" id="detailLessonTitle" class="form-input" placeholder="예: 자율주행 자동차 사고 시 누구를 먼저 보호해야 할까?" required style="padding: 11px 14px; font-size: 0.95rem;">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" style="font-weight: 600;">학생용 핵심 발문 질문</label>
+                <textarea id="detailCoreQuestion" class="form-textarea" rows="3" placeholder="학생들이 T(Think) 단계에서 혼자 고민하고 AI와 탐구할 질문을 작성하세요." required style="padding: 11px 14px; font-size: 0.95rem; min-height: 90px;"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" style="font-weight: 600;">포함할 THINK 단계 구성</label>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; background: #ffffff; padding: 12px 16px; border: 1px solid var(--border-medium); border-radius: var(--radius-md);">
+                  <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                    <input type="checkbox" class="chk-add-think-stage" value="T" checked style="width: 16px; height: 16px; accent-color: var(--primary-600);"> 🟢 T (나의 처음 생각)
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                    <input type="checkbox" class="chk-add-think-stage" value="H" checked style="width: 16px; height: 16px; accent-color: var(--primary-600);"> 🔵 H (친구와 생각 나누기)
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                    <input type="checkbox" class="chk-add-think-stage" value="I" checked style="width: 16px; height: 16px; accent-color: var(--primary-600);"> 🟣 I (인공지능과 생각 넓히기)
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                    <input type="checkbox" class="chk-add-think-stage" value="N" checked style="width: 16px; height: 16px; accent-color: var(--primary-600);"> 🟠 N (비판적으로 따져보기)
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer;">
+                    <input type="checkbox" class="chk-add-think-stage" value="K" checked style="width: 16px; height: 16px; accent-color: var(--primary-600);"> 🔴 K (나의 최종 생각)
+                  </label>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label class="form-label" style="font-weight: 600;">AI 응답 모드</label>
+                  <select id="detailAiMode" class="form-select" style="padding: 10px 14px;">
+                    <option value="THOUGHT_PROVOKING">사고 촉진형 (답 대신 질문/반례 제시)</option>
+                    <option value="GENERAL">일반 대화형 (개념 직접 설명)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="font-weight: 600;">학생별 AI 질문 제한 횟수</label>
+                  <input type="number" id="detailAiLimit" class="form-input" min="1" max="30" value="12" required style="padding: 10px 14px;">
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+                <button type="button" class="btn btn-secondary" onclick="TeacherAdminModule.hideAddLessonForm()">취소</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitAddLesson">＋ 차시 저장 및 추가</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div id="panelTeacherStudents" class="teacher-panel" style="display:none">
+        <div class="teacher-panel-header">
+          <div>
+            <h3>👥 학생 관리</h3>
+            <p>학급별로 학생 계정을 필터링하고 관리할 수 있습니다.</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <select id="selStudentClassFilter" class="form-select" style="padding: 8px 12px; font-weight: 600;" onchange="StudentManagerModule.filterStudentsByClass(this.value)">
+              <option value="ALL">🏫 전체 학급 보기</option>
+            </select>
+            <button class="btn btn-secondary" onclick="StudentManagerModule.exportCSV()">📄 계정 명단 CSV 다운로드</button>
+            <button class="btn btn-primary" onclick="StudentManagerModule.showBatchModal()">＋ 학생 계정 일괄 생성</button>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;text-align:left">
+          <thead>
+            <tr>
+              <th>학번</th>
+              <th>이름</th>
+              <th>소속 학급</th>
+              <th>생성 일자</th>
+              <th>비밀번호 관리</th>
+            </tr>
+          </thead>
+          <tbody id="studentAccountTableBody"></tbody>
+        </table>
+      </div>
       <div id="panelTeacherMaster" class="teacher-panel" style="display:none"><div class="teacher-page-heading"><h3>🛡️ 교사 관리</h3><p>신규 교사 가입 요청을 승인하거나 거절합니다.</p></div><div id="masterPendingListContainer"></div></div>
     </div>
   </section>

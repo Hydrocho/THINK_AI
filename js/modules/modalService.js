@@ -202,14 +202,12 @@
   };
 
   const hideCustom = (modalId) => {
-    if (activeModal?.id === modalId) cleanup();
-    else {
-      const modal = document.getElementById(modalId);
-      if (modal) {
-        modal.hidden = true;
-        modal.style.display = 'none';
-      }
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = 'none';
     }
+    if (activeModal?.id === modalId) cleanup();
   };
 
   window.ModalService = { normalizeInput, findOption, alert, confirm, prompt, select, showCustom, hideCustom };

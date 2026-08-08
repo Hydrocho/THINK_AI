@@ -106,7 +106,16 @@
     invokeAccountFunction: async function (name, body) {
       if (!supabaseClient) throw new Error("Supabase 연결 필요");
       const { data, error } = await supabaseClient.functions.invoke(name, { body });
-      if (error) throw error;
+      if (error) {
+        let message = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+            const ctx = await error.context.json();
+            if (ctx && ctx.error) message = ctx.error;
+          }
+        } catch (e) {}
+        throw new Error(message);
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },
@@ -123,13 +132,88 @@
     },
     batchCreateStudentAccounts: async function (payload) { return this.invokeAccountFunction("manage-student-accounts", { action: "batch_create", ...payload }); },
     resetStudentPassword: async function (studentId) { return this.invokeAccountFunction("manage-student-accounts", { action: "reset_password", studentId }); },
+    deleteStudentAccount: async function (studentId) {
+      if (!supabaseClient) throw new Error("Supabase client is not initialized.");
+      try {
+        const res = await this.invokeAccountFunction("manage-student-accounts", { action: "delete_student", studentId });
+        if (res && res.error) throw new Error(res.error);
+        return res;
+      } catch (err) {
+        console.warn("Edge function delete failed, attempting direct DB delete fallback:", err);
+        try {
+          await supabaseClient.from("messages").delete().eq("student_id", studentId);
+          await supabaseClient.from("submissions").delete().eq("student_id", studentId);
+          await supabaseClient.from("peer_reviews").delete().eq("reviewer_student_id", studentId);
+          await supabaseClient.from("peer_assignments").delete().or(`reviewer_student_id.eq.${studentId},author_student_id.eq.${studentId}`);
+          await supabaseClient.from("ai_evidence").delete().eq("student_id", studentId);
+          await supabaseClient.from("teacher_assessments").delete().eq("student_id", studentId);
+        } catch (e) {
+          console.warn("Notice student activity cascade cleanup:", e);
+        }
+
+        const { error } = await supabaseClient.from("student_accounts").delete().eq("id", studentId);
+        if (error) throw error;
+        return { success: true };
+      }
+    },
     getStudentPasswordChangeStatus: async function () { return this.invokeAccountFunction("change-student-password", { action: "status" }); },
     changeStudentPassword: async function (password) { return this.invokeAccountFunction("change-student-password", { password }); },
-    listProjects: async function () { return this.invokeAccountFunction("manage-class-projects", { action: "list_projects" }); },
-    createProject: async function (payload) { return this.invokeAccountFunction("manage-class-projects", { action: "create_project", ...payload }); },
-    publishProject: async function (projectId) { return this.invokeAccountFunction("manage-class-projects", { action: "publish", projectId }); },
-    attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
-    openClassLesson: async function (classProjectId, lessonPlanId) { return this.invokeAccountFunction("manage-class-projects", { action: "open_lesson", classProjectId, lessonPlanId }); },
+    listProjects: async function () {
+      const res = await this.invokeAccountFunction("manage-class-projects", { action: "list_projects" });
+      if (res && res.projects) {
+        // Group & deduplicate by title, keeping the latest/most complete project version
+        const uniqueMap = new Map();
+        for (const p of res.projects) {
+          const existing = uniqueMap.get(p.title);
+          if (!existing) {
+            uniqueMap.set(p.title, p);
+          } else {
+            const existingCount = existing.project_versions?.[0]?.lesson_plans?.length || 0;
+            const newCount = p.project_versions?.[0]?.lesson_plans?.length || 0;
+            const existingTime = new Date(existing.created_at || 0).getTime();
+            const newTime = new Date(p.created_at || 0).getTime();
+
+            if (newTime > existingTime || newCount > existingCount) {
+              uniqueMap.set(p.title, p);
+            }
+          }
+        }
+        res.projects = Array.from(uniqueMap.values());
+      }
+      return res;
+    },
+    createProject: async function (payload) {
+      return this.invokeAccountFunction("manage-class-projects", {
+        action: "create_project",
+        title: payload.title,
+        description: payload.description || "",
+        lessons: (payload.lessons || []).map((l, i) => ({
+          title: l.title,
+          coreQuestion: l.coreQuestion || l.core_question || "",
+          studentGuidance: l.studentGuidance || l.student_guidance || "",
+          thinkStages: l.thinkStages || l.think_stages || ["T", "H", "I", "N", "K"],
+          aiQuestionLimit: l.aiQuestionLimit || l.ai_question_limit || 12
+        }))
+      });
+    },
+    saveProjectWithLessons: async function (payload) {
+      const res = await this.createProject(payload);
+      // Clean up old duplicate project record if updating an existing project
+      if (payload.id && res && !res.error) {
+        try {
+          await this.deleteProject(payload.id);
+        } catch (e) {
+          console.warn("Notice cleaning up superseded project ID:", e);
+        }
+      }
+      return res;
+    },
+    deleteProject: async function (projectId) {
+      if (!supabaseClient) return { ok: true };
+      const { error } = await supabaseClient.from("projects").delete().eq("id", projectId);
+      if (error) console.warn("Direct project delete notice:", error.message);
+      return { ok: true };
+    },
 
     // 4. Fetch Activities from Supabase DB
     fetchActivities: async function () {
