@@ -3,6 +3,16 @@
    ========================================================================== */
 
 window.StudentManagerModule = {
+  rosterRows: [],
+  previewRoster: async function () {
+    const text = document.getElementById('batchRosterText').value;
+    const existing = new Set((await window.SupabaseService.fetchSharedStudents()).map(student => student.student_number));
+    this.rosterRows = window.RosterParser.parse(text, existing);
+    const preview = document.getElementById('batchRosterPreview');
+    const valid = this.rosterRows.filter(row => row.valid);
+    preview.innerHTML = this.rosterRows.map(row => `<div style="color:${row.valid ? 'var(--success-text)' : 'var(--danger-text)'};">${this.escapeHtml(row.studentNumber || '오류')} · ${this.escapeHtml(row.name || '-')}${row.reason ? ` — ${row.reason}` : ''}</div>`).join('');
+    document.getElementById('batchCreateButton').disabled = valid.length === 0;
+  },
   escapeHtml: function (value) { const el = document.createElement('div'); el.textContent = value || ''; return el.innerHTML; },
   renderStudentManager: async function () {
     const tableBody = document.getElementById('studentAccountTableBody');
@@ -43,34 +53,23 @@ window.StudentManagerModule = {
     }
   },
 
-  showBatchModal: function () {
-    const modal = document.getElementById('batchStudentModal');
-    if (modal) modal.style.display = 'flex';
-  },
+  showBatchModal: function () { window.ModalService.showCustom('batchStudentModal', 'batchRosterText'); },
 
-  closeBatchModal: function () {
-    const modal = document.getElementById('batchStudentModal');
-    if (modal) modal.style.display = 'none';
-  },
+  closeBatchModal: function () { window.ModalService.hideCustom('batchStudentModal'); },
 
   handleBatchCreate: async function (e) {
     e.preventDefault();
-    const grade = document.getElementById('batchGradeNum').value;
-    const cls = document.getElementById('batchClassNum').value.padStart(2, '0');
-    const count = parseInt(document.getElementById('batchStudentCount').value);
-    const pwPattern = document.getElementById('batchPwPattern').value; // 'STUDENT_NUM_EXCL' (e.g. 30201!)
-
-    if (count < 1 || count > 50) {
-      alert('학생 수는 1명 ~ 50명 사이로 설정해 주세요.');
-      return;
-    }
+    const valid = this.rosterRows.filter(row => row.valid);
+    if (!valid.length) return;
+    const grade = valid[0].grade;
+    const cls = valid[0].classNumber;
+    if (valid.some(row => row.grade !== grade || row.classNumber !== cls)) { alert('한 번에 같은 학년·반 명단만 등록할 수 있습니다.'); return; }
 
     try {
-      const students = Array.from({ length: count }, (_, index) => ({ number: String(index + 1).padStart(2, '0'), name: prompt(`${grade}학년 ${cls}반 ${index + 1}번 학생 이름`, '') || '' }));
-      if (students.some(student => !student.name.trim())) throw new Error('모든 학생의 이름을 입력해 주세요.');
-      const result = await window.SupabaseService.batchCreateStudentAccounts({ grade: parseInt(grade), classNumber: parseInt(cls), students, passwordRule: pwPattern });
+      const students = valid.map(row => ({ number: row.number, name: row.name }));
+      const result = await window.SupabaseService.batchCreateStudentAccounts({ grade, classNumber: cls, students });
       this.closeBatchModal();
-      alert(`🎉 ${grade}학년 ${cls}반 학생 계정 ${count}개가 성공적으로 생성되었습니다!\n초기 비밀번호 규칙: ${pwPattern === 'STUDENT_NUM_EXCL' ? '학번 + ! (예: 30201!)' : '123456'}`);
+      alert(`🎉 ${grade}학년 ${cls}반 학생 계정 ${result.students.length}개가 생성되었습니다.`);
       this.renderStudentManager();
     } catch (err) {
       alert(`❌ 학생 계정 일괄 생성 오류: ${err.message}`);
@@ -78,12 +77,11 @@ window.StudentManagerModule = {
   },
 
   resetPassword: async function (studentId, studentNum) {
-    const newPw = prompt(`${studentNum} 학생의 새 비밀번호를 입력하세요:`, `${studentNum}!`);
-    if (!newPw) return;
+    if (!confirm(`${studentNum} 학생의 비밀번호를 000000으로 초기화할까요?\n학생은 다음 로그인에서 새 비밀번호를 설정해야 합니다.`)) return;
 
     try {
-      await window.SupabaseService.resetStudentPassword(studentId, newPw);
-      alert(`🔑 ${studentNum} 학생의 비밀번호가 성공적으로 변경되었습니다.`);
+      await window.SupabaseService.resetStudentPassword(studentId);
+      alert(`🔑 ${studentNum} 학생의 비밀번호가 000000으로 초기화되었습니다.`);
     } catch (err) {
       alert(`❌ 비밀번호 변경 오류: ${err.message}`);
     }
@@ -91,5 +89,20 @@ window.StudentManagerModule = {
 
   exportCSV: function () {
     alert('📄 학급 학생 계정 명단 및 비밀번호 배포표(CSV)를 다운로드합니다.');
+  }
+};
+
+window.StudentManagerModule.resetPassword = async function (studentId, studentNum) {
+  const approved = await window.ModalService.confirm({
+    title: '학생 비밀번호 재설정',
+    message: `${studentNum} 학생의 비밀번호를 000000으로 초기화합니다. 다음 로그인 시 변경이 필요합니다.`,
+    tone: 'danger', confirmLabel: '재설정'
+  });
+  if (!approved) return;
+  try {
+    await window.SupabaseService.resetStudentPassword(studentId);
+    await window.ModalService.alert({ title: '비밀번호 재설정 완료', message: `${studentNum} 학생의 비밀번호를 초기화했습니다.`, tone: 'success' });
+  } catch (err) {
+    await window.ModalService.alert({ title: '비밀번호 재설정 실패', message: err.message, tone: 'danger' });
   }
 };

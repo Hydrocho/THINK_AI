@@ -63,6 +63,18 @@
               return;
             }
 
+            if (profile && profile.role === 'student') {
+              const studentNumber = (session.user.email || '').match(/^student_(\d+)@school\.internal$/)?.[1] || '';
+              if (!studentNumber) {
+                await window.SupabaseService.signOut();
+                return;
+              }
+              const { mustChangePassword } = await window.SupabaseService.getStudentPasswordChangeStatus();
+              if (mustChangePassword) window.AuthModule.showStudentPasswordChange(state, studentNumber);
+              else window.AuthModule.enterStudentLobby(state, studentNumber);
+              return;
+            }
+
             // Approved Teacher or Master Admin
             state.currentRole = 'teacher';
             const roleTag = document.getElementById('userRoleTag');
@@ -99,6 +111,7 @@
     // Auth Delegation
     switchAuthTab: function (role) { window.AuthModule.switchTab(role); },
     handleStudentLogin: function (e) { window.AuthModule.handleStudentLogin(e, state); },
+    handleStudentPasswordChange: function (e) { window.AuthModule.handleStudentPasswordChange(e, state); },
     handleTeacherLogin: function () { window.AuthModule.handleTeacherLogin(state); },
     logout: function () { window.AuthModule.logout(); },
 
@@ -251,8 +264,8 @@
 
     // Teacher Admin Delegation
     renderTeacherDashboard: function () { window.TeacherAdminModule.renderDashboard(); },
-    showActivityModal: function () { document.getElementById('createActivityModal').style.display = 'flex'; },
-    closeActivityModal: function () { document.getElementById('createActivityModal').style.display = 'none'; },
+    showActivityModal: function () { window.ModalService.showCustom('createActivityModal', 'newProjectTitle'); },
+    closeActivityModal: function () { window.ModalService.hideCustom('createActivityModal'); },
     handleCreateLesson: function (e) { window.TeacherAdminModule.handleCreateLesson(e); }
   };
 })();

@@ -18,7 +18,7 @@
       ];
 
       try {
-        const htmlPromises = viewFiles.map(file => fetch(file).then(res => {
+      const htmlPromises = viewFiles.map(file => fetch(`${file}?v=${Date.now()}`, { cache: 'no-store' }).then(res => {
           if (!res.ok) throw new Error(`Failed to load view ${file}`);
           return res.text();
         }));

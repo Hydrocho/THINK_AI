@@ -122,7 +122,14 @@
       return data || [];
     },
     batchCreateStudentAccounts: async function (payload) { return this.invokeAccountFunction("manage-student-accounts", { action: "batch_create", ...payload }); },
-    resetStudentPassword: async function (studentId, newPassword) { return this.invokeAccountFunction("manage-student-accounts", { action: "reset_password", studentId, newPassword }); },
+    resetStudentPassword: async function (studentId) { return this.invokeAccountFunction("manage-student-accounts", { action: "reset_password", studentId }); },
+    getStudentPasswordChangeStatus: async function () { return this.invokeAccountFunction("change-student-password", { action: "status" }); },
+    changeStudentPassword: async function (password) { return this.invokeAccountFunction("change-student-password", { password }); },
+    listProjects: async function () { return this.invokeAccountFunction("manage-class-projects", { action: "list_projects" }); },
+    createProject: async function (payload) { return this.invokeAccountFunction("manage-class-projects", { action: "create_project", ...payload }); },
+    publishProject: async function (projectId) { return this.invokeAccountFunction("manage-class-projects", { action: "publish", projectId }); },
+    attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
+    openClassLesson: async function (classProjectId, lessonPlanId) { return this.invokeAccountFunction("manage-class-projects", { action: "open_lesson", classProjectId, lessonPlanId }); },
 
     // 4. Fetch Activities from Supabase DB
     fetchActivities: async function () {

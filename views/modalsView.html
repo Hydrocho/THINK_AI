@@ -1,3 +1,16 @@
+<!-- Shared alert, confirmation, text-input, and selection dialog -->
+<div id="appDialogModal" class="modal-backdrop" hidden>
+  <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage" tabindex="-1">
+    <header class="modal-dialog__header">
+      <h2 id="appDialogTitle" class="modal-dialog__title"></h2>
+      <button type="button" class="modal-dialog__close" aria-label="모달 닫기" data-modal-close>&times;</button>
+    </header>
+    <div id="appDialogMessage" class="modal-dialog__body"></div>
+    <div id="appDialogControl"></div>
+    <footer id="appDialogActions" class="modal-dialog__actions"></footer>
+  </section>
+</div>
+
 <!-- Create Project & Custom Lesson Modal Dialog -->
 <div id="createActivityModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
   <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 620px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
@@ -59,34 +72,17 @@
     </div>
 
     <form onsubmit="StudentManagerModule.handleBatchCreate(event)" style="display: flex; flex-direction: column; gap: 16px;">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <div class="form-group">
-          <label class="form-label">학년 (1자리)</label>
-          <input type="number" id="batchGradeNum" class="form-input" min="1" max="6" value="3" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">반 (1~2자리)</label>
-          <input type="number" id="batchClassNum" class="form-input" min="1" max="20" value="2" required>
-        </div>
+      <div class="form-group">
+        <label class="form-label">학생 명단 붙여넣기</label>
+        <textarea id="batchRosterText" class="form-input" rows="7" oninput="StudentManagerModule.previewRoster()" placeholder="3    2    1    김하늘&#10;3    2    2    이준호&#10;3    2    3    박서연" required></textarea>
+        <div id="batchRosterPreview" style="margin-top:10px;font-size:.85rem;"></div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">생성할 학생 수 (인원)</label>
-        <input type="number" id="batchStudentCount" class="form-input" min="1" max="50" value="28" required>
-        <p style="font-size: 0.8rem; color: var(--text-subtle); margin-top: 4px;">* 3학년 2반 지정 시 30201번 ~ 30228번 계정이 일괄 생성됩니다.</p>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">초기 비밀번호 생성 규칙</label>
-        <select id="batchPwPattern" class="form-select">
-          <option value="STUDENT_NUM_EXCL">학번 + ! 특수문자 (예: 30201!)</option>
-          <option value="DEFAULT_NUM">123456 (공통 초기 비밀번호)</option>
-        </select>
-      </div>
+      <p style="margin: 0; color: var(--text-subtle); font-size: 0.9rem;">초기 비밀번호는 <strong>000000</strong>으로 생성됩니다. 학생은 첫 로그인 후 새 비밀번호를 설정해야 합니다.</p>
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
         <button type="button" class="btn btn-secondary" onclick="StudentManagerModule.closeBatchModal()">취소</button>
-        <button type="submit" class="btn btn-primary">학생 계정 일괄 생성 실행</button>
+        <button id="batchCreateButton" type="submit" class="btn btn-primary" disabled>학생 계정 생성</button>
       </div>
     </form>
   </div>

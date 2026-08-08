@@ -29,12 +29,14 @@ serve(async (req) => {
   if (!body?.action) return json({ error: "요청 형식이 올바르지 않습니다." }, 400);
 
   if (body.action === "reset_password") {
-    if (!body.studentId || typeof body.newPassword !== "string" || body.newPassword.trim().length < 6) return json({ error: "새 비밀번호는 6자 이상이어야 합니다." }, 400);
+    if (!body.studentId) return json({ error: "학생 계정을 선택해 주세요." }, 400);
     const { data: student } = await admin.from("student_accounts").select("id, student_number, student_name, auth_user_id").eq("id", body.studentId).single();
     if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 404);
     if (!student.auth_user_id) return json({ error: "로그인 계정이 연결되지 않은 학생입니다." }, 409);
-    const { error } = await admin.auth.admin.updateUserById(student.auth_user_id, { password: body.newPassword });
+    const { error } = await admin.auth.admin.updateUserById(student.auth_user_id, { password: "000000" });
     if (error) return json({ error: error.message }, 400);
+    const { error: flagError } = await admin.from("student_accounts").update({ must_change_password: true }).eq("id", student.id);
+    if (flagError) return json({ error: flagError.message }, 400);
     return json({ student });
   }
 
@@ -56,11 +58,10 @@ serve(async (req) => {
     const studentNumber = `${body.grade}${String(body.classNumber).padStart(2, "0")}${suffix}`;
     const { data: exists } = await admin.from("student_accounts").select("id").eq("student_number", studentNumber).maybeSingle();
     if (exists) { duplicates.push(studentNumber); continue; }
-    const password = body.passwordRule === "STUDENT_NUM_EXCL" ? `${studentNumber}!` : String(body.password || "");
-    if (password.length < 6) return json({ error: "초기 비밀번호는 6자 이상이어야 합니다." }, 400);
+    const password = "000000";
     const { data: authUser, error: authError } = await admin.auth.admin.createUser({ email: `student_${studentNumber}@school.internal`, password, email_confirm: true });
     if (authError) return json({ error: authError.message }, 400);
-    const { data: student, error } = await admin.from("student_accounts").insert({ class_id: classId, student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id }).select("id, student_number, student_name, created_at").single();
+    const { data: student, error } = await admin.from("student_accounts").insert({ class_id: classId, student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id, must_change_password: true }).select("id, student_number, student_name, created_at").single();
     if (error) {
       await admin.auth.admin.deleteUser(authUser.user.id);
       return json({ error: error.message }, 400);

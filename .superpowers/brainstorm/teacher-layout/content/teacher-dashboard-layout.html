@@ -1,0 +1,41 @@
+<h2>교사용 대시보드 구조</h2>
+<p class="subtitle">전체 폭을 쓰고, 수업 운영을 중심에 두는 제안입니다.</p>
+
+<div class="mockup" data-choice="teacher-layout" onclick="toggleSelect(this)">
+  <div class="mockup-header">열린 메뉴 상태</div>
+  <div class="mockup-body" style="padding:0; display:flex; min-height:430px; background:#f8fafc;">
+    <aside style="width:215px; background:#fff; border-right:1px solid #e2e8f0; padding:22px 14px; box-sizing:border-box;">
+      <div style="font-weight:800; color:#2453d4; font-size:18px; margin:0 8px 30px;">[THINK]</div>
+      <div style="font-size:11px; color:#64748b; font-weight:800; margin:0 8px 8px;">내 수업</div>
+      <div style="padding:11px 12px; background:#eaf1ff; color:#1d4ed8; border-left:4px solid #2563eb; border-radius:8px; font-weight:700;">▣ 수업 현황</div>
+      <button class="mock-button" style="width:100%; margin:10px 0 26px;">＋ 새 활동 생성</button>
+      <div style="font-size:11px; color:#64748b; font-weight:800; margin:0 8px 8px;">계정 관리</div>
+      <div style="padding:10px 12px;">♟ 학생 관리</div>
+      <div style="padding:10px 12px;">🛡 교사 관리 <small style="color:#64748b;">(마스터)</small></div>
+    </aside>
+    <section style="flex:1; min-width:0;">
+      <div style="height:62px; background:#fff; border-bottom:1px solid #dbe3f0; display:flex; align-items:center; gap:18px; padding:0 28px;">
+        <button style="border:0; background:transparent; font-size:22px; cursor:pointer;">☰</button>
+        <span style="color:#64748b;">내 수업</span><span>›</span><strong>수업 현황</strong>
+      </div>
+      <div style="padding:36px 42px;">
+        <h3 style="font-size:28px; margin:0 0 8px;">수업 현황</h3>
+        <p style="color:#64748b; margin:0 0 24px;">학생들의 THINK 단계 진행과 평가 상태를 확인합니다.</p>
+        <div class="placeholder" style="height:190px; display:flex; align-items:center; justify-content:center;">학생별 수업 현황 · 평가 목록</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:22px;">
+  <div class="mockup-header">접힌 메뉴 상태</div>
+  <div class="mockup-body" style="padding:0; display:flex; min-height:150px; background:#f8fafc;">
+    <aside style="width:64px; background:#fff; border-right:1px solid #e2e8f0; text-align:center; padding-top:18px; font-size:23px; line-height:48px;">▣<br>＋<br>♟<br>🛡</aside>
+    <section style="flex:1;">
+      <div style="height:62px; background:#fff; border-bottom:1px solid #dbe3f0; display:flex; align-items:center; gap:18px; padding:0 28px;"><button style="border:0; background:transparent; font-size:22px;">☰</button><span style="color:#64748b;">내 수업</span><span>›</span><strong>수업 현황</strong></div>
+      <div style="padding:25px 42px; color:#64748b;">콘텐츠 영역은 사이드바가 줄어든 만큼 넓어집니다.</div>
+    </section>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">메뉴 버튼은 사이드바를 215px ↔ 64px로 전환합니다. 상단 경로는 선택한 메뉴에 맞춰 바뀝니다.</p>

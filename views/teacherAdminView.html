@@ -1,110 +1,24 @@
-<!-- Teacher Dashboard View Panel (Left Sidebar Layout) -->
-<main id="teacherAppSection" class="main-shell" style="display: none; grid-template-columns: 260px 1fr; gap: 24px;">
-  
-  <!-- Teacher Left Navigation Sidebar -->
-  <aside class="sidebar" style="height: fit-content;">
-    <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-subtle); letter-spacing: 0.06em; font-weight: 800; margin-bottom: 14px;">
-      교사 워크스페이스 메뉴
-    </div>
-
-    <ul class="think-steps-list">
-      <div style="font-size:0.75rem;color:var(--text-subtle);font-weight:800;margin:8px 0;">내 수업</div>
-      <li class="think-step-item active" id="tabTeacherEval" onclick="TeacherAdminModule.switchTab('eval')" style="padding: 14px 16px;">
-        <span style="font-size: 1.2rem; margin-right: 8px;">📊</span>
-        <span>수업 현황</span>
-      </li>
-      <div style="font-size:0.75rem;color:var(--text-subtle);font-weight:800;margin:18px 0 8px;">계정 관리</div>
-      <li class="think-step-item" id="tabTeacherStudents" onclick="TeacherAdminModule.switchTab('students')" style="padding: 14px 16px;">
-        <span style="font-size: 1.2rem; margin-right: 8px;">👥</span>
-        <span>학생 관리</span>
-      </li>
-      <li class="think-step-item" id="tabTeacherMaster" style="display: none; padding: 14px 16px;" onclick="TeacherAdminModule.switchTab('master')">
-        <span style="font-size: 1.2rem; margin-right: 8px;">🛡️</span>
-        <span>교사 관리</span>
-      </li>
-    </ul>
-
-    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-light);">
-      <div style="font-size: 0.78rem; color: var(--text-subtle); margin-bottom: 8px;">빠른 작업</div>
-      <button class="btn btn-primary" style="width: 100%; padding: 10px; font-size: 0.85rem;" onclick="App.showActivityModal()">+ 새 활동 생성</button>
-    </div>
+<main id="teacherAppSection" class="main-shell teacher-dashboard" style="display:none;">
+  <aside id="teacherSidebar" class="sidebar teacher-sidebar">
+    <div class="teacher-sidebar-brand">[THINK]</div>
+    <div class="teacher-menu-group"><span class="teacher-menu-label">내 수업</span></div>
+    <button class="teacher-nav-item active" id="tabTeacherOperation" onclick="TeacherAdminModule.switchTab('operation')" title="수업 운영"><span>🏫</span><span class="teacher-menu-label">수업 운영</span></button>
+    <button class="teacher-nav-item" id="tabTeacherDesign" onclick="TeacherAdminModule.switchTab('design')" title="수업 설계"><span>🗂️</span><span class="teacher-menu-label">수업 설계</span></button>
+    <button class="teacher-nav-item active" id="tabTeacherEval" onclick="TeacherAdminModule.switchTab('eval')" title="수업 현황"><span>📊</span><span class="teacher-menu-label">수업 현황</span></button>
+    <div class="teacher-menu-group"><span class="teacher-menu-label">계정 관리</span></div>
+    <button class="teacher-nav-item" id="tabTeacherStudents" onclick="TeacherAdminModule.switchTab('students')" title="학생 관리"><span>👥</span><span class="teacher-menu-label">학생 관리</span></button>
+    <button class="teacher-nav-item" id="tabTeacherMaster" style="display:none" onclick="TeacherAdminModule.switchTab('master')" title="교사 관리"><span>🛡️</span><span class="teacher-menu-label">교사 관리</span></button>
+    <div id="teacherUserSlot" class="teacher-user-slot"></div>
   </aside>
-
-  <!-- Teacher Main View Area -->
-  <div style="display: flex; flex-direction: column; gap: 20px;">
-    
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h2 style="font-size: 1.5rem; color: var(--text-main);">교사 실시간 수업 운용 및 AI 평가 관리</h2>
-        <p style="color: var(--text-subtle); font-size: 0.9rem;">학급별 THINK 5단계 진행 상태 및 Gemini 추출 근거 기반 4단계 평가</p>
-      </div>
+  <section class="teacher-content-shell">
+    <header class="teacher-breadcrumb-bar"><button class="teacher-menu-toggle" onclick="TeacherAdminModule.toggleSidebar()" aria-label="메뉴 접기 또는 펼치기">☰</button><nav id="teacherBreadcrumb" aria-label="현재 위치">내 수업 › 수업 현황</nav></header>
+    <div class="teacher-content">
+      <div class="teacher-page-heading"><h2 id="teacherPageTitle">수업 현황</h2><p id="teacherPageDescription">학생들의 THINK 단계 진행과 평가 상태를 확인합니다.</p></div>
+      <div id="panelTeacherOperation" class="teacher-panel"><div class="teacher-panel-header"><div><h3>🏫 수업 운영</h3><p>학급을 선택해 프로젝트와 차시를 운영합니다.</p></div></div><div id="classOperationCards">학급 정보를 불러오는 중입니다.</div></div>
+      <div id="panelTeacherDesign" class="teacher-panel" style="display:none"><div class="teacher-panel-header"><div><h3>🗂️ 수업 설계</h3><p>프로젝트와 차시별 활동 계획을 작성하고 공개합니다.</p></div><button class="btn btn-primary" onclick="TeacherAdminModule.createProjectPrompt()">＋ 새 프로젝트</button></div><div id="projectDesignList">프로젝트를 불러오는 중입니다.</div></div>
+      <div id="panelTeacherEval" class="teacher-panel"><div class="teacher-panel-title">학생별 THINK 대화 내역 및 AI 근거 기반 평가</div><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>학번</th><th>현재 단계</th><th>AI 질문 사용</th><th>익명 비교 사유</th><th>교사 최종 평가</th><th>작업</th></tr></thead><tbody id="teacherStudentTableBody"></tbody></table></div>
+      <div id="panelTeacherStudents" class="teacher-panel" style="display:none"><div class="teacher-panel-header"><div><h3>👥 학생 관리</h3><p>모든 승인된 교사가 함께 관리하는 전체 학생 계정 목록입니다.</p></div><div><button class="btn btn-secondary" onclick="StudentManagerModule.exportCSV()">📄 계정 명단 CSV 다운로드</button><button class="btn btn-primary" onclick="StudentManagerModule.showBatchModal()">＋ 학생 계정 일괄 생성</button></div></div><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>학번</th><th>이름</th><th>생성 일자</th><th>비밀번호 관리</th></tr></thead><tbody id="studentAccountTableBody"></tbody></table></div>
+      <div id="panelTeacherMaster" class="teacher-panel" style="display:none"><div class="teacher-page-heading"><h3>🛡️ 교사 관리</h3><p>신규 교사 가입 요청을 승인하거나 거절합니다.</p></div><div id="masterPendingListContainer"></div></div>
     </div>
-
-    <!-- 1. Teacher Student List Table & Assessment Panel (Eval Tab) -->
-    <div id="panelTeacherEval" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden;">
-      <div style="padding: 16px 20px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
-        <span>학생별 THINK 대화 내역 및 AI 근거 기반 평가 (3학년 2반)</span>
-        <span class="role-tag" style="background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-text); font-weight: 800;">
-          📌 수업 진입 PIN: 782901 (전자칠판 게시대기)
-        </span>
-      </div>
-      
-      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border-light); background: var(--bg-app); color: var(--text-subtle);">
-            <th style="padding: 12px 16px;">학번</th>
-            <th style="padding: 12px 16px;">현재 단계</th>
-            <th style="padding: 12px 16px;">AI 질문 사용</th>
-            <th style="padding: 12px 16px;">익명 비교 사유</th>
-            <th style="padding: 12px 16px;">교사 최종 평가</th>
-            <th style="padding: 12px 16px;">작업</th>
-          </tr>
-        </thead>
-        <tbody id="teacherStudentTableBody">
-          <!-- Student rows injected by JS -->
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 2. Student Account Manager Panel (Students Tab) -->
-    <div id="panelTeacherStudents" style="display: none; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; padding: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 14px;">
-        <div>
-          <h3 style="font-size: 1.15rem; color: var(--text-main);">👥 학생 관리</h3>
-          <p style="font-size: 0.85rem; color: var(--text-subtle); margin-top: 2px;">모든 승인된 교사가 함께 관리하는 전체 학생 계정 목록입니다.</p>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn btn-secondary" onclick="StudentManagerModule.exportCSV()">📄 계정 명단 CSV 다운로드</button>
-          <button class="btn btn-primary" onclick="StudentManagerModule.showBatchModal()">+ 학생 계정 일괄 생성</button>
-        </div>
-      </div>
-
-      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border-light); background: var(--bg-app); color: var(--text-subtle);">
-            <th style="padding: 12px 16px;">학번</th>
-            <th style="padding: 12px 16px;">이름</th>
-            <th style="padding: 12px 16px;">생성 일자</th>
-            <th style="padding: 12px 16px;">비밀번호 관리</th>
-          </tr>
-        </thead>
-        <tbody id="studentAccountTableBody">
-          <!-- Student accounts injected by JS -->
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 3. Master Admin Panel (Master Tab - Only for role === 'admin') -->
-    <div id="panelTeacherMaster" style="display: none; background: var(--bg-card); border: 2px solid var(--primary-300); border-radius: var(--radius-lg); overflow: hidden; padding: 24px;">
-      <div style="margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 14px;">
-        <h3 style="font-size: 1.15rem; color: var(--primary-800);">🛡️ 교사 관리</h3>
-        <p style="font-size: 0.85rem; color: var(--text-subtle); margin-top: 2px;">신규 교사 가입 요청을 승인하거나 거절합니다.</p>
-      </div>
-
-      <div id="masterPendingListContainer">
-        <!-- Pending teacher cards injected by JS -->
-      </div>
-    </div>
-
-  </div>
+  </section>
 </main>

@@ -21,3 +21,27 @@ window.MasterAdminModule = {
     try { await window.SupabaseService.rejectTeacherRequest(profileId); this.renderMasterPanel(); } catch (error) { alert(`거절 처리 오류: ${error.message}`); }
   }
 };
+
+window.MasterAdminModule.approve = async function (profileId) {
+  const approved = await window.ModalService.confirm({ title: '교사 요청 승인', message: '이 교사 요청을 승인하시겠습니까?', tone: 'warning', confirmLabel: '승인' });
+  if (!approved) return;
+  try {
+    await window.SupabaseService.approveTeacherRequest(profileId);
+    await window.ModalService.alert({ title: '승인 완료', message: '교사 요청을 승인했습니다.', tone: 'success' });
+    this.renderMasterPanel();
+  } catch (error) {
+    await window.ModalService.alert({ title: '승인 처리 오류', message: error.message, tone: 'danger' });
+  }
+};
+
+window.MasterAdminModule.reject = async function (profileId) {
+  const approved = await window.ModalService.confirm({ title: '교사 요청 거절', message: '이 교사 요청을 거절하시겠습니까?', tone: 'danger', confirmLabel: '거절' });
+  if (!approved) return;
+  try {
+    await window.SupabaseService.rejectTeacherRequest(profileId);
+    await window.ModalService.alert({ title: '거절 완료', message: '교사 요청을 거절했습니다.', tone: 'success' });
+    this.renderMasterPanel();
+  } catch (error) {
+    await window.ModalService.alert({ title: '거절 처리 오류', message: error.message, tone: 'danger' });
+  }
+};
