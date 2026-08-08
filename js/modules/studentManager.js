@@ -59,7 +59,7 @@ window.StudentManagerModule = {
     if (!tableBody) return;
 
     if (!window.SupabaseService || !window.SupabaseService.isConnected()) {
-      tableBody.innerHTML = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-subtle);">Supabase 연결 상태를 확인해 주세요.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-subtle);">Supabase 연결 상태를 확인해 주세요.</td></tr>`;
       return;
     }
 
@@ -69,7 +69,7 @@ window.StudentManagerModule = {
       this.renderStudentTable();
     } catch (err) {
       console.error("Student manager render error:", err);
-      tableBody.innerHTML = `<tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--danger-text);">학생 목록을 불러오는 중 오류가 발생했습니다.</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--danger-text);">학생 목록을 불러오는 중 오류가 발생했습니다.</td></tr>`;
     }
   },
 
@@ -85,7 +85,7 @@ window.StudentManagerModule = {
     if (!filtered || filtered.length === 0) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="5" style="padding: 32px; text-align: center; color: var(--text-subtle);">
+          <td colspan="6" style="padding: 32px; text-align: center; color: var(--text-subtle);">
             ${this.selectedClassFilter !== 'ALL' ? '선택하신 학급에 해당되는 학생 계정이 없습니다.' : '아직 일괄 생성된 학생 계정이 없습니다. 상단의 <strong>[+ 학생 계정 일괄 생성]</strong> 버튼을 눌러 생성해 주세요.'}
           </td>
         </tr>
@@ -101,9 +101,11 @@ window.StudentManagerModule = {
           <td style="padding: 12px 16px;">${this.escapeHtml(st.student_name || '-')}</td>
           <td style="padding: 12px 16px;"><span class="role-tag" style="font-size: 0.8rem; background: var(--primary-50); color: var(--primary-800); border: 1px solid var(--primary-200);">${classLabel}</span></td>
           <td style="padding: 12px 16px; color: var(--text-subtle);">${new Date(st.created_at).toLocaleDateString()}</td>
-          <td style="padding: 12px 16px; display: flex; gap: 6px; align-items: center;">
+          <td style="padding: 12px 16px;">
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="StudentManagerModule.resetPassword('${st.id}', '${st.student_number}')" title="비밀번호 초기화">비밀번호 재설정 🔑</button>
-            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger-text);" onclick="StudentManagerModule.deleteStudent('${st.id}', '${st.student_number}', '${this.escapeHtml(st.student_name || '')}')" title="학생 계정 및 제출 자료 영구 삭제">학생 삭제 🗑️</button>
+          </td>
+          <td style="padding: 12px 16px;">
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; color: var(--danger-text);" onclick="StudentManagerModule.deleteStudent('${st.id}', '${st.student_number}', '${this.escapeHtml(st.student_name || '')}')" title="학생 계정 및 제출 자료 영구 삭제">계정 삭제 🗑️</button>
           </td>
         </tr>
       `;
@@ -111,13 +113,25 @@ window.StudentManagerModule = {
   },
 
   deleteStudent: async function (studentId, studentNum, studentName) {
-    const approved = await window.ModalService.confirm({
+    const input = await window.ModalService.prompt({
       title: '⚠️ 학생 계정 및 자료 영구 삭제',
-      message: `${studentNum} (${studentName || '학생'})의 계정과 함께 해당 학생이 제출한 THINK 5단계 생각, AI 대화 내역, 동료 평가 등 모든 데이터가 영구히 삭제됩니다.\n\n정말로 삭제하시겠습니까?`,
-      tone: 'danger',
-      confirmLabel: '영구 삭제'
+      message: `${studentNum} (${studentName || '학생'})의 계정과 함께 해당 학생이 제출한 THINK 5단계 생각, AI 대화 내역, 동료 평가 등 모든 데이터가 영구히 삭제됩니다.\n\n실수 방지를 위해 아래에 '계정을 삭제합니다.'를 정확히 입력해 주세요.`,
+      label: "확인 문구 입력 ('계정을 삭제합니다.')",
+      placeholder: '계정을 삭제합니다.',
+      confirmLabel: '영구 삭제',
+      tone: 'danger'
     });
-    if (!approved) return;
+
+    if (input === null) return;
+
+    if (input.trim() !== '계정을 삭제합니다.') {
+      await window.ModalService.alert({
+        title: '삭제 취소',
+        message: '확인 문구가 일치하지 않아 계정 삭제가 취소되었습니다.',
+        tone: 'warning'
+      });
+      return;
+    }
 
     try {
       await window.SupabaseService.deleteStudentAccount(studentId);
@@ -130,8 +144,8 @@ window.StudentManagerModule = {
     } catch (err) {
       console.error('Delete student error:', err);
       await window.ModalService.alert({
-        title: '삭제 실패',
-        message: `학생 계정 삭제 중 오류가 발생했습니다: ${err.message}`,
+        title: '삭제 처리 불가 안내',
+        message: err.message || '학생 계정 삭제 중 오류가 발생했습니다.',
         tone: 'danger'
       });
     }

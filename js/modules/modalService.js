@@ -131,8 +131,8 @@
     }
   });
 
-  const prompt = ({ title, message, label, placeholder = '', initialValue = '', required = true, confirmLabel = '저장', cancelLabel = '취소' }) => openDialog({
-    title, message, cancelResult: null,
+  const prompt = ({ title, message, label, placeholder = '', initialValue = '', required = true, confirmLabel = '저장', cancelLabel = '취소', tone = 'info' }) => openDialog({
+    title, message, tone, cancelResult: null,
     controls: (area) => {
       const group = document.createElement('label');
       group.className = 'form-group modal-dialog__field';
@@ -150,7 +150,7 @@
     actions: (area, done) => {
       const input = document.querySelector('#appDialogControl input');
       addButton(area, cancelLabel, 'btn btn-secondary', () => done(null));
-      addButton(area, confirmLabel, 'btn btn-primary', () => {
+      addButton(area, confirmLabel, tone === 'danger' ? 'btn btn-danger' : 'btn btn-primary', () => {
         const value = normalizeInput(input.value, required);
         if (value === null) {
           input.setAttribute('aria-invalid', 'true');

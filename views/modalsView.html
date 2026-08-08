@@ -137,4 +137,37 @@
   </div>
 </div>
 
+<!-- Delete Class Double Safety Confirmation Modal Dialog -->
+<div id="deleteClassSafetyModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 500px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px;">
+      <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--danger-text); margin: 0;">⚠️ 학급 삭제 및 데이터 정제 경고</h3>
+      <button type="button" onclick="TeacherAdminModule.closeDeleteClassSafetyModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
+    </div>
+
+    <form onsubmit="TeacherAdminModule.handleConfirmDeleteClass(event)" style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-md); padding: 14px 16px; font-size: 0.88rem; color: #991b1b; line-height: 1.5;">
+        <strong id="lblDeleteTargetClassName">3학년 2반</strong> 학급을 삭제합니다.<br>
+        • <strong>학생 계정(학번)</strong>은 지워지지 않고 보존됩니다.<br>
+        • 단, 해당 학급에서 제출된 <strong>THINK 5단계 생각, AI 대화 내역</strong>은 영구히 삭제됩니다.
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="font-weight: 600; color: var(--text-main);">
+          실수 방지를 위해 아래 문구를 정확하게 입력하세요:
+        </label>
+        <div style="margin-bottom: 6px; font-weight: 700; color: var(--primary-800); background: var(--primary-50); padding: 8px 12px; border-radius: var(--radius-sm); user-select: all;">
+          학급 삭제를 원합니다.
+        </div>
+        <input type="text" id="txtDeleteClassConfirm" class="form-input" placeholder="학급 삭제를 원합니다." required oninput="TeacherAdminModule.validateDeleteClassConfirmInput(this.value)" autocomplete="off">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="TeacherAdminModule.closeDeleteClassSafetyModal()">취소</button>
+        <button type="submit" class="btn btn-primary" id="btnConfirmDeleteClass" disabled style="background-color: var(--danger-text); border-color: var(--danger-text);">🗑️ 영구 삭제하기</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 

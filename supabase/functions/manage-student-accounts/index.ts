@@ -28,6 +28,84 @@ serve(async (req) => {
   const body = await req.json().catch(() => null);
   if (!body?.action) return json({ error: "요청 형식이 올바르지 않습니다." }, 400);
 
+  if (body.action === "create_class") {
+    const grade = Number(body.grade);
+    const classNum = Number(body.classNumber);
+    if (!Number.isInteger(grade) || !Number.isInteger(classNum)) {
+      return json({ error: "학년과 반 번호를 정확히 선택해 주세요." }, 400);
+    }
+    const classCode = `class-${grade}-${classNum}`;
+
+    const { data: existingClass } = await admin
+      .from("classes")
+      .select("id")
+      .eq("grade_number", grade)
+      .eq("class_number", classNum)
+      .maybeSingle();
+
+    if (existingClass) {
+      return json({ error: `${grade}학년 ${classNum}반은 이미 등록되어 있는 학급입니다.` }, 409);
+    }
+
+    const { data: newClass, error } = await admin
+      .from("classes")
+      .insert({
+        teacher_id: teacherId,
+        class_code: classCode,
+        grade_number: grade,
+        class_number: classNum
+      })
+      .select()
+      .single();
+
+    if (error) return json({ error: error.message }, 400);
+
+    const prefix = `${grade}${classNum < 10 ? '0' + classNum : classNum}`;
+    try {
+      await admin.from("student_accounts").update({ class_id: newClass.id }).like("student_number", `${prefix}%`);
+    } catch (e) {
+      console.warn("Notice auto-linking student_accounts:", e);
+    }
+
+    return json({ class: newClass });
+  }
+
+  if (body.action === "delete_class") {
+    if (!body.classId) return json({ error: "삭제할 학급을 선택해 주세요." }, 400);
+
+    const { data: cls } = await admin.from("classes").select("id, grade_number, class_number").eq("id", body.classId).maybeSingle();
+    if (!cls) return json({ success: true });
+
+    const prefix = `${cls.grade_number}${cls.class_number < 10 ? '0' + cls.class_number : cls.class_number}`;
+
+    const { data: classStudents } = await admin.from("student_accounts").select("id").like("student_number", `${prefix}%`);
+    const classStudentIds = (classStudents || []).map((s: any) => s.id);
+
+    const { data: teacherActivities } = await admin.from("activities").select("id").eq("teacher_id", teacherId);
+    const activityIds = (teacherActivities || []).map((a: any) => a.id);
+
+    if (classStudentIds.length > 0 && activityIds.length > 0) {
+      await admin.from("messages").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+      await admin.from("submissions").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+      await admin.from("peer_reviews").delete().in("activity_id", activityIds).in("reviewer_student_id", classStudentIds);
+      await admin.from("peer_assignments").delete().in("activity_id", activityIds).in("reviewer_student_id", classStudentIds);
+      await admin.from("ai_evidence").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+      await admin.from("teacher_assessments").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+    }
+
+    const { data: cps } = await admin.from("class_projects").select("id").eq("class_id", body.classId);
+    const cpIds = (cps || []).map((cp: any) => cp.id);
+    if (cpIds.length > 0) {
+      await admin.from("class_sessions").delete().in("class_project_id", cpIds);
+    }
+    await admin.from("class_projects").delete().eq("class_id", body.classId);
+
+    const { error: delClassErr } = await admin.from("classes").delete().eq("id", body.classId);
+    if (delClassErr) return json({ error: delClassErr.message }, 400);
+
+    return json({ success: true });
+  }
+
   if (body.action === "delete_student") {
     if (!body.studentId) return json({ error: "삭제할 학생 계정을 선택해 주세요." }, 400);
 

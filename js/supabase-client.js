@@ -134,27 +134,152 @@
     resetStudentPassword: async function (studentId) { return this.invokeAccountFunction("manage-student-accounts", { action: "reset_password", studentId }); },
     deleteStudentAccount: async function (studentId) {
       if (!supabaseClient) throw new Error("Supabase client is not initialized.");
+      let edgeError = null;
+
+      // 1. Invoke manage-student-accounts edge function
       try {
         const res = await this.invokeAccountFunction("manage-student-accounts", { action: "delete_student", studentId });
-        if (res && res.error) throw new Error(res.error);
-        return res;
-      } catch (err) {
-        console.warn("Edge function delete failed, attempting direct DB delete fallback:", err);
-        try {
-          await supabaseClient.from("messages").delete().eq("student_id", studentId);
-          await supabaseClient.from("submissions").delete().eq("student_id", studentId);
-          await supabaseClient.from("peer_reviews").delete().eq("reviewer_student_id", studentId);
-          await supabaseClient.from("peer_assignments").delete().or(`reviewer_student_id.eq.${studentId},author_student_id.eq.${studentId}`);
-          await supabaseClient.from("ai_evidence").delete().eq("student_id", studentId);
-          await supabaseClient.from("teacher_assessments").delete().eq("student_id", studentId);
-        } catch (e) {
-          console.warn("Notice student activity cascade cleanup:", e);
+        if (res && res.error) {
+          edgeError = res.error;
+        } else if (res && (res.success || res.students)) {
+          return res;
         }
-
-        const { error } = await supabaseClient.from("student_accounts").delete().eq("id", studentId);
-        if (error) throw error;
-        return { success: true };
+      } catch (err) {
+        edgeError = err.message || String(err);
       }
+
+      // 2. Direct DB delete fallback with .select() verification
+      try {
+        await supabaseClient.from("messages").delete().eq("student_id", studentId);
+        await supabaseClient.from("submissions").delete().eq("student_id", studentId);
+        await supabaseClient.from("peer_reviews").delete().eq("reviewer_student_id", studentId);
+        await supabaseClient.from("peer_assignments").delete().or(`reviewer_student_id.eq.${studentId},author_student_id.eq.${studentId}`);
+        await supabaseClient.from("ai_evidence").delete().eq("student_id", studentId);
+        await supabaseClient.from("teacher_assessments").delete().eq("student_id", studentId);
+      } catch (e) {
+        console.warn("Cascade cleanup fallback notice:", e);
+      }
+
+      const { data, error } = await supabaseClient.from("student_accounts").delete().eq("id", studentId).select();
+
+      if (error) {
+        throw new Error(`데이터베이스 삭제 실패: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error(`Supabase Cloud Edge Function에 [delete_student] 배포가 수행되지 않아 삭제 권한이 차단되었습니다.\n(상세 원인: ${edgeError || '권한 부족'})`);
+      }
+
+      return { success: true };
+    },
+    createClass: async function ({ grade, classNumber }) {
+      if (!supabaseClient) throw new Error("Supabase client is not initialized.");
+
+      // 1. Try creating via manage-student-accounts Edge Function (Service Role - bypasses RLS)
+      try {
+        const res = await this.invokeAccountFunction("manage-student-accounts", { action: "create_class", grade, classNumber });
+        if (res && res.error) throw new Error(res.error);
+        if (res && res.class) return res.class;
+      } catch (err) {
+        console.warn("Edge function create_class fallback notice:", err);
+      }
+
+      // 2. Direct DB fallback
+      const session = await this.getUserSession();
+      const teacherId = session?.user?.id;
+      const classCode = `class-${grade}-${classNumber}`;
+
+      const { data: newClass, error } = await supabaseClient
+        .from("classes")
+        .insert({
+          teacher_id: teacherId,
+          class_code: classCode,
+          grade_number: grade,
+          class_number: classNumber
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return newClass;
+    },
+    deleteClassWithTargetData: async function (classId, teacherId) {
+      if (!supabaseClient) throw new Error("Supabase client is not initialized.");
+      let edgeError = null;
+
+      // 1. Try deleting via manage-student-accounts Edge Function (Service Role)
+      try {
+        const res = await this.invokeAccountFunction("manage-student-accounts", { action: "delete_class", classId, teacherId });
+        if (res && res.error) {
+          edgeError = res.error;
+        } else if (res && res.success) {
+          return res;
+        }
+      } catch (err) {
+        edgeError = err.message || String(err);
+      }
+
+      // 2. Direct DB fallback
+      const { data: cls } = await supabaseClient
+        .from("classes")
+        .select("id, grade_number, class_number")
+        .eq("id", classId)
+        .maybeSingle();
+
+      if (!cls) return { success: true };
+
+      const prefix = `${cls.grade_number}${cls.class_number < 10 ? '0' + cls.class_number : cls.class_number}`;
+
+      // 2. Find students belonging to this class (by student_number prefix)
+      const { data: classStudents } = await supabaseClient
+        .from("student_accounts")
+        .select("id")
+        .like("student_number", `${prefix}%`);
+
+      const classStudentIds = (classStudents || []).map(s => s.id);
+
+      // 3. Find activities owned by this teacher
+      const { data: teacherActivities } = await supabaseClient
+        .from("activities")
+        .select("id")
+        .eq("teacher_id", teacherId);
+
+      const activityIds = (teacherActivities || []).map(a => a.id);
+
+      // 4. Targeted cleanup: delete submissions & AI chat history ONLY for this class & teacher's activities
+      if (classStudentIds.length > 0 && activityIds.length > 0) {
+        try {
+          await supabaseClient.from("messages").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+          await supabaseClient.from("submissions").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+          await supabaseClient.from("peer_reviews").delete().in("activity_id", activityIds).in("reviewer_student_id", classStudentIds);
+          await supabaseClient.from("peer_assignments").delete().in("activity_id", activityIds).in("reviewer_student_id", classStudentIds);
+          await supabaseClient.from("ai_evidence").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+          await supabaseClient.from("teacher_assessments").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
+        } catch (e) {
+          console.warn("Notice targeting class activity cleanup:", e);
+        }
+      }
+
+      // 5. Clean up class_sessions (via class_projects linkage) and class_projects links
+      try {
+        const { data: cps } = await supabaseClient.from("class_projects").select("id").eq("class_id", classId);
+        const cpIds = (cps || []).map(cp => cp.id);
+        if (cpIds.length > 0) {
+          await supabaseClient.from("class_sessions").delete().in("class_project_id", cpIds);
+        }
+        await supabaseClient.from("class_projects").delete().eq("class_id", classId);
+      } catch (e) {
+        console.warn("Notice class sessions links cleanup:", e);
+      }
+
+      // 6. Delete the class record with .select() verification
+      const { data: deletedRows, error } = await supabaseClient.from("classes").delete().eq("id", classId).select();
+      if (error) throw new Error(`학급 삭제 실패: ${error.message}`);
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error("학급 삭제 권한이 없거나 이미 삭제된 학급입니다.");
+      }
+
+      return { success: true };
     },
     getStudentPasswordChangeStatus: async function () { return this.invokeAccountFunction("change-student-password", { action: "status" }); },
     changeStudentPassword: async function (password) { return this.invokeAccountFunction("change-student-password", { password }); },

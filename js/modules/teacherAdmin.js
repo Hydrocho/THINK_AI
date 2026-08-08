@@ -261,6 +261,9 @@ window.TeacherAdminModule = {
             <button class="btn btn-secondary" style="font-size: 0.85rem; color: var(--danger-text);" onclick="TeacherAdminModule.detachProjectFromClass('${attachedCP.id}')">
               🗑️ 연결 해제
             </button>
+            <button class="btn btn-secondary" style="font-size: 0.85rem; color: var(--danger-text);" onclick="TeacherAdminModule.deleteClassPrompt('${cls.id}', '${cls.grade_number}학년 ${cls.class_number}반')">
+              🗑️ 학급 삭제
+            </button>
           </div>
         </div>
 
@@ -335,14 +338,24 @@ window.TeacherAdminModule = {
 
     try {
       const client = window.SupabaseService.getClient();
-      const { data: classes } = await client.from('classes').select('id,class_code,grade_number,class_number').order('class_code');
+      const session = await window.SupabaseService.getUserSession();
+      const teacherId = session?.user?.id;
+
+      let query = client.from('classes').select('id,class_code,grade_number,class_number,teacher_id').order('class_code');
+      if (teacherId) {
+        query = query.eq('teacher_id', teacherId);
+      }
+      const { data: classes } = await query;
 
       if (!classes || classes.length === 0) {
         el.innerHTML = `
           <div class="project-empty-state">
             <div class="project-empty-icon">🏫</div>
-            <div class="project-empty-title">등록된 학급이 없습니다</div>
-            <div class="project-empty-desc">상단의 [＋ 새 학급 추가] 버튼을 눌러 학급을 생성해 보세요.</div>
+            <div class="project-empty-title">등록된 담당 학급이 없습니다</div>
+            <div class="project-empty-desc">상단의 [＋ 새 학급 추가] 버튼을 눌러 담당할 학 학년/반을 개설해 보세요.</div>
+            <button class="btn btn-primary" style="margin-top: 16px;" onclick="TeacherAdminModule.createClassPrompt()">
+              ＋ 새 학급 추가
+            </button>
           </div>
         `;
         return;
@@ -367,12 +380,13 @@ window.TeacherAdminModule = {
             const lessons = attachedCP?.projects?.project_versions?.[0]?.lesson_plans || [];
             const openSession = (classSessions || []).find(cs => cs.class_project_id === attachedCP?.id);
             const openLesson = openSession?.lesson_plans;
+            const className = `${c.grade_number}학년 ${c.class_number}반`;
 
             return `
-              <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;" onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')">
-                <div>
+              <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer;">
                   <div class="project-card-header">
-                    <h4 class="project-card-title">🏫 ${c.grade_number}학년 ${c.class_number}반</h4>
+                    <h4 class="project-card-title">🏫 ${className}</h4>
                     <span class="project-status-badge ${openSession ? 'published' : (attachedProject ? 'private' : '')}">
                       ${openSession ? '🟢 수업 진행 중' : (attachedProject ? '🔒 수업 대기' : '⏸️ 미연결')}
                     </span>
@@ -389,9 +403,11 @@ window.TeacherAdminModule = {
                 </div>
 
                 <div>
-                  <div class="project-card-meta" style="margin-top: 16px;">
-                    <span class="project-card-meta-item">📖 ${lessons.length}개 차시</span>
-                    <span class="project-card-meta-item" style="color: var(--primary-700); font-weight: 700;">세부 운영 관리 →</span>
+                  <div class="project-card-actions" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 12px;">
+                    <span class="project-card-meta-item" onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer; color: var(--primary-700); font-weight: 700;">세부 운영 관리 →</span>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; color: var(--danger-text);" onclick="event.stopPropagation(); TeacherAdminModule.deleteClassPrompt('${c.id}', '${className}')" title="학급 및 제출자료 정제 삭제">
+                      🗑️ 학급 삭제
+                    </button>
                   </div>
                 </div>
               </div>
@@ -402,6 +418,71 @@ window.TeacherAdminModule = {
     } catch (err) {
       console.error('Failed to render class operations:', err);
       el.innerHTML = `<div style="color: var(--danger-text); padding: 16px;">학급 정보를 불러오는 중 오류가 발생했습니다.</div>`;
+    }
+  },
+
+  pendingDeleteClassId: null,
+  pendingDeleteClassName: null,
+
+  deleteClassPrompt: function (classId, className) {
+    this.pendingDeleteClassId = classId;
+    this.pendingDeleteClassName = className;
+
+    const lbl = document.getElementById('lblDeleteTargetClassName');
+    if (lbl) lbl.innerText = className;
+
+    const txt = document.getElementById('txtDeleteClassConfirm');
+    if (txt) txt.value = '';
+
+    const btn = document.getElementById('btnConfirmDeleteClass');
+    if (btn) btn.disabled = true;
+
+    window.ModalService.showCustom('deleteClassSafetyModal', 'txtDeleteClassConfirm');
+  },
+
+  closeDeleteClassSafetyModal: function () {
+    this.pendingDeleteClassId = null;
+    this.pendingDeleteClassName = null;
+    window.ModalService.hideCustom('deleteClassSafetyModal');
+  },
+
+  validateDeleteClassConfirmInput: function (val) {
+    const btn = document.getElementById('btnConfirmDeleteClass');
+    if (!btn) return;
+    const isValid = (val || '').trim() === '학급 삭제를 원합니다.';
+    btn.disabled = !isValid;
+  },
+
+  handleConfirmDeleteClass: async function (e) {
+    e.preventDefault();
+    if (!this.pendingDeleteClassId) return;
+
+    const classId = this.pendingDeleteClassId;
+    const className = this.pendingDeleteClassName || '선택 학급';
+
+    const btn = document.getElementById('btnConfirmDeleteClass');
+    if (btn) { btn.disabled = true; btn.innerText = '삭제 중...'; }
+
+    try {
+      const session = await window.SupabaseService.getUserSession();
+      const teacherId = session?.user?.id;
+
+      await window.SupabaseService.deleteClassWithTargetData(classId, teacherId);
+
+      this.closeDeleteClassSafetyModal();
+
+      await window.ModalService.alert({
+        title: '🎉 학급 정제 삭제 완료',
+        message: `${className} 학급 및 해당 학급 활동 제출 자료가 안전하게 삭제되었습니다.\n(💡 학생 명부 계정은 보존되었습니다.)`,
+        tone: 'success'
+      });
+
+      this.showClassListSubView();
+    } catch (err) {
+      console.error('Failed to delete class:', err);
+      alert(`학급 삭제 중 오류가 발생했습니다: ${err.message}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerText = '🗑️ 영구 삭제하기'; }
     }
   },
 
@@ -487,17 +568,8 @@ window.TeacherAdminModule = {
         return;
       }
 
-      // 2. Insert new class into Supabase DB
-      const { data: newClass, error } = await client.from('classes').insert({
-        class_code: classCode,
-        grade_number: grade,
-        class_number: classNum,
-        name: className
-      }).select().single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
+      // 2. Insert new class via SupabaseService (uses Service Role Edge Function to bypass RLS)
+      const newClass = await window.SupabaseService.createClass({ grade, classNumber: classNum });
 
       // 3. Auto-Assign existing students by student number prefix (e.g. 302XX)
       if (newClass && newClass.id) {
