@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { resolveStudentClass } from "../_shared/student-class.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -18,15 +19,20 @@ serve(async req => {
 
   const admin = createClient(url, key);
   const { data: student } = await admin.from("student_accounts")
-    .select("id,student_number,class_id")
+    .select("id,student_number")
     .eq("auth_user_id", user.id)
     .single();
   if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 403);
-  if (!student.class_id) return json({ liveLesson: null, history: [], unassigned: true });
+  const resolvedClass = await resolveStudentClass(admin, student.student_number);
+  if (resolvedClass.error) return json({ error: resolvedClass.error }, 400);
+  if (!resolvedClass.classroom) {
+    return json({ liveLesson: null, history: [], classResolution: resolvedClass.reason });
+  }
+  const classId = resolvedClass.classroom.id;
 
   const { data: session, error: sessionError } = await admin.from("class_sessions")
     .select("id,class_id,lesson_plan_id,opened_at,class_projects!inner(id,source_project_id,title),lesson_plans!inner(id,lesson_order,title,core_question,think_stages,ai_question_limit,ai_response_mode)")
-    .eq("class_id", student.class_id)
+    .eq("class_id", classId)
     .eq("status", "open")
     .order("opened_at", { ascending: false })
     .maybeSingle();
@@ -38,13 +44,13 @@ serve(async req => {
     const project = Array.isArray(session.class_projects) ? session.class_projects[0] : session.class_projects;
     const { data: accesses, error: accessError } = await admin.from("class_lesson_stage_access")
       .select("stage_code,access_mode")
-      .eq("class_id", student.class_id)
+      .eq("class_id", classId)
       .eq("lesson_plan_id", session.lesson_plan_id);
     if (accessError) return json({ error: accessError.message }, 400);
     const thinkStageAccess = Object.fromEntries(stageCodes.map(stage => [stage, "hidden"]));
     for (const access of accesses || []) thinkStageAccess[access.stage_code] = access.access_mode;
     liveLesson = {
-      classId: student.class_id,
+      classId,
       sessionId: session.id,
       projectId: project.source_project_id,
       projectTitle: project.title,

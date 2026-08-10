@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { resolveStudentClass } from "../_shared/student-class.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -22,14 +23,20 @@ serve(async req => {
 
   const admin = createClient(url, key);
   const { data: student } = await admin.from("student_accounts")
-    .select("student_number,class_id")
+    .select("student_number")
     .eq("auth_user_id", user.id)
     .single();
   if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 403);
+  const resolvedClass = await resolveStudentClass(admin, student.student_number);
+  if (resolvedClass.error) return json({ error: resolvedClass.error }, 400);
+  if (!resolvedClass.classroom) {
+    return json({ error: "학번으로 연결되는 학급이 없어 현재 수업 답변을 저장할 수 없습니다." }, 403);
+  }
+  const classId = resolvedClass.classroom.id;
 
   const { data: liveSession } = await admin.from("class_sessions")
     .select("lesson_plan_id")
-    .eq("class_id", student.class_id)
+    .eq("class_id", classId)
     .eq("lesson_plan_id", body.lessonPlanId)
     .eq("status", "open")
     .maybeSingle();
@@ -37,7 +44,7 @@ serve(async req => {
 
   const { data: access } = await admin.from("class_lesson_stage_access")
     .select("access_mode")
-    .eq("class_id", student.class_id)
+    .eq("class_id", classId)
     .eq("lesson_plan_id", body.lessonPlanId)
     .eq("stage_code", body.stageCode)
     .maybeSingle();

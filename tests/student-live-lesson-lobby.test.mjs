@@ -87,8 +87,12 @@ test('THINK renderer and view use the same content container', () => {
   assert.match(think, /getElementById\('stepContentContainer'\)/);
 });
 
-test('student lesson API returns a lobby-safe empty state for an unassigned student', () => {
-  assert.match(studentLessons, /if \(!student\.class_id\) return json\(\{ liveLesson: null, history: \[\], unassigned: true \}\)/);
+test('student lesson and response APIs use the class derived from the student number', () => {
+  assert.match(studentLessons, /resolveStudentClass/);
+  assert.match(responseFunction, /resolveStudentClass/);
+  assert.doesNotMatch(studentLessons, /student\.class_id/);
+  assert.doesNotMatch(responseFunction, /student\.class_id/);
+  assert.match(studentLessons, /classResolution/);
 });
 
 test('THINK renderer has a safe fallback before optional sample configuration is loaded', () => {
