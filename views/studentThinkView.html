@@ -6,7 +6,7 @@
     <div>
       <div class="sidebar-title">진행 중인 프로젝트</div>
       <div class="activity-badge-box" style="margin-top: 10px;">
-        <div class="activity-topic-title">유전자 조작 기술, 인간에게 축복일까? 재앙일까?</div>
+        <div class="activity-topic-title" id="currentProjectTitle">진행 중인 프로젝트</div>
         <div class="activity-lesson-num" id="currentLessonLabel">1차시 활동 진행 중</div>
       </div>
     </div>
@@ -37,17 +37,6 @@
       </ul>
     </div>
 
-    <!-- Lesson Selector Dropdown -->
-    <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border-light);">
-      <label class="form-label" style="font-size: 0.78rem;">수업 차시 선택</label>
-      <select id="lessonSelect" class="form-select" onchange="App.selectLesson(this.value)" style="font-size: 0.85rem; padding: 8px;">
-        <option value="0">1차시 · 유전 형질 생각하기</option>
-        <option value="1">2차시 · '우성'·'열성' 대체어 제안</option>
-        <option value="2">3차시 · 유전적 다양성 부족의 문제</option>
-        <option value="3">4차시 · 사람 대상 임의 개입의 윤리</option>
-        <option value="4">5차시 · 색각 다양한 사용자 디자인</option>
-      </select>
-    </div>
   </aside>
 
   <!-- Main Step View Panel -->

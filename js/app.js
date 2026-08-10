@@ -117,21 +117,22 @@
     logout: function () { window.AuthModule.logout(); },
 
     // Student Lobby Delegation
-    enterLessonByPin: function () { window.StudentLobbyModule.enterByPin(state); },
-    enterActiveLesson: function () { window.StudentLobbyModule.enterActiveLesson(state); },
+    enterActiveLesson: function () { window.StudentLobbyModule.enterLiveLesson(state); },
 
     // THINK Steps Navigation
     selectLesson: function (index) {
       state.currentLessonIndex = parseInt(index);
       state.currentStep = 1;
       
-      const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
       if (!lesson) return;
 
       const lblLesson = document.getElementById('currentLessonLabel');
-      const lblTitle = document.getElementById('lessonTitleDisplay');
+      const projectTitle = document.getElementById('currentProjectTitle');
+      const mainTitle = document.getElementById('stepMainTitle');
       if (lblLesson) lblLesson.innerText = `${lesson.number}차시 활동 진행 중`;
-      if (lblTitle) lblTitle.innerText = lesson.question;
+      if (projectTitle) projectTitle.innerText = lesson.projectTitle || '진행 중인 프로젝트';
+      if (mainTitle) mainTitle.innerText = lesson.coreQuestion || lesson.core_question || lesson.question;
 
       this.updateStepNav();
       this.renderCurrentStep();
@@ -174,8 +175,8 @@
       const currentStageCode = activeStages[state.currentStep - 1] || activeStages[0] || 'T';
       const info = stageInfoMap[currentStageCode] || { code: currentStageCode, title: currentStageCode };
 
-      const badge = document.getElementById('stepCodeBadge');
-      const title = document.getElementById('stepTitleText');
+      const badge = document.getElementById('stepTagBadge');
+      const title = document.getElementById('stepSubTitleBadge');
       if (badge) badge.innerText = `${info.code} ${state.currentStep}/${activeStages.length}`;
       if (title) title.innerText = info.title;
     },
@@ -219,7 +220,7 @@
       try { await window.SupabaseService.saveThinkStageResponse(lesson.id, stageCode, content); state.thinkDraftLastSaved.set(key, content); }
       catch (error) { console.warn('THINK draft autosave failed:', error.message); }
     },
-    saveInitialThought: function () {
+    saveInitialThought: async function () {
       const el = document.getElementById('txtInitialThought');
       if (el) state.studentData.initialThought = el.value.trim();
 
@@ -229,8 +230,11 @@
       }
 
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      if (window.SupabaseService && window.SupabaseService.isConnected()) {
-        window.SupabaseService.saveSubmission(lesson?.id || "activity-1", state.studentData.studentNumber, "initial_thought", state.studentData.initialThought);
+      try {
+        if (window.SupabaseService && window.SupabaseService.isConnected()) await window.SupabaseService.saveThinkStageResponse(lesson.id, 'T', state.studentData.initialThought);
+      } catch (error) {
+        alert(`저장 중 오류가 발생했습니다: ${error.message}`);
+        return;
       }
       this.goToStep(state.currentStep + 1);
     },
@@ -267,7 +271,7 @@
       this.renderCurrentStep();
     },
 
-    savePeerRationale: function () {
+    savePeerRationale: async function () {
       const el = document.getElementById('txtPeerRationale');
       if (el) state.studentData.peerRationale = el.value.trim();
 
@@ -277,13 +281,16 @@
       }
 
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      if (window.SupabaseService && window.SupabaseService.isConnected()) {
-        window.SupabaseService.savePeerReview(lesson?.id || "activity-1", state.studentData.studentNumber, state.studentData.peerCriteria, state.studentData.peerRationale);
+      try {
+        if (window.SupabaseService && window.SupabaseService.isConnected()) await window.SupabaseService.saveThinkStageResponse(lesson.id, 'N', state.studentData.peerRationale);
+      } catch (error) {
+        alert(`저장 중 오류가 발생했습니다: ${error.message}`);
+        return;
       }
       this.goToStep(state.currentStep + 1);
     },
 
-    submitFinalReflection: function () {
+    submitFinalReflection: async function () {
       const el = document.getElementById('txtFinalThought');
       if (el) state.studentData.finalThought = el.value.trim();
 
@@ -292,9 +299,12 @@
         return;
       }
 
-      const lesson = window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      if (window.SupabaseService && window.SupabaseService.isConnected()) {
-        window.SupabaseService.saveSubmission(lesson.id || "activity-1", state.studentData.studentNumber, "final_reflection", state.studentData.finalThought);
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      try {
+        if (window.SupabaseService && window.SupabaseService.isConnected()) await window.SupabaseService.saveThinkStageResponse(lesson.id, 'K', state.studentData.finalThought, { submit: true });
+      } catch (error) {
+        alert(`저장 중 오류가 발생했습니다: ${error.message}`);
+        return;
       }
       alert('🎉 THINK 5단계 활동 제출이 완료되었습니다!\n선생님 화면에서 AI 근거 평가 및 피드백을 확인받을 수 있습니다.');
     },

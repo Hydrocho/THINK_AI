@@ -307,12 +307,14 @@
       }
       return res;
     },
-    fetchStudentPublishedLessons: async function () {
+    fetchStudentLiveLesson: async function () {
       return this.invokeAccountFunction("get-student-lessons", {});
     },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
+    openClassLesson: async function (classProjectId, lessonPlanId) { return this.invokeAccountFunction("manage-class-projects", { action: "open_lesson", classProjectId, lessonPlanId }); },
+    closeClassLesson: async function (classProjectId) { return this.invokeAccountFunction("manage-class-projects", { action: "close_lesson", classProjectId }); },
     setLessonStudentAccess: async function (lessonId, studentAccessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_lesson_access", lessonId, studentAccessMode }); },
-    saveThinkStageResponse: async function (lessonPlanId, stageCode, content) { return this.invokeAccountFunction("save-think-stage-response", { lessonPlanId, stageCode, content }); },
+    saveThinkStageResponse: async function (lessonPlanId, stageCode, content, { submit = false } = {}) { return this.invokeAccountFunction("save-think-stage-response", { lessonPlanId, stageCode, content, submit }); },
     setThinkStageAccess: async function (lessonId, stageCode, accessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_think_stage_access", lessonId, stageCode, accessMode }); },
     createProject: async function (payload) {
       return this.invokeAccountFunction("manage-class-projects", {

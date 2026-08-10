@@ -223,6 +223,13 @@ window.TeacherAdminModule = {
         .select('lesson_plan_id,stage_code,access_mode')
         .eq('class_id', classId);
 
+      const { data: openSession } = await client
+        .from('class_sessions')
+        .select('lesson_plan_id')
+        .eq('class_id', classId)
+        .eq('status', 'open')
+        .maybeSingle();
+
       const projectResult = await window.SupabaseService.listProjects();
       const publishedProjects = (projectResult.projects || []).filter(project => project.is_published);
 
@@ -241,7 +248,7 @@ window.TeacherAdminModule = {
           }));
       });
 
-      const openLessonPlanId = null;
+      const openLessonPlanId = openSession?.lesson_plan_id || null;
 
       if (!activeProjects.length) {
         container.innerHTML = `
@@ -502,8 +509,7 @@ window.TeacherAdminModule = {
         await window.SupabaseService.openClassLesson(classProjectId, lessonPlanId);
         await window.ModalService.alert({ title: '수업 차시 오픈 완료', message: '선택하신 차시가 학생들에게 오픈되었습니다.', tone: 'success' });
       } else {
-        const client = window.SupabaseService.getClient();
-        await client.from('class_sessions').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('class_project_id', classProjectId).eq('status', 'open');
+        await window.SupabaseService.closeClassLesson(classProjectId);
         await window.ModalService.alert({ title: '수업 차시 일시 정지', message: '수업 차시가 닫혔습니다.', tone: 'info' });
       }
       if (this.currentActiveClassId) {
