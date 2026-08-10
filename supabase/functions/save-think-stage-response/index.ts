@@ -34,13 +34,18 @@ serve(async req => {
   }
   const classId = resolvedClass.classroom.id;
 
-  const { data: liveSession } = await admin.from("class_sessions")
-    .select("lesson_plan_id")
-    .eq("class_id", classId)
-    .eq("lesson_plan_id", body.lessonPlanId)
-    .eq("status", "open")
+  const { data: lesson } = await admin.from("lesson_plans")
+    .select("id,project_version_id")
+    .eq("id", body.lessonPlanId)
     .maybeSingle();
-  if (!liveSession) return json({ error: "현재 열린 수업의 차시만 작성할 수 있습니다." }, 403);
+  const { data: classProject } = lesson
+    ? await admin.from("class_projects")
+      .select("id,source_version_id")
+      .eq("class_id", classId)
+      .eq("source_version_id", lesson.project_version_id)
+      .maybeSingle()
+    : { data: null };
+  if (!classProject) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
 
   const { data: access } = await admin.from("class_lesson_stage_access")
     .select("access_mode")

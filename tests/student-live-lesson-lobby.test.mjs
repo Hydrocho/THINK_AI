@@ -23,11 +23,13 @@ test('student lobby contains one live lesson target and no PIN or legacy activit
   assert.doesNotMatch(lobby, /fetchActivities|enterByPin|APP_CONFIG\.LESSONS/);
 });
 
-test('student lesson API is based on the student account and an open class session', () => {
-  assert.match(studentLessons, /student_accounts/);
-  assert.match(studentLessons, /class_sessions/);
-  assert.match(studentLessons, /\.eq\(["']status["'],\s*["']open["']\)/);
-  assert.match(studentLessons, /liveLesson/);
+test('student class lesson APIs do not depend on class sessions', () => {
+  assert.doesNotMatch(studentLessons, /class_sessions|liveLesson|sessionId/);
+  assert.doesNotMatch(responseFunction, /class_sessions/);
+  assert.match(studentLessons, /class_projects/);
+  assert.match(studentLessons, /lessons/);
+  assert.match(responseFunction, /source_version_id/);
+  assert.match(responseFunction, /access_mode !== "writable"/);
 });
 
 test('student APIs use the authenticated student account and retain final submission state', () => {
@@ -36,7 +38,6 @@ test('student APIs use the authenticated student account and retain final submis
   assert.match(studentLessons, /submitted_at/);
   assert.match(responseFunction, /auth_user_id/);
   assert.match(responseFunction, /submitted_at/);
-  assert.match(responseFunction, /class_sessions/);
 });
 
 test('opening a lesson scopes existing open sessions to the whole class', () => {

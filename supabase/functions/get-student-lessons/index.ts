@@ -26,35 +26,44 @@ serve(async req => {
   const resolvedClass = await resolveStudentClass(admin, student.student_number);
   if (resolvedClass.error) return json({ error: resolvedClass.error }, 400);
   if (!resolvedClass.classroom) {
-    return json({ liveLesson: null, history: [], classResolution: resolvedClass.reason });
+    return json({ classId: null, lessons: [], history: [], classResolution: resolvedClass.reason });
   }
   const classId = resolvedClass.classroom.id;
 
-  const { data: session, error: sessionError } = await admin.from("class_sessions")
-    .select("id,class_id,lesson_plan_id,opened_at,class_projects!inner(id,source_project_id,title),lesson_plans!inner(id,lesson_order,title,core_question,think_stages,ai_question_limit,ai_response_mode)")
+  const { data: classProjects, error: projectError } = await admin
+    .from("class_projects")
+    .select("id,source_project_id,source_version_id,title")
     .eq("class_id", classId)
-    .eq("status", "open")
-    .order("opened_at", { ascending: false })
-    .maybeSingle();
-  if (sessionError) return json({ error: sessionError.message }, 400);
+    .order("attached_at", { ascending: true });
+  if (projectError) return json({ error: projectError.message }, 400);
 
-  let liveLesson = null;
-  if (session) {
-    const lesson = Array.isArray(session.lesson_plans) ? session.lesson_plans[0] : session.lesson_plans;
-    const project = Array.isArray(session.class_projects) ? session.class_projects[0] : session.class_projects;
-    const { data: accesses, error: accessError } = await admin.from("class_lesson_stage_access")
-      .select("stage_code,access_mode")
-      .eq("class_id", classId)
-      .eq("lesson_plan_id", session.lesson_plan_id);
-    if (accessError) return json({ error: accessError.message }, 400);
-    const thinkStageAccess = Object.fromEntries(stageCodes.map(stage => [stage, "hidden"]));
-    for (const access of accesses || []) thinkStageAccess[access.stage_code] = access.access_mode;
-    liveLesson = {
-      classId,
-      sessionId: session.id,
-      projectId: project.source_project_id,
-      projectTitle: project.title,
-      lesson: {
+  const versionIds = (classProjects || []).map(project => project.source_version_id);
+  const { data: lessonRows, error: lessonError } = versionIds.length
+    ? await admin.from("lesson_plans")
+      .select("id,project_version_id,lesson_order,title,core_question,think_stages,ai_question_limit,ai_response_mode")
+      .in("project_version_id", versionIds)
+      .order("lesson_order", { ascending: true })
+    : { data: [], error: null };
+  if (lessonError) return json({ error: lessonError.message }, 400);
+
+  const { data: accessRows, error: accessError } = await admin.from("class_lesson_stage_access")
+    .select("lesson_plan_id,stage_code,access_mode")
+    .eq("class_id", classId);
+  if (accessError) return json({ error: accessError.message }, 400);
+
+  const projectsByVersion = new Map((classProjects || []).map(project => [project.source_version_id, project]));
+  const stageAccessByLesson = new Map<string, Record<string, string>>();
+  for (const access of accessRows || []) {
+    const thinkStageAccess = stageAccessByLesson.get(access.lesson_plan_id)
+      || Object.fromEntries(stageCodes.map(stage => [stage, "hidden"]));
+    thinkStageAccess[access.stage_code] = access.access_mode;
+    stageAccessByLesson.set(access.lesson_plan_id, thinkStageAccess);
+  }
+  const lessons = (lessonRows || [])
+    .map(lesson => {
+      const project = projectsByVersion.get(lesson.project_version_id);
+      if (!project) return null;
+      return {
         id: lesson.id,
         number: lesson.lesson_order,
         title: lesson.title,
@@ -62,11 +71,14 @@ serve(async req => {
         thinkStages: lesson.think_stages,
         aiQuestionLimit: lesson.ai_question_limit,
         aiResponseMode: lesson.ai_response_mode,
-        thinkStageAccess,
+        thinkStageAccess: stageAccessByLesson.get(lesson.id)
+          || Object.fromEntries(stageCodes.map(stage => [stage, "hidden"])),
+        projectId: project.source_project_id,
         projectTitle: project.title
-      }
-    };
-  }
+      };
+    })
+    .filter((lesson): lesson is NonNullable<typeof lesson> => lesson !== null)
+    .sort((left, right) => left.projectTitle.localeCompare(right.projectTitle) || left.number - right.number);
 
   const { data: responses, error: responseError } = await admin.from("think_stage_responses")
     .select("lesson_plan_id,stage_code,updated_at,submitted_at,lesson_plans!inner(title,project_versions!inner(projects!inner(title)))")
@@ -90,5 +102,5 @@ serve(async req => {
     else if (response.submitted_at) existing.status = "submitted";
   }
 
-  return json({ liveLesson, history: Array.from(historyByLesson.values()) });
+  return json({ classId, lessons, history: Array.from(historyByLesson.values()) });
 });
