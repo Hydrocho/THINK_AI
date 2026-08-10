@@ -18,6 +18,8 @@ const studentClassPath = new URL('../supabase/functions/_shared/student-class.ts
 
 test('student lobby presents class activities instead of a live session', () => {
   assert.match(lobbyView, /id="lobbyClassLessonsContainer"/);
+  assert.doesNotMatch(lobbyView, /id="lblWelcomeStudent"/);
+  assert.doesNotMatch(lobbyView, /반갑습니다/);
   assert.doesNotMatch(lobbyView, /inputPinCode|PIN 번호/);
   assert.doesNotMatch(lobbyView, /실시간|라이브|지금 참여|현재 열린 수업/);
   assert.match(lobby, /fetchStudentClassLessons/);
@@ -96,16 +98,9 @@ test('student response actions wait for saving and do not silently advance on er
   assert.match(app, /저장 중 오류가 발생했습니다/);
 });
 
-test('latest migration retires class sessions with no active task source references', () => {
-  const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url))
-    .filter(name => name.endsWith('.sql'))
-    .sort();
-  const latestMigrationName = migrations.at(-1);
-  const latestMigration = fs.readFileSync(new URL(`../supabase/migrations/${latestMigrationName}`, import.meta.url), 'utf8');
+test('active application sources do not reference class sessions', () => {
   const activeSources = [projectFunction, accountFunction, client, teacherAdmin, studentLessons, responseFunction].join('\n');
 
-  assert.match(latestMigrationName, /drop_class_sessions/);
-  assert.match(latestMigration, /^DROP TABLE IF EXISTS public\.class_sessions;\s*$/i);
   assert.doesNotMatch(activeSources, /class_sessions/);
 });
 

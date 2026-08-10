@@ -30,12 +30,18 @@ window.AuthModule = {
     
     const roleTag = document.getElementById('userRoleTag');
     const userName = document.getElementById('lblUserName');
+    const studentNumberLabel = document.getElementById('lblStudentNumber');
     const logoutBtn = document.getElementById('btnLogout');
 
-    const displayName = state.studentData.name || studentName || (studentNumber ? `${studentNumber}번` : '');
-
-    if (roleTag) roleTag.innerText = '학생';
-    if (userName) userName.innerText = displayName;
+    if (roleTag) {
+      roleTag.innerText = '학생';
+      roleTag.style.display = 'none';
+    }
+    if (studentNumberLabel) {
+      studentNumberLabel.innerText = studentNumber || '';
+      studentNumberLabel.style.display = studentNumber ? 'inline' : 'none';
+    }
+    if (userName) userName.innerText = state.studentData.name || studentName || '';
     if (logoutBtn) logoutBtn.style.display = 'inline-block';
     document.getElementById('userNavArea').style.display = 'flex';
   },
@@ -46,7 +52,6 @@ window.AuthModule = {
     document.getElementById('teacherAppSection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'none';
     document.getElementById('studentLobbySection').style.display = 'grid';
-    document.getElementById('lblWelcomeStudent').innerText = `👋 반갑습니다!`;
     window.StudentLobbyModule.renderLobby(state);
   },
 
