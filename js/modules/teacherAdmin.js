@@ -142,7 +142,7 @@ window.TeacherAdminModule = {
                     <span class="project-card-meta-item">📖 ${lessonCount}개 차시</span>
                   </div>
                 </div>
-                <label class="project-publish-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${p.is_published ? 'checked' : ''} onchange="TeacherAdminModule.setProjectPublished('${p.id}', this.checked)"> 학생 게시</label>
+                <button type="button" class="project-publish-toggle ${p.is_published ? 'is-enabled' : ''}" aria-pressed="${p.is_published ? 'true' : 'false'}" onclick="event.stopPropagation(); TeacherAdminModule.setProjectPublished('${p.id}', ${!p.is_published})">${p.is_published ? '학급 연결 가능' : '학급 연결 안 함'}</button>
                 <button type="button" class="btn btn-danger project-delete-button" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', '${this.escapeHtml(p.title)}')" title="프로젝트 삭제">🗑️</button>
               </div>
               <div class="project-order-actions">
@@ -161,7 +161,7 @@ window.TeacherAdminModule = {
   },
   setProjectPublished: async function (projectId, isPublished) {
     try { await window.SupabaseService.setProjectPublished(projectId, isPublished); await this.renderProjects(); }
-    catch (error) { alert(`학생 게시 상태 변경 실패: ${error.message}`); }
+    catch (error) { alert(`학급 연결 가능 상태 변경 실패: ${error.message}`); }
   },
   moveProject: async function (event, projectId, direction) {
     event.stopPropagation();
@@ -243,8 +243,9 @@ window.TeacherAdminModule = {
         container.innerHTML = `
           <div class="project-empty-state" style="margin-top: 20px;">
             <div class="project-empty-icon">🗂️</div>
-            <div class="project-empty-title">학생 게시된 프로젝트가 없습니다</div>
-            <div class="project-empty-desc">수업 설계에서 프로젝트의 학생 게시를 켜면, 이 학급에 자동으로 표시됩니다.</div>
+            <div class="project-empty-title">연결된 프로젝트가 없습니다</div>
+            <div class="project-empty-desc">학급 연결 가능 프로젝트를 이 학급에 연결하면 차시와 단계 공개 상태를 학급별로 운영할 수 있습니다.</div>
+            <button class="btn btn-primary" onclick="TeacherAdminModule.attachProjectToActiveClassPrompt()">프로젝트 연결하기</button>
           </div>
         `;
         return;
@@ -639,14 +640,14 @@ window.TeacherAdminModule = {
 
   attachProjectPrompt: async function (classId) {
     const result = await window.SupabaseService.listProjects();
-    const projects = result.projects || [];
+    const projects = (result.projects || []).filter(project => project.is_published);
     if (!projects.length) {
-      await window.ModalService.alert({ title: '프로젝트가 없습니다', message: '먼저 수업 설계에서 프로젝트를 만들어 주세요.', tone: 'info' });
+      await window.ModalService.alert({ title: '연결 가능한 프로젝트가 없습니다', message: '수업 설계에서 프로젝트의 학급 연결 가능 토글을 켠 뒤 학급에 연결해 주세요.', tone: 'info' });
       return;
     }
     const projectId = await window.ModalService.select({
       title: '프로젝트 불러오기',
-      message: '학급에 연결할 프로젝트를 선택하세요.',
+      message: '이 학급에서 사용할 연결 가능 프로젝트를 선택하세요.',
       label: '프로젝트 선택',
       options: projects.map(project => ({ value: project.id, label: project.title }))
     });

@@ -149,3 +149,11 @@ test('class and student creation do not persist student class membership', () =>
   assert.doesNotMatch(createClassSource, /Direct DB fallback/);
   assert.match(membershipMigration, /update public\.student_accounts\s+set class_id = null/i);
 });
+
+test('class project connection uses only link-enabled projects and exposes a direct empty-state action', () => {
+  assert.match(teacherAdmin, /filter\(project => project\.is_published\)/);
+  assert.match(teacherAdmin, /프로젝트 연결하기/);
+  assert.match(teacherAdmin, /학급 연결 가능/);
+  assert.match(teacherAdmin, /aria-pressed/);
+  assert.doesNotMatch(teacherAdmin, /학생 게시/);
+});
