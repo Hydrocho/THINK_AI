@@ -18,3 +18,7 @@ test('class link control uses a text label and an accessible visual switch', () 
   assert.match(css, /\.project-link-switch\.is-enabled[\s\S]*background:\s*#00c853/);
   assert.match(css, /\.project-link-switch::after/);
 });
+
+test('class project connection action is not hidden by legacy styling', () => {
+  assert.doesNotMatch(css, /button\[onclick\*="attachProjectToActiveClassPrompt"\]\s*\{\s*display:\s*none !important/);
+});
