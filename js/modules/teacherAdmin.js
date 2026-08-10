@@ -322,18 +322,18 @@ window.TeacherAdminModule = {
                               <thead>
                                 <tr style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); color: var(--text-subtle); font-weight: 700; font-size: 0.82rem;">
                                   <th style="padding: 10px 14px; white-space: nowrap; width: 220px;">구분</th>
-                                  <th style="padding: 10px 14px;">학습 내용</th>
+                                  <th style="padding: 10px 14px;">핵심 목적</th>
                                   <th style="padding: 10px 14px; text-align: right; width: 270px;">상태 설정</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 ${stages.map(st => {
                                   const stageInfoMap = {
-                                    T: { label: 'T (나의 처음 생각)', color: '#ea580c', desc: 'AI에 대한 초기 생각과 경험을 자유롭게 작성합니다.' },
-                                    H: { label: 'H (친구와 생각 나누기)', color: '#16a34a', desc: '모둠별로 AI의 긍정적/부정적 측면을 토론하고 기록합니다.' },
-                                    I: { label: 'I (인공지능과 생각 넓히기)', color: '#0284c7', desc: 'Generative AI 도구를 활용해 새로운 아이디어를 탐색합니다.' },
-                                    N: { label: 'N (비판적으로 따져보기)', color: '#dc2626', desc: 'AI 활용의 윤리적 문제와 한계점을 비판적으로 분석합니다.' },
-                                    K: { label: 'K (나의 최종 생각)', color: '#9333ea', desc: '활동을 통해 변화된 AI에 대한 최종 견해를 정리합니다.' }
+                                    T: { label: 'T (나의 처음 생각)', color: '#ea580c', desc: '외부 의견을 접하기 전에 자신의 초기 생각과 근거 형성' },
+                                    H: { label: 'H (친구와 생각 나누기)', color: '#16a34a', desc: '동료와의 설명·질문·비교를 통해 자신의 생각을 구체화' },
+                                    I: { label: 'I (인공지능과 생각 넓히기)', color: '#0284c7', desc: 'AI를 활용하여 대안과 관점 확장하고 중간 해결안 구성' },
+                                    N: { label: 'N (비판적으로 따져보기)', color: '#dc2626', desc: 'AI 답변과 여러 해결 방안을 비판적으로 검토하고 재구성' },
+                                    K: { label: 'K (나의 최종 생각)', color: '#9333ea', desc: '전체 활동을 바탕으로 자신의 최종 생각을 재구성하고 표현' }
                                   };
                                   const info = stageInfoMap[st] || { label: `${st} (단계)`, color: 'var(--primary-600)', desc: '' };
                                   const currentMode = stageState[st] || 'hidden';
