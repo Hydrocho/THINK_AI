@@ -51,23 +51,18 @@ test('student APIs use the authenticated student account and retain final submis
   assert.match(responseFunction, /submitted_at/);
 });
 
-test('opening a lesson scopes existing open sessions to the whole class', () => {
-  assert.match(projectFunction, /class_id/);
-  assert.match(projectFunction, /status:"closed"/);
-});
+test('teacher and client flows do not expose lesson sessions', () => {
+  const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url));
+  const migrationName = migrations.find(name => name.includes('drop_class_sessions'));
 
-test('teacher class detail derives the open lesson from the active session', () => {
-  assert.match(teacherAdmin, /from\('class_sessions'\)/);
-  assert.match(teacherAdmin, /openLessonPlanId/);
-  assert.doesNotMatch(teacherAdmin, /const openLessonPlanId = null/);
-});
-
-test('client and lobby expose the live-lesson-only entry point', () => {
-  assert.match(client, /fetchStudentLiveLesson:\s*async function/);
-  assert.match(lobby, /enterLiveLesson:\s*function/);
-  assert.match(lobby, /lobbyActiveLessonContainer/);
-  assert.match(lobby, /lobbyHistoryContainer/);
-  assert.doesNotMatch(lobby, /fetchStudentPublishedLessons|fetchActivities|enterByPin/);
+  assert.doesNotMatch(projectFunction, /open_lesson|close_lesson|class_sessions/);
+  assert.doesNotMatch(accountFunction, /class_sessions/);
+  assert.doesNotMatch(client, /openClassLesson|closeClassLesson|class_sessions/);
+  assert.doesNotMatch(teacherAdmin, /class_sessions|toggleClassLessonSession/);
+  assert.match(client, /fetchStudentClassLessons:\s*async function/);
+  assert.ok(migrationName, 'expected a drop_class_sessions migration');
+  const dropSessionsMigration = fs.readFileSync(new URL(`../supabase/migrations/${migrationName}`, import.meta.url), 'utf8');
+  assert.match(dropSessionsMigration, /^DROP TABLE IF EXISTS public\.class_sessions;\s*$/i);
 });
 
 test('student THINK screen uses the active live lesson instead of sample lessons', () => {

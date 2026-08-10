@@ -237,16 +237,11 @@
         }
       }
 
-      // 5. Clean up class_sessions (via class_projects linkage) and class_projects links
+      // 5. Clean up class-project links
       try {
-        const { data: cps } = await supabaseClient.from("class_projects").select("id").eq("class_id", classId);
-        const cpIds = (cps || []).map(cp => cp.id);
-        if (cpIds.length > 0) {
-          await supabaseClient.from("class_sessions").delete().in("class_project_id", cpIds);
-        }
         await supabaseClient.from("class_projects").delete().eq("class_id", classId);
       } catch (e) {
-        console.warn("Notice class sessions links cleanup:", e);
+        console.warn("Notice class-project links cleanup:", e);
       }
 
       // 6. Delete the class record with .select() verification
@@ -284,12 +279,10 @@
       }
       return res;
     },
-    fetchStudentLiveLesson: async function () {
+    fetchStudentClassLessons: async function () {
       return this.invokeAccountFunction("get-student-lessons", {});
     },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
-    openClassLesson: async function (classProjectId, lessonPlanId) { return this.invokeAccountFunction("manage-class-projects", { action: "open_lesson", classProjectId, lessonPlanId }); },
-    closeClassLesson: async function (classProjectId) { return this.invokeAccountFunction("manage-class-projects", { action: "close_lesson", classProjectId }); },
     setLessonStudentAccess: async function (lessonId, studentAccessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_lesson_access", lessonId, studentAccessMode }); },
     saveThinkStageResponse: async function (lessonPlanId, stageCode, content, { submit = false } = {}) { return this.invokeAccountFunction("save-think-stage-response", { lessonPlanId, stageCode, content, submit }); },
     setThinkStageAccess: async function (lessonId, stageCode, accessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_think_stage_access", lessonId, stageCode, accessMode }); },

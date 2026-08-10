@@ -216,26 +216,13 @@ window.TeacherAdminModule = {
         .order('attached_at', { ascending: false });
 
       const attachedCP = classProjects?.[0];
-      const attachedProjectId = attachedCP?.id || '';
 
       const { data: stageAccesses } = await client
         .from('class_lesson_stage_access')
         .select('lesson_plan_id,stage_code,access_mode')
         .eq('class_id', classId);
 
-      const { data: openSession } = await client
-        .from('class_sessions')
-        .select('lesson_plan_id')
-        .eq('class_id', classId)
-        .eq('status', 'open')
-        .maybeSingle();
-
-      const projectResult = await window.SupabaseService.listProjects();
-      const publishedProjects = (projectResult.projects || []).filter(project => project.is_published);
-
-      const activeProjects = publishedProjects.length
-        ? publishedProjects
-        : (attachedCP?.projects ? [attachedCP.projects] : []);
+      const activeProjects = attachedCP?.projects ? [attachedCP.projects] : [];
       const sortedLessons = activeProjects.flatMap(project => {
         const projectLessons = project.project_versions?.[0]?.lesson_plans || [];
         return [...projectLessons]
@@ -247,8 +234,6 @@ window.TeacherAdminModule = {
             projectLessonCount: projectLessons.length
           }));
       });
-
-      const openLessonPlanId = openSession?.lesson_plan_id || null;
 
       if (!activeProjects.length) {
         container.innerHTML = `
@@ -266,7 +251,6 @@ window.TeacherAdminModule = {
       container.innerHTML = `
         <div style="display: flex; flex-direction: column; gap: 14px;">
           ${sortedLessons.map((l, i) => {
-            const isOpen = l.id === openLessonPlanId;
             const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
             const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
             const firstLessonOfProject = i === 0 || sortedLessons[i - 1].projectId !== l.projectId;
@@ -280,10 +264,10 @@ window.TeacherAdminModule = {
                   </div>
                 </section>
               ` : ''}
-              <div style="background: #ffffff; border: 2px solid ${isOpen ? 'var(--primary-500)' : 'var(--border-light)'}; border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
+              <div style="background: #ffffff; border: 2px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                   <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: ${isOpen ? 'var(--primary-600)' : 'var(--bg-sidebar)'}; color: ${isOpen ? '#ffffff' : 'var(--text-main)'}; font-weight: 800; font-size: 0.9rem;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem;">
                       ${l.lesson_order || i + 1}
                     </span>
                     <div>
@@ -296,19 +280,8 @@ window.TeacherAdminModule = {
                     </div>
                   </div>
 
-                  <div class="legacy-session-actions">
-                    <span class="project-status-badge ${isOpen ? 'published' : 'private'}">
-                      ${isOpen ? '🟢 현재 오픈 중' : '🔒 수업 대기'}
-                    </span>
-                    ${isOpen ? `
-                      <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedProjectId}', '${l.id}', false)" ${attachedProjectId ? '' : 'disabled'}>
-                        ⏸️ 수업 닫기
-                      </button>
-                    ` : `
-                      <button class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedProjectId}', '${l.id}', true)" ${attachedProjectId ? '' : 'disabled'}>
-                        🚀 이 차시로 수업 열기
-                      </button>
-                    `}
+                  <div>
+                    <span class="project-status-badge published">📎 수업 연결됨</span>
                   </div>
                 </div>
 
@@ -366,28 +339,17 @@ window.TeacherAdminModule = {
         return;
       }
 
-      // Fetch attached projects & sessions
+      // Fetch attached projects
       const { data: classProjects } = await client
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .order('attached_at', { ascending: false });
 
-      const { data: classSessions } = await client
-        .from('class_sessions')
-        .select('*,lesson_plans(*)')
-        .eq('status', 'open');
-
-      const projectResult = await window.SupabaseService.listProjects();
-      const publishedProjects = (projectResult.projects || []).filter(project => project.is_published);
-
       el.innerHTML = `
         <div class="project-card-grid">
           ${classes.map(c => {
             const attachedCP = (classProjects || []).find(cp => cp.class_id === c.id);
-            const attachedProject = publishedProjects[0] || attachedCP?.projects;
-            const lessons = attachedProject?.project_versions?.[0]?.lesson_plans || [];
-            const openSession = (classSessions || []).find(cs => cs.class_project_id === attachedCP?.id);
-            const openLesson = openSession?.lesson_plans;
+            const attachedProject = attachedCP?.projects;
             const className = `${c.grade_number}학년 ${c.class_number}반`;
 
             return `
@@ -395,8 +357,8 @@ window.TeacherAdminModule = {
                 <div onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer;">
                   <div class="project-card-header">
                     <h4 class="project-card-title">🏫 ${className}</h4>
-                    <span class="project-status-badge ${openSession ? 'published' : (attachedProject ? 'private' : '')}">
-                      ${openSession ? '🟢 수업 진행 중' : (attachedProject ? '🔒 수업 대기' : '⏸️ 미연결')}
+                    <span class="project-status-badge ${attachedProject ? 'published' : ''}">
+                      ${attachedProject ? '📎 수업 연결됨' : '⏸️ 미연결'}
                     </span>
                   </div>
 
@@ -405,7 +367,7 @@ window.TeacherAdminModule = {
                       ${attachedProject ? `🗂️ ${this.escapeHtml(attachedProject.title)}` : '연결된 프로젝트가 없습니다'}
                     </div>
                     <p class="project-card-desc" style="font-size: 0.85rem; color: var(--text-subtle); margin: 0;">
-                      ${openLesson ? `💡 열린 차시: <strong>${this.escapeHtml(openLesson.title)}</strong>` : (attachedProject ? '프로젝트가 연결되었습니다. 클릭하여 차시를 열어주세요.' : '클릭하여 세부 페이지에서 프로젝트를 연결하세요.')}
+                      ${attachedProject ? '프로젝트가 연결되었습니다. 클릭하여 단계별 접근 권한을 관리하세요.' : '클릭하여 세부 페이지에서 프로젝트를 연결하세요.'}
                     </p>
                   </div>
                 </div>
@@ -501,23 +463,6 @@ window.TeacherAdminModule = {
     }
     await this.attachProjectPrompt(this.currentActiveClassId);
     await this.openClassDetailSubView(this.currentActiveClassId);
-  },
-
-  toggleClassLessonSession: async function (classProjectId, lessonPlanId, shouldOpen) {
-    try {
-      if (shouldOpen) {
-        await window.SupabaseService.openClassLesson(classProjectId, lessonPlanId);
-        await window.ModalService.alert({ title: '수업 차시 오픈 완료', message: '선택하신 차시가 학생들에게 오픈되었습니다.', tone: 'success' });
-      } else {
-        await window.SupabaseService.closeClassLesson(classProjectId);
-        await window.ModalService.alert({ title: '수업 차시 일시 정지', message: '수업 차시가 닫혔습니다.', tone: 'info' });
-      }
-      if (this.currentActiveClassId) {
-        this.openClassDetailSubView(this.currentActiveClassId);
-      }
-    } catch (err) {
-      alert(`수업 처리 중 오류가 발생했습니다: ${err.message}`);
-    }
   },
 
   detachProjectFromClass: async function (classProjectId) {
@@ -633,7 +578,7 @@ window.TeacherAdminModule = {
                   <div class="project-card-header">
                     <h4 class="project-card-title">🏫 ${c.grade_number}학년 ${c.class_number}반</h4>
                     <span class="project-status-badge ${attachedProject ? 'published' : ''}">
-                      ${attachedProject ? '🟢 수업 연동' : '⏸️ 수업 미연결'}
+                      ${attachedProject ? '📎 수업 연결됨' : '⏸️ 미연결'}
                     </span>
                   </div>
 

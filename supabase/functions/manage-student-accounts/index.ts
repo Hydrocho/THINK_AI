@@ -86,11 +86,6 @@ serve(async (req) => {
       await admin.from("teacher_assessments").delete().in("activity_id", activityIds).in("student_id", classStudentIds);
     }
 
-    const { data: cps } = await admin.from("class_projects").select("id").eq("class_id", body.classId);
-    const cpIds = (cps || []).map((cp: any) => cp.id);
-    if (cpIds.length > 0) {
-      await admin.from("class_sessions").delete().in("class_project_id", cpIds);
-    }
     await admin.from("class_projects").delete().eq("class_id", body.classId);
 
     const { error: delClassErr } = await admin.from("classes").delete().eq("id", body.classId);
