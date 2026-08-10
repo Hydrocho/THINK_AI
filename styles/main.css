@@ -309,6 +309,39 @@ body {
   border-color: var(--primary-600);
 }
 
+/* Stage-specific brand colors for T, H, I, N, K */
+.think-step-item[data-stage="T"] .step-icon-badge { border-color: #ea580c; color: #ea580c; background: #fff7ed; }
+.think-step-item[data-stage="T"].active { background: #fff7ed; border-color: #fed7aa; border-left: 4px solid #ea580c; color: #9a3412; }
+.think-step-item[data-stage="T"].active .step-icon-badge { background: #ea580c; color: #ffffff; border-color: #ea580c; }
+
+.think-step-item[data-stage="H"] .step-icon-badge { border-color: #16a34a; color: #16a34a; background: #f0fdf4; }
+.think-step-item[data-stage="H"].active { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; color: #166534; }
+.think-step-item[data-stage="H"].active .step-icon-badge { background: #16a34a; color: #ffffff; border-color: #16a34a; }
+
+.think-step-item[data-stage="I"] .step-icon-badge { border-color: #0284c7; color: #0284c7; background: #f0f9ff; }
+.think-step-item[data-stage="I"].active { background: #f0f9ff; border-color: #bae6fd; border-left: 4px solid #0284c7; color: #075985; }
+.think-step-item[data-stage="I"].active .step-icon-badge { background: #0284c7; color: #ffffff; border-color: #0284c7; }
+
+.think-step-item[data-stage="N"] .step-icon-badge { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+.think-step-item[data-stage="N"].active { background: #fef2f2; border-color: #fecaca; border-left: 4px solid #dc2626; color: #991b1b; }
+.think-step-item[data-stage="N"].active .step-icon-badge { background: #dc2626; color: #ffffff; border-color: #dc2626; }
+
+.think-step-item[data-stage="K"] .step-icon-badge { border-color: #9333ea; color: #9333ea; background: #faf5ff; }
+.think-step-item[data-stage="K"].active { background: #faf5ff; border-color: #e9d5ff; border-left: 4px solid #9333ea; color: #6b21a8; }
+.think-step-item[data-stage="K"].active .step-icon-badge { background: #9333ea; color: #ffffff; border-color: #9333ea; }
+
+#stepTagBadge[data-stage="T"] { background: #fff7ed; border-color: #fed7aa; color: #ea580c; }
+#stepTagBadge[data-stage="H"] { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; }
+#stepTagBadge[data-stage="I"] { background: #f0f9ff; border-color: #bae6fd; color: #0284c7; }
+#stepTagBadge[data-stage="N"] { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+#stepTagBadge[data-stage="K"] { background: #faf5ff; border-color: #e9d5ff; color: #9333ea; }
+
+.question-card[data-stage="T"] { background: #fff7ed; border-color: #fed7aa; border-left: 4px solid #ea580c; color: #9a3412; }
+.question-card[data-stage="H"] { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; color: #166534; }
+.question-card[data-stage="I"] { background: #f0f9ff; border-color: #bae6fd; border-left: 4px solid #0284c7; color: #075985; }
+.question-card[data-stage="N"] { background: #fef2f2; border-color: #fecaca; border-left: 4px solid #dc2626; color: #991b1b; }
+.question-card[data-stage="K"] { background: #faf5ff; border-color: #e9d5ff; border-left: 4px solid #9333ea; color: #6b21a8; }
+
 .think-step-item.completed .step-icon-badge {
   background: var(--success-bg);
   color: var(--success-text);
@@ -941,8 +974,14 @@ body.modal-open { overflow: hidden; }
 .legacy-session-actions { display:none !important; }
 .think-stage-access-panel{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.think-stage-access{display:flex;align-items:center;gap:3px;font-size:.75rem}.think-stage-access button{border:1px solid var(--border-medium);background:#fff;border-radius:5px;padding:2px 5px;font:inherit;cursor:pointer}.think-stage-access button.active{background:var(--primary-600);border-color:var(--primary-600);color:#fff}
 .class-stage-access-controls{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-light)}.class-stage-access-controls span{display:flex;align-items:center;gap:3px;font-size:.76rem}.class-stage-access-controls button{border:1px solid var(--border-medium);background:#fff;border-radius:5px;padding:3px 6px;cursor:pointer}.class-stage-access-controls button.active{background:var(--primary-600);border-color:var(--primary-600);color:#fff}
+.stage-access-pill-group{display:inline-flex;background:var(--bg-sidebar);border:1px solid var(--border-medium);border-radius:20px;padding:2px;gap:2px}
+.stage-access-pill-group .pill-btn{border:none;background:transparent;padding:4px 10px;border-radius:16px;font-size:.78rem;font-weight:600;color:var(--text-subtle);cursor:pointer;transition:all .2s ease;white-space:nowrap}
+.stage-access-pill-group .pill-btn:hover{background:rgba(0,0,0,.04)}
+.stage-access-pill-group .pill-btn.active-hidden{background:#334155;color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.stage-access-pill-group .pill-btn.active-readonly{background:#0284c7;color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(2,132,199,.25)}
+.stage-access-pill-group .pill-btn.active-writable{background:#16a34a;color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(22,163,74,.25)}
 .class-project-lesson-section{margin:12px 0 -4px}.class-project-lesson-section-title{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-left:4px solid var(--primary-500);background:var(--primary-50);border-radius:var(--radius-sm);color:var(--primary-800);font-weight:800}.class-project-lesson-section-title small{font-size:.78rem;font-weight:700;color:var(--text-subtle)}
-.class-detail-back-row{margin:0 0 12px}
+.class-detail-back-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 16px;flex-wrap:wrap}
 #projectDesignList .project-list-row .project-order-actions { flex:0 0 28px; align-self:center; display:flex; flex-direction:column; gap:3px; }
 
 @media (max-width:760px){#projectDesignList .project-list-row .project-card{flex-direction:column;align-items:flex-start;gap:8px;}#projectDesignList .project-list-row .project-card-header,#projectDesignList .project-list-row .project-card-details{width:100%;flex-basis:auto;align-items:flex-start;flex-direction:column;gap:8px;}}

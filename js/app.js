@@ -136,6 +136,24 @@
       this.renderCurrentStep();
     },
 
+    selectLesson: function (index) {
+      state.currentLessonIndex = parseInt(index);
+      state.currentStep = 1;
+      
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      if (!lesson) return;
+
+      const lblLesson = document.getElementById('currentLessonLabel');
+      const projectTitle = document.getElementById('currentProjectTitle');
+      const mainTitle = document.getElementById('stepMainTitle');
+      if (lblLesson) lblLesson.innerText = `${lesson.number}차시 활동 진행 중`;
+      if (projectTitle) projectTitle.innerText = lesson.projectTitle || '진행 중인 프로젝트';
+      if (mainTitle) mainTitle.innerText = lesson.coreQuestion || lesson.core_question || lesson.question;
+
+      this.updateStepNav();
+      this.renderCurrentStep();
+    },
+
     goToStep: function (stepNum) {
       state.currentStep = stepNum;
       this.updateStepNav();
@@ -162,9 +180,9 @@
           const isCompleted = stepIndex < state.currentStep;
           const info = stageInfoMap[stageCode] || { name: stageCode, code: stageCode };
           return `
-            <li class="think-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" onclick="App.goToStep(${stepIndex})">
+            <li class="think-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" data-stage="${stageCode}" onclick="App.goToStep(${stepIndex})">
               <span class="step-icon-badge">${stageCode}</span>
-              <span>${stepIndex}. ${info.name}</span>
+              <span>${info.name}</span>
             </li>
           `;
         }).join('');
@@ -175,7 +193,10 @@
 
       const badge = document.getElementById('stepTagBadge');
       const title = document.getElementById('stepSubTitleBadge');
-      if (badge) badge.innerText = `${info.code} ${state.currentStep}/${activeStages.length}`;
+      if (badge) {
+        badge.innerText = `${info.code} ${state.currentStep}/${activeStages.length}`;
+        badge.setAttribute('data-stage', currentStageCode);
+      }
       if (title) title.innerText = info.title;
     },
 
@@ -183,13 +204,7 @@
       window.StudentThinkModule.renderStep(state);
     },
 
-    // Student Actions
     installThinkDraftAutosave: function () {
-      if (state.thinkDraftAutosaveInstalled) return;
-      state.thinkDraftAutosaveInstalled = true;
-      state.thinkDraftLastSaved = new Map();
-      state.thinkDraftTimers = new Map();
-      state.thinkDraftMaxTimers = new Map();
       document.addEventListener('input', event => {
         const field = event.target;
         if (!field.matches('#txtInitialThought, #txtPeerRationale, #txtFinalThought')) return;
@@ -211,8 +226,6 @@
     saveThinkDraft: async function (stageCode, value) {
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
       if (!lesson?.id || (lesson.thinkStageAccess || lesson.think_stage_access)?.[stageCode] !== 'writable') return;
-      const fieldId = stageCode === 'T' ? 'txtInitialThought' : stageCode === 'N' ? 'txtPeerRationale' : 'txtFinalThought';
-      const content = typeof value === 'string' ? value : document.getElementById(fieldId)?.value || '';
       const key = `${lesson.id}:${stageCode}`;
       if (!content.trim() || state.thinkDraftLastSaved.get(key) === content) return;
       try { await window.SupabaseService.saveThinkStageResponse(lesson.id, stageCode, content); state.thinkDraftLastSaved.set(key, content); }

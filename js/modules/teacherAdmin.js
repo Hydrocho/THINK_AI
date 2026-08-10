@@ -316,17 +316,54 @@ window.TeacherAdminModule = {
                             </div>
                           </div>
 
-                          <!-- THINK Stages Badges -->
-                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-light); display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-subtle); margin-right: 4px;">포함 단계:</span>
-                            ${stages.map(st => `
-                              <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--primary-50); color: var(--primary-800); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--primary-200);">
-                                ${stageLabels[st] || st}
-                              </span>
-                            `).join('')}
-                          </div>
-                          <div class="class-stage-access-controls">
-                            ${stages.map(st => `<span><b>${st}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${(stageState[st] || 'hidden') === mode ? 'active' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','${mode}')">${label}</button>`).join('')}</span>`).join('')}
+                          <!-- Structured THINK Stage Access Table -->
+                          <div style="margin-top: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; background: #ffffff;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: left;">
+                              <thead>
+                                <tr style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); color: var(--text-subtle); font-weight: 700; font-size: 0.82rem;">
+                                  <th style="padding: 10px 14px; white-space: nowrap; width: 220px;">구분</th>
+                                  <th style="padding: 10px 14px;">학습 내용</th>
+                                  <th style="padding: 10px 14px; text-align: right; width: 270px;">상태 설정</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                ${stages.map(st => {
+                                  const stageInfoMap = {
+                                    T: { label: 'T (나의 처음 생각)', color: '#ea580c', desc: 'AI에 대한 초기 생각과 경험을 자유롭게 작성합니다.' },
+                                    H: { label: 'H (친구와 생각 나누기)', color: '#16a34a', desc: '모둠별로 AI의 긍정적/부정적 측면을 토론하고 기록합니다.' },
+                                    I: { label: 'I (인공지능과 생각 넓히기)', color: '#0284c7', desc: 'Generative AI 도구를 활용해 새로운 아이디어를 탐색합니다.' },
+                                    N: { label: 'N (비판적으로 따져보기)', color: '#dc2626', desc: 'AI 활용의 윤리적 문제와 한계점을 비판적으로 분석합니다.' },
+                                    K: { label: 'K (나의 최종 생각)', color: '#9333ea', desc: '활동을 통해 변화된 AI에 대한 최종 견해를 정리합니다.' }
+                                  };
+                                  const info = stageInfoMap[st] || { label: `${st} (단계)`, color: 'var(--primary-600)', desc: '' };
+                                  const currentMode = stageState[st] || 'hidden';
+
+                                  return `
+                                    <tr style="border-bottom: 1px solid var(--border-light);">
+                                      <td style="padding: 11px 14px; font-weight: 700; color: ${info.color}; white-space: nowrap;">
+                                        ${info.label}
+                                      </td>
+                                      <td style="padding: 11px 14px; color: var(--text-subtle); font-size: 0.84rem;">
+                                        ${info.desc}
+                                      </td>
+                                      <td style="padding: 9px 14px; text-align: right;">
+                                        <div class="stage-access-pill-group">
+                                          <button type="button" class="pill-btn ${currentMode === 'hidden' ? 'active-hidden' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','hidden')">
+                                            🔒 비공개
+                                          </button>
+                                          <button type="button" class="pill-btn ${currentMode === 'read_only' ? 'active-readonly' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
+                                            👁️ 읽기 전용
+                                          </button>
+                                          <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
+                                            ✍️ 작성 가능
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  `;
+                                }).join('')}
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       `;
@@ -386,8 +423,8 @@ window.TeacherAdminModule = {
       el.innerHTML = `
         <div class="project-card-grid">
           ${classes.map(c => {
-            const attachedCP = (classProjects || []).find(cp => cp.class_id === c.id);
-            const attachedProject = attachedCP?.projects;
+            const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
+            const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
             const className = `${c.grade_number}학년 ${c.class_number}반`;
 
             return `
@@ -395,18 +432,17 @@ window.TeacherAdminModule = {
                 <div onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer;">
                   <div class="project-card-header">
                     <h4 class="project-card-title">🏫 ${className}</h4>
-                    <span class="project-status-badge ${attachedProject ? 'published' : ''}">
-                      ${attachedProject ? '📎 수업 연결됨' : '⏸️ 미연결'}
-                    </span>
                   </div>
 
-                  <div class="project-card-body" style="margin-top: 14px;">
-                    <div style="font-size: 0.98rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">
-                      ${attachedProject ? `🗂️ ${this.escapeHtml(attachedProject.title)}` : '연결된 프로젝트가 없습니다'}
-                    </div>
-                    <p class="project-card-desc" style="font-size: 0.85rem; color: var(--text-subtle); margin: 0;">
-                      ${attachedProject ? '프로젝트가 연결되었습니다. 클릭하여 단계별 접근 권한을 관리하세요.' : '클릭하여 세부 페이지에서 프로젝트를 연결하세요.'}
-                    </p>
+                  <div class="project-card-body" style="margin-top: 10px; padding-left: 24px; display: flex; flex-direction: column; gap: 8px;">
+                    ${attachedTitles.length > 0
+                      ? attachedTitles.map(title => `
+                        <div style="font-size: 0.96rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                          <span>🗂️</span> ${title}
+                        </div>
+                      `).join('')
+                      : '<div style="font-size: 0.88rem; font-weight: 600; color: var(--text-subtle);">연결된 프로젝트가 없습니다</div>'
+                    }
                   </div>
                 </div>
 
@@ -519,7 +555,6 @@ window.TeacherAdminModule = {
       } catch (err) {}
     }
 
-    await window.ModalService.alert({ title: '연결 해제 완료', message: '학급 프로젝트 연결이 해제되었습니다.', tone: 'success' });
     if (this.currentActiveClassId) {
       await this.openClassDetailSubView(this.currentActiveClassId);
     }
@@ -682,16 +717,29 @@ window.TeacherAdminModule = {
   },
 
   attachProjectPrompt: async function (classId) {
+    const client = window.SupabaseService.getClient();
+    const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+
     const result = await window.SupabaseService.listProjects();
     const projects = (result.projects || []).filter(project => project.is_published);
     if (!projects.length) {
       await window.ModalService.alert({ title: '연결 가능한 프로젝트가 없습니다', message: '수업 설계에서 프로젝트의 학급 연결 가능 토글을 켠 뒤 학급에 연결해 주세요.', tone: 'info' });
       return;
     }
+
+    const { data: rawClassProjects } = await client
+      .from('class_projects')
+      .select('*')
+      .eq('class_id', classId);
+
+    const activeClassProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
+    const currentAttachedProjectIds = activeClassProjects.map(cp => cp.source_project_id);
+
     const selectedProjectIds = await window.ModalService.selectCards({
-      title: '프로젝트 불러오기',
-      message: '이 학급에서 사용할 연결 가능 프로젝트를 선택하세요. (다중 선택 가능)',
+      title: '프로젝트 연결 관리',
+      message: '이 학급에서 사용할 프로젝트를 체크/해제하세요. 체크된 프로젝트만 학급에 연결됩니다.',
       multiSelect: true,
+      initialValues: currentAttachedProjectIds,
       options: projects.map(project => {
         const lessons = project.project_versions?.[0]?.lesson_plans || [];
         const sortedLessons = [...lessons].sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0));
@@ -704,24 +752,40 @@ window.TeacherAdminModule = {
         };
       })
     });
-    if (!selectedProjectIds || selectedProjectIds.length === 0) return;
 
-    let attachedCount = 0;
-    for (const projectId of selectedProjectIds) {
+    if (selectedProjectIds === null) return;
+
+    const projectsToAdd = selectedProjectIds.filter(id => !currentAttachedProjectIds.includes(id));
+    const projectIdsToRemove = currentAttachedProjectIds.filter(id => !selectedProjectIds.includes(id));
+
+    for (const projectId of projectsToAdd) {
       const project = projects.find(item => item.id === projectId);
       const version = project?.project_versions?.[0];
       if (version) {
         await window.SupabaseService.attachProjectToClass(classId, version.id, project.title);
-        attachedCount++;
       }
     }
 
-    await window.ModalService.alert({
-      title: '프로젝트 연결 완료',
-      message: `${attachedCount}개의 프로젝트를 학급에 성공적으로 연결했습니다.`,
-      tone: 'success'
-    });
+    for (const projectId of projectIdsToRemove) {
+      const cpToRemoveList = activeClassProjects.filter(cp => cp.source_project_id === projectId);
+      for (const cp of cpToRemoveList) {
+        if (!detachedIds.includes(cp.id)) {
+          detachedIds.push(cp.id);
+        }
+        if (window.SupabaseService && window.SupabaseService.detachProjectFromClass) {
+          try {
+            await window.SupabaseService.detachProjectFromClass(cp.id);
+          } catch (e) {}
+        }
+      }
+    }
+    localStorage.setItem('think_detached_class_projects', JSON.stringify(detachedIds));
+
     this.renderClassOperations();
+    this.renderClassManagement();
+    if (this.currentActiveClassId === classId) {
+      await this.openClassDetailSubView(classId);
+    }
   },
 
   renderEvalTable: async function () {

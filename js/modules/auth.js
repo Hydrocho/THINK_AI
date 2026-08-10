@@ -29,8 +29,13 @@ window.AuthModule = {
     const roleTag = document.getElementById('userRoleTag');
     const userName = document.getElementById('lblUserName');
     const logoutBtn = document.getElementById('btnLogout');
+
+    const grade = studentNumber.length >= 5 ? studentNumber.charAt(0) : '3';
+    const cls = studentNumber.length >= 5 ? parseInt(studentNumber.substring(1, 3)) : '1';
+    const sNo = studentNumber.length >= 5 ? parseInt(studentNumber.substring(3, 5)) : studentNumber;
+
     if (roleTag) roleTag.innerText = '학생';
-    if (userName) userName.innerText = `${studentNumber}번`;
+    if (userName) userName.innerText = `${grade}학년 ${cls}반 ${sNo}번 (${studentNumber})`;
     if (logoutBtn) logoutBtn.style.display = 'inline-block';
     document.getElementById('userNavArea').style.display = 'flex';
   },
@@ -41,10 +46,7 @@ window.AuthModule = {
     document.getElementById('teacherAppSection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'none';
     document.getElementById('studentLobbySection').style.display = 'grid';
-    const grade = studentNumber.length >= 5 ? studentNumber.charAt(0) : '3';
-    const cls = studentNumber.length >= 5 ? parseInt(studentNumber.substring(1, 3)) : '2';
-    const sNo = studentNumber.length >= 5 ? parseInt(studentNumber.substring(3, 5)) : studentNumber;
-    document.getElementById('lblWelcomeStudent').innerText = `안녕하세요, ${grade}학년 ${cls}반 ${sNo}번(${studentNumber}) 학생!`;
+    document.getElementById('lblWelcomeStudent').innerText = `👋 반갑습니다!`;
     window.StudentLobbyModule.renderLobby(state);
   },
 

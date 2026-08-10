@@ -3,6 +3,12 @@
   
   <!-- Sidebar Navigation: LMS Style Course Navigation -->
   <aside class="sidebar">
+    <div style="margin-bottom: 16px;">
+      <button type="button" class="btn btn-secondary" onclick="StudentLobbyModule.exitToLobby()" style="width: 100%; padding: 7px 12px; font-size: 0.84rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--border-medium); background: #ffffff;">
+        ← 수업 로비로 (목록)
+      </button>
+    </div>
+
     <div>
       <div class="sidebar-title">진행 중인 프로젝트</div>
       <div class="activity-badge-box" style="margin-top: 10px;">
@@ -16,23 +22,23 @@
       <ul class="think-steps-list">
         <li class="think-step-item active" id="stepNavItem-1" onclick="App.goToStep(1)">
           <span class="step-icon-badge">T</span>
-          <span>1. 나의 처음 생각</span>
+          <span>나의 처음 생각</span>
         </li>
         <li class="think-step-item" id="stepNavItem-2" onclick="App.goToStep(2)">
           <span class="step-icon-badge">H</span>
-          <span>2. 친구와 생각 나누기</span>
+          <span>친구와 생각 나누기</span>
         </li>
         <li class="think-step-item" id="stepNavItem-3" onclick="App.goToStep(3)">
           <span class="step-icon-badge">I</span>
-          <span>3. 인공지능과 생각 넓히기</span>
+          <span>인공지능과 생각 넓히기</span>
         </li>
         <li class="think-step-item" id="stepNavItem-4" onclick="App.goToStep(4)">
           <span class="step-icon-badge">N</span>
-          <span>4. 비판적으로 따져보기</span>
+          <span>비판적으로 따져보기</span>
         </li>
         <li class="think-step-item" id="stepNavItem-5" onclick="App.goToStep(5)">
           <span class="step-icon-badge">K</span>
-          <span>5. 나의 최종 생각</span>
+          <span>나의 최종 생각</span>
         </li>
       </ul>
     </div>
@@ -44,9 +50,14 @@
     
     <!-- Step Header -->
     <div class="step-header">
-      <div class="step-tag-row">
-        <span class="role-tag" id="stepTagBadge">T - STEP 1</span>
-        <span style="font-size: 0.85rem; color: var(--text-subtle);" id="stepSubTitleBadge">1단계 · 개인 사고 형성</span>
+      <div class="step-tag-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="StudentLobbyModule.exitToLobby()" style="padding: 5px 12px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border-color: var(--border-medium); background: #ffffff;">
+          ← 수업 로비로
+        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="role-tag" id="stepTagBadge">T - STEP 1</span>
+          <span style="font-size: 0.85rem; color: var(--text-subtle);" id="stepSubTitleBadge">1단계 · 개인 사고 형성</span>
+        </div>
       </div>
       <h1 class="step-main-title" id="stepMainTitle">사람에게 나타나는 다양한 특징 중 부모에게서 물려받는 것은 어떤 것이 있을까?</h1>
     </div>

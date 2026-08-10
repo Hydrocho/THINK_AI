@@ -196,12 +196,12 @@
     }
   });
 
-  const selectCards = ({ title, message, options = [], confirmLabel = '선택', cancelLabel = '취소', tone = 'info', multiSelect = true }) => openDialog({
+  const selectCards = ({ title, message, options = [], initialValues = null, confirmLabel = '선택', cancelLabel = '취소', tone = 'info', multiSelect = true }) => openDialog({
     title, message, tone, wide: true, cancelResult: null,
     controls: (area) => {
       let selectedValues = multiSelect
-        ? (options.length > 0 ? [options[0].value] : [])
-        : (options.length > 0 ? options[0].value : null);
+        ? (Array.isArray(initialValues) ? [...initialValues] : (options.length > 0 ? [options[0].value] : []))
+        : (initialValues !== null ? initialValues : (options.length > 0 ? options[0].value : null));
 
       const container = document.createElement('div');
       container.className = 'modal-card-grid';

@@ -76,5 +76,12 @@ window.StudentLobbyModule = {
     document.getElementById('studentLobbySection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'grid';
     window.App.selectLesson(lessonIndex);
+  },
+
+  exitToLobby: function () {
+    const appSec = document.getElementById('studentAppSection');
+    const lobbySec = document.getElementById('studentLobbySection');
+    if (appSec) appSec.style.display = 'none';
+    if (lobbySec) lobbySec.style.display = 'grid';
   }
 };

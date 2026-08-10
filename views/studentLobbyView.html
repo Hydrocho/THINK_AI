@@ -1,18 +1,37 @@
 <!-- Student Lobby View (Shown only after login) -->
-<section id="studentLobbySection" class="main-shell" style="display: none; grid-template-columns: 1fr;">
-  <div style="max-width: 880px; margin: 32px auto; width: 100%; padding: 0 20px; display: flex; flex-direction: column; gap: 24px;">
+<section id="studentLobbySection" class="main-shell" style="display: none; grid-template-columns: 280px 1fr; gap: 24px;">
+  
+  <!-- Sidebar Navigation: Student LMS Style Navigation -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-title" style="margin-bottom: 12px;">학급 메인 메뉴</div>
+      <ul class="think-steps-list">
+        <li class="think-step-item active" style="background: var(--primary-50); border-left: 4px solid var(--primary-600); color: var(--primary-800); font-weight: 800; cursor: pointer;" onclick="document.getElementById('lobbyClassLessonsCard')?.scrollIntoView({behavior:'smooth'})">
+          <span class="step-icon-badge" style="background: var(--primary-600); color: #ffffff; border-color: var(--primary-600);">📚</span>
+          <span>우리 학급 수업</span>
+        </li>
+        <li class="think-step-item" style="cursor: pointer;" onclick="document.getElementById('lobbyHistoryCard')?.scrollIntoView({behavior:'smooth'})">
+          <span class="step-icon-badge" style="border-color: var(--border-medium); color: var(--text-subtle);">📝</span>
+          <span>내 생각 기록</span>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Main Content Panel -->
+  <section class="content-area" style="display: flex; flex-direction: column; gap: 24px;">
     
     <!-- Welcome Header Card -->
     <div style="background: linear-gradient(135deg, var(--primary-700), var(--primary-800)); color: #ffffff; padding: 28px; border-radius: var(--radius-xl); box-shadow: var(--shadow-md); display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.9;">THINK AI 활용 생각 교실 로비</div>
-        <h2 style="font-size: 1.6rem; font-weight: 800; margin-top: 4px;" id="lblWelcomeStudent">👋 안녕하세요!</h2>
-        <p style="font-size: 0.9rem; opacity: 0.9; margin-top: 4px;">우리 학급의 수업과 활동을 확인하고 참여할 수 있습니다.</p>
+        <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.9;">THINK AI 활용 생각 교실</div>
+        <h2 style="font-size: 1.6rem; font-weight: 800; margin-top: 4px;" id="lblWelcomeStudent">👋 반갑습니다!</h2>
+        <p style="font-size: 0.9rem; opacity: 0.9; margin-top: 4px;">우리 학급의 수업과 활동을 확인하고 자유롭게 참여해 보세요.</p>
       </div>
     </div>
 
     <!-- Class Activity List -->
-    <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
+    <div id="lobbyClassLessonsCard" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
       <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 16px;">📚 우리 학급 수업 및 활동</h3>
 
       <div id="lobbyClassLessonsContainer">
@@ -21,8 +40,8 @@
     </div>
 
     <!-- My Learning History List -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
-      <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 16px;">📚 내가 참여한 활동 및 생각 기록</h3>
+    <div id="lobbyHistoryCard" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
+      <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 16px;">📝 내가 참여한 활동 및 생각 기록</h3>
       <div style="display: flex; flex-direction: column; gap: 12px;" id="lobbyHistoryContainer">
         <!-- Dynamic history cards inserted by JS -->
       </div>
@@ -34,5 +53,5 @@
       <span><strong>개인정보 보호 약속</strong>: AI 대화 내역은 친구에게 비공개이며, 교사 평가 목적으로 선생님과 학생 본인만 열람할 수 있습니다.</span>
     </div>
 
-  </div>
+  </section>
 </section>

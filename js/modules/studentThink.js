@@ -33,7 +33,7 @@ window.StudentThinkModule = {
       case 'T': // T: Individual Thought
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
-            <div class="question-card">
+            <div class="question-card" data-stage="${currentStageCode}">
               <strong>[T] 나의 처음 생각</strong><br>
               ${questionText}
             </div>
@@ -54,7 +54,7 @@ window.StudentThinkModule = {
           // Lesson 1 Wordcloud
           container.innerHTML = `
             <div style="display: flex; flex-direction: column; gap: 20px;">
-              <div class="question-card">
+              <div class="question-card" data-stage="${currentStageCode}">
                 <strong>[H] 친구와 생각 나누기 (학급 워드 클라우드)</strong><br>
                 우리 학급 친구들이 가장 많이 작성한 키워드입니다.
               </div>
@@ -80,7 +80,7 @@ window.StudentThinkModule = {
           if (peerOpinions.length === 0) {
             container.innerHTML = `
               <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div class="question-card">
+                <div class="question-card" data-stage="${currentStageCode}">
                   <strong>[H] 친구와 생각 나누기 (익명 의견 비교)</strong><br>
                   친구들의 의견이 수집 및 배정 중입니다.
                 </div>
@@ -97,7 +97,7 @@ window.StudentThinkModule = {
           } else {
             container.innerHTML = `
               <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div class="question-card">
+                <div class="question-card" data-stage="${currentStageCode}">
                   <strong>[H] 친구와 생각 나누기 (무작위 익명 의견)</strong><br>
                   친구들의 작성자 학번은 비공개로 안전하게 보호됩니다. 네 가지 의견을 차분히 읽어보세요.
                 </div>
@@ -165,7 +165,7 @@ window.StudentThinkModule = {
       case 'N': // N: Navigation & Criteria Synthesis
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
-            <div class="question-card">
+            <div class="question-card" data-stage="${currentStageCode}">
               <strong>[N] 비판적으로 따져보기 (판단 기준 및 이유 작성)</strong><br>
               비교해 본 동료의 익명 의견 중 가장 설득력 있다고 판단한 기준을 선택하고 이유를 작성해 주세요.
             </div>
@@ -196,7 +196,7 @@ window.StudentThinkModule = {
       default:
         container.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 20px;">
-            <div class="question-card">
+            <div class="question-card" data-stage="${currentStageCode}">
               <strong>[K] 나의 최종 생각 (최종 제출)</strong><br>
               AI와의 대화 및 동료 의견 비교를 통해 변화하고 깊어진 본인의 최종 생각을 정리하여 제출하세요.
             </div>
