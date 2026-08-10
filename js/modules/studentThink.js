@@ -4,7 +4,7 @@
 
 window.StudentThinkModule = {
   renderStep: function (state) {
-    const container = document.getElementById('stepViewContainer');
+    const container = document.getElementById('stepContentContainer');
     if (!container) return;
 
     const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex] || {
@@ -13,10 +13,10 @@ window.StudentThinkModule = {
       question: "질문 데이터를 불러오는 중입니다."
     };
 
-    const questionText = lesson.core_question || lesson.question || "질문 내용이 등록되지 않았습니다.";
-    const activeStages = lesson.think_stages || lesson.thinkStages || ['T', 'H', 'I', 'N', 'K'];
+    const questionText = lesson.coreQuestion || lesson.core_question || lesson.question || "질문 내용이 등록되지 않았습니다.";
+    const activeStages = lesson.thinkStages || lesson.think_stages || ['T', 'H', 'I', 'N', 'K'];
     const currentStageCode = activeStages[state.currentStep - 1] || activeStages[0] || 'T';
-    const accessMode = lesson.think_stage_access?.[currentStageCode] || 'hidden';
+    const accessMode = lesson.thinkStageAccess?.[currentStageCode] || lesson.think_stage_access?.[currentStageCode] || 'hidden';
 
     if (accessMode === 'hidden') {
       container.innerHTML = `<div class="question-card" style="text-align:center; padding:48px 24px;"><div style="font-size:2rem;">🔒</div><strong>아직 열리지 않은 활동입니다.</strong><p style="color:var(--text-subtle); margin-top:8px;">교사가 이 THINK 단계를 열면 참여할 수 있습니다.</p></div>`;
@@ -219,7 +219,7 @@ window.StudentThinkModule = {
         break;
     }
     if (accessMode === 'read_only') {
-      container.querySelectorAll('textarea, input, select, button.btn-primary').forEach(field => field.disabled = true);
+      container.querySelectorAll('textarea, input, select, button.btn-primary:not([onclick*="goToStep"])').forEach(field => field.disabled = true);
       const notice = document.createElement('div');
       notice.textContent = '🔒 읽기 전용 단계입니다. 현재 내용은 볼 수 있지만 수정할 수 없습니다.';
       notice.style.cssText = 'margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg-subtle);color:var(--text-subtle);font-size:.85rem;';

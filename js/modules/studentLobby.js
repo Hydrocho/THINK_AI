@@ -1,76 +1,65 @@
 /* ==========================================================================
-   Student Lobby Module: Waiting Lobby, PIN Entry & Active Session Launcher
+   Student Lobby Module: Current live lesson and personal learning history
    ========================================================================== */
 
 window.StudentLobbyModule = {
+  escapeHtml: function (value) {
+    return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+  },
+
   renderLobby: async function (state) {
-    const container = document.getElementById('lobbyHistoryContainer');
-    if (!container) return;
-
-    let lessons = window.APP_CONFIG.LESSONS || [];
-
-    if (window.SupabaseService?.isConnected()) {
-      const result = await window.SupabaseService.fetchStudentPublishedLessons();
-      const publishedLessons = (result.projects || []).flatMap(project =>
-        (project.project_versions?.[0]?.lesson_plans || []).map(lesson => ({
-          ...lesson,
-          number: lesson.lesson_order,
-          question: lesson.core_question,
-          accessMode: lesson.student_access_mode,
-          projectTitle: project.title
-        }))
-      );
-      if (publishedLessons.length) {
-        lessons = publishedLessons;
-        state.activeLessonPlans = publishedLessons;
-      }
+    const active = document.getElementById('lobbyActiveLessonContainer');
+    const history = document.getElementById('lobbyHistoryContainer');
+    if (!active || !history) return;
+    active.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 수업을 확인하는 중입니다…</div>';
+    history.innerHTML = '';
+    try {
+      const result = await window.SupabaseService.fetchStudentLiveLesson();
+      state.liveLesson = result.liveLesson || null;
+      this.renderLiveLesson(active, state.liveLesson);
+      this.renderHistory(history, result.history || []);
+    } catch (error) {
+      active.innerHTML = `<div style="text-align:center; color:var(--danger-text); padding:20px;">수업 정보를 불러오지 못했습니다. ${this.escapeHtml(error.message)}</div>`;
+      history.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">기록을 불러올 수 없습니다.</div>';
     }
+  },
 
-    // Attempt to load live activities from Supabase if connected
-    if (window.SupabaseService && window.SupabaseService.isConnected()) {
-      const dbActivities = await window.SupabaseService.fetchActivities();
-      if (dbActivities && dbActivities.length > 0) {
-        lessons = dbActivities.map((act, idx) => ({
-          id: act.id,
-          number: idx + 1,
-          title: act.title,
-          question: act.core_question,
-          mode: act.ai_mode,
-          description: `T: 개인 작성 / H: 익명 비교 / I: Gemini 대화 (${act.max_questions}회 제한)`
-        }));
-      }
-    }
-
-    if (lessons.length === 0) {
-      container.innerHTML = `<div style="text-align: center; color: var(--text-subtle); padding: 24px;">개방된 활동이 없습니다. 교사의 수업 개방을 기다려 주세요.</div>`;
+  renderLiveLesson: function (container, liveLesson) {
+    if (!liveLesson?.lesson) {
+      container.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 열린 수업이 없습니다. 선생님이 수업을 열면 자동으로 표시됩니다.</div>';
       return;
     }
-
-    container.innerHTML = lessons.map((item, idx) => `
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md);">
+    const lesson = liveLesson.lesson;
+    const openStages = Object.entries(lesson.thinkStageAccess || {}).filter(([, mode]) => mode !== 'hidden').map(([stage]) => stage).join(' · ') || '아직 열린 단계 없음';
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 18px; background:var(--primary-50); border:1px solid var(--primary-200); border-radius:var(--radius-md);">
         <div>
-          <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">${item.title}</div>
-          <span class="role-tag" style="background: var(--primary-50); color: var(--primary-700); font-size: 0.75rem; margin-top: 4px; display: inline-block;">학습 참여 가능</span>
+          <div style="font-size:.8rem; color:var(--primary-700); font-weight:700;">${this.escapeHtml(liveLesson.projectTitle)}</div>
+          <div style="font-weight:800; color:var(--text-main); margin-top:4px;">${lesson.number}차시 · ${this.escapeHtml(lesson.title)}</div>
+          <div style="font-size:.88rem; color:var(--text-subtle); margin-top:5px;">${this.escapeHtml(lesson.coreQuestion)}</div>
+          <div style="font-size:.78rem; color:var(--primary-700); margin-top:8px;">열린 단계: ${openStages}</div>
         </div>
-        <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="App.selectLesson(${idx}); App.enterActiveLesson();">수업 입장하기 →</button>
-      </div>
-    `).join('');
+        <button class="btn btn-primary" onclick="App.enterActiveLesson()">수업 입장하기 →</button>
+      </div>`;
   },
 
-  enterByPin: function (state) {
-    const pinInput = document.getElementById('inputLobbyPin');
-    const pin = pinInput ? pinInput.value.trim() : '';
-    if (!pin) {
-      alert('선생님께서 전자칠판에 띄워주신 6자리 PIN 번호를 입력해주세요.');
+  renderHistory: function (container, history) {
+    if (!history.length) {
+      container.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">아직 작성한 생각 기록이 없습니다.</div>';
       return;
     }
-    document.getElementById('studentLobbySection').style.display = 'none';
-    document.getElementById('studentAppSection').style.display = 'grid';
-    window.App.selectLesson(0);
-    alert(`⚡ 수업 PIN (${pin}) 인증 완료! 개방된 수업으로 진입하였습니다.`);
+    container.innerHTML = history.map(item => `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 18px; background:#ffffff; border:1px solid var(--border-light); border-radius:var(--radius-md);">
+        <div><div style="font-size:.8rem; color:var(--text-subtle);">${this.escapeHtml(item.projectTitle)}</div><div style="font-weight:700; color:var(--text-main);">${this.escapeHtml(item.lessonTitle)}</div></div>
+        <span class="role-tag" style="background:${item.status === 'submitted' ? 'var(--success-bg)' : 'var(--primary-50)'}; color:${item.status === 'submitted' ? 'var(--success-text)' : 'var(--primary-700)'};">${item.status === 'submitted' ? '제출 완료' : '작성 중'}</span>
+      </div>`).join('');
   },
 
-  enterActiveLesson: function (state) {
+  enterLiveLesson: function (state) {
+    if (!state.liveLesson?.lesson) return;
+    state.activeLessonPlans = [state.liveLesson.lesson];
+    state.currentLessonIndex = 0;
+    state.currentStep = 1;
     document.getElementById('studentLobbySection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'grid';
     window.App.selectLesson(0);
