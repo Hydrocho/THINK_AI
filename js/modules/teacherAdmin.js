@@ -549,8 +549,6 @@ window.TeacherAdminModule = {
     const grade = parseInt(document.getElementById('selNewClassGrade').value) || 3;
     const classNum = parseInt(document.getElementById('selNewClassNumber').value) || 1;
     const className = `${grade}학년 ${classNum}반`;
-    const classCode = `class-${grade}-${classNum}`;
-    const studentPrefix = `${grade}${classNum < 10 ? '0' + classNum : classNum}`;
 
     const btn = document.getElementById('btnSubmitCreateClass');
     if (btn) { btn.disabled = true; btn.innerText = '개설 중...'; }
@@ -578,22 +576,10 @@ window.TeacherAdminModule = {
       // 2. Insert new class via SupabaseService (uses Service Role Edge Function to bypass RLS)
       const newClass = await window.SupabaseService.createClass({ grade, classNumber: classNum });
 
-      // 3. Auto-Assign existing students by student number prefix (e.g. 302XX)
-      if (newClass && newClass.id) {
-        try {
-          await client
-            .from('student_accounts')
-            .update({ class_id: newClass.id })
-            .like('student_number', `${studentPrefix}%`);
-        } catch (enrollErr) {
-          console.warn('Notice auto-assigning student_accounts:', enrollErr);
-        }
-      }
-
       this.closeClassModal();
       await window.ModalService.alert({
         title: '🎉 학급 개설 완료',
-        message: `${className} 학급이 성공적으로 개설되었습니다.\n학번 ${studentPrefix}XX 시리즈 계정이 해당 학급에 자동으로 연결 및 배정됩니다.`,
+        message: `${className} 학급이 성공적으로 개설되었습니다. 해당 학년·반 학생은 로그인 시 학번을 기준으로 수업 활동을 불러옵니다.`,
         tone: 'success'
       });
 

@@ -13,6 +13,7 @@ const responseFunction = fs.readFileSync(new URL('../supabase/functions/save-thi
 const projectFunction = fs.readFileSync(new URL('../supabase/functions/manage-class-projects/index.ts', import.meta.url), 'utf8');
 const teacherAdmin = fs.readFileSync(new URL('../js/modules/teacherAdmin.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const accountFunction = fs.readFileSync(new URL('../supabase/functions/manage-student-accounts/index.ts', import.meta.url), 'utf8');
 const studentClassPath = new URL('../supabase/functions/_shared/student-class.ts', import.meta.url);
 
 test('student lobby contains one live lesson target and no PIN or legacy activity path', () => {
@@ -107,4 +108,18 @@ test('student class is derived from a five-digit student number', () => {
   assert.match(studentClass, /grade_number/);
   assert.match(studentClass, /class_number/);
   assert.match(studentClass, /ambiguous_class/);
+});
+
+test('class and student creation do not persist student class membership', () => {
+  const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url));
+  const migrationName = migrations.find(name => name.includes('retire_student_class_membership'));
+  assert.ok(migrationName);
+  const membershipMigration = fs.readFileSync(new URL(`../supabase/migrations/${migrationName}`, import.meta.url), 'utf8');
+
+  assert.doesNotMatch(accountFunction, /insert\(\{ class_id: classId/);
+  assert.doesNotMatch(accountFunction, /update\(\{ class_id: newClass\.id \}\)/);
+  assert.doesNotMatch(teacherAdmin, /update\(\{ class_id: newClass\.id \}\)/);
+  const createClassSource = client.slice(client.indexOf('createClass: async function'), client.indexOf('deleteClassWithTargetData: async function'));
+  assert.doesNotMatch(createClassSource, /Direct DB fallback/);
+  assert.match(membershipMigration, /update public\.student_accounts\s+set class_id = null/i);
 });

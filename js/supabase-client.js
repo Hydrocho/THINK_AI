@@ -175,33 +175,10 @@
     createClass: async function ({ grade, classNumber }) {
       if (!supabaseClient) throw new Error("Supabase client is not initialized.");
 
-      // 1. Try creating via manage-student-accounts Edge Function (Service Role - bypasses RLS)
-      try {
-        const res = await this.invokeAccountFunction("manage-student-accounts", { action: "create_class", grade, classNumber });
-        if (res && res.error) throw new Error(res.error);
-        if (res && res.class) return res.class;
-      } catch (err) {
-        console.warn("Edge function create_class fallback notice:", err);
-      }
-
-      // 2. Direct DB fallback
-      const session = await this.getUserSession();
-      const teacherId = session?.user?.id;
-      const classCode = `class-${grade}-${classNumber}`;
-
-      const { data: newClass, error } = await supabaseClient
-        .from("classes")
-        .insert({
-          teacher_id: teacherId,
-          class_code: classCode,
-          grade_number: grade,
-          class_number: classNumber
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return newClass;
+      const res = await this.invokeAccountFunction("manage-student-accounts", { action: "create_class", grade, classNumber });
+      if (res && res.error) throw new Error(res.error);
+      if (res && res.class) return res.class;
+      throw new Error("학급 생성 결과를 받지 못했습니다.");
     },
     deleteClassWithTargetData: async function (classId, teacherId) {
       if (!supabaseClient) throw new Error("Supabase client is not initialized.");

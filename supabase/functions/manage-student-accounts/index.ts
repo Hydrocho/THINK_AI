@@ -60,13 +60,6 @@ serve(async (req) => {
 
     if (error) return json({ error: error.message }, 400);
 
-    const prefix = `${grade}${classNum < 10 ? '0' + classNum : classNum}`;
-    try {
-      await admin.from("student_accounts").update({ class_id: newClass.id }).like("student_number", `${prefix}%`);
-    } catch (e) {
-      console.warn("Notice auto-linking student_accounts:", e);
-    }
-
     return json({ class: newClass });
   }
 
@@ -188,7 +181,7 @@ serve(async (req) => {
       authUser = createdAuthUser;
     }
 
-    const { data: student, error } = await admin.from("student_accounts").insert({ class_id: classId, student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id, must_change_password: true }).select("id, student_number, student_name, created_at").single();
+    const { data: student, error } = await admin.from("student_accounts").insert({ student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id, must_change_password: true }).select("id, student_number, student_name, created_at").single();
     if (error) {
       if (authUser?.user?.id) {
         await admin.auth.admin.deleteUser(authUser.user.id).catch(() => null);
