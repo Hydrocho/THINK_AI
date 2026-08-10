@@ -7,6 +7,21 @@ window.StudentLobbyModule = {
     return String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   },
 
+  getSubjectIcon: function (name) {
+    if (!name) return '📘';
+    if (name.includes('과학')) return '🧪';
+    if (name.includes('수학')) return '📐';
+    if (name.includes('국어')) return '📚';
+    if (name.includes('영어')) return '🇬🇧';
+    if (name.includes('사회') || name.includes('역사')) return '🌏';
+    if (name.includes('미술')) return '🎨';
+    if (name.includes('음악')) return '🎵';
+    if (name.includes('체육')) return '⚽';
+    if (name.includes('정보') || name.includes('코딩')) return '💻';
+    if (name.includes('도덕') || name.includes('윤리')) return '🌱';
+    return '📘';
+  },
+
   renderLobby: async function (state) {
     const container = document.getElementById('lobbyClassLessonsContainer');
     if (!container) return;
@@ -37,22 +52,47 @@ window.StudentLobbyModule = {
 
     container.innerHTML = `<div class="student-subject-card-grid">${subjectClasses.map(subjectClass => {
       const lesson = subjectClass.activeLesson;
+      const subjectName = subjectClass.subjectName || '미지정';
+      const subjectIcon = this.getSubjectIcon(subjectName);
+
+      const statusBadge = lesson
+        ? `<span class="student-status-badge is-active"><span class="pulse-dot"></span> 수업 진행 중</span>`
+        : `<span class="student-status-badge is-waiting">수업 준비 중</span>`;
+
       const statusContent = lesson ? `
-        <div class="student-subject-lesson-title">${this.escapeHtml(lesson.number)}차시 · ${this.escapeHtml(lesson.title)}</div>
-        <div class="student-subject-lesson-question">${this.escapeHtml(lesson.coreQuestion || '')}</div>
-      ` : '<div class="student-subject-waiting">수업 준비 중</div>';
+        <div class="student-subject-lesson-box">
+          <div class="student-subject-lesson-title">📖 ${this.escapeHtml(lesson.number)}차시 · ${this.escapeHtml(lesson.title)}</div>
+          ${lesson.coreQuestion ? `<div class="student-subject-lesson-question">💡 핵심 질문: "${this.escapeHtml(lesson.coreQuestion)}"</div>` : ''}
+        </div>
+      ` : `
+        <div class="student-subject-waiting-box">
+          <span class="waiting-icon">⏳</span>
+          <span>선생님이 아직 수업을 시작하지 않았습니다.</span>
+        </div>
+      `;
+
       const entryAction = lesson
-        ? `<button type="button" class="btn btn-primary" onclick="StudentLobbyModule.enterSubjectClass(window.AppState, '${this.escapeHtml(subjectClass.classId)}')">입장하기</button>`
-        : '<span class="student-subject-waiting-hint">활성화된 차시가 없습니다</span>';
+        ? `<button type="button" class="btn btn-primary student-enter-btn" onclick="StudentLobbyModule.enterSubjectClass(window.AppState, '${this.escapeHtml(subjectClass.classId)}')">
+            <span>수업 입장하기</span>
+            <span class="btn-arrow">→</span>
+           </button>`
+        : `<button type="button" class="btn btn-disabled student-enter-btn" disabled>입장 대기 중</button>`;
 
       return `
-        <article class="student-subject-card" data-subject-class-id="${this.escapeHtml(subjectClass.classId)}">
-          <div>
-            <div class="student-subject-name">${this.escapeHtml(subjectClass.subjectName || '미지정')}</div>
-            <div class="student-subject-class-label">${this.escapeHtml(subjectClass.gradeNumber)}학년 ${this.escapeHtml(subjectClass.classNumber)}반</div>
+        <article class="student-subject-card ${lesson ? 'is-live' : ''}" data-subject-class-id="${this.escapeHtml(subjectClass.classId)}">
+          <div class="student-subject-card-header">
+            <div class="student-subject-info">
+              <span class="student-subject-badge">${subjectIcon} ${this.escapeHtml(subjectName)}</span>
+              <span class="student-subject-class-label">${this.escapeHtml(subjectClass.gradeNumber)}학년 ${this.escapeHtml(subjectClass.classNumber)}반</span>
+            </div>
+            ${statusBadge}
+          </div>
+          <div class="student-subject-card-body">
             ${statusContent}
           </div>
-          <div class="student-subject-card-action">${entryAction}</div>
+          <div class="student-subject-card-footer">
+            ${entryAction}
+          </div>
         </article>`;
     }).join('')}</div>`;
   },
