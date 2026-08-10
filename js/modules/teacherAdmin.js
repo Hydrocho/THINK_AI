@@ -132,7 +132,7 @@ window.TeacherAdminModule = {
 
             return `
               <div class="project-list-row">
-              <div class="project-card" style="cursor: pointer;" onclick="TeacherAdminModule.openProjectDetailSubView('${p.id}')" title="클릭하여 차시별 활동 및 질문 상세 설계">
+              <div class="project-card" data-project-id="${p.id}" style="cursor: pointer;" onclick="TeacherAdminModule.openProjectDetailSubView('${p.id}')" title="클릭하여 차시별 활동 및 질문 상세 설계">
                 <div class="project-card-header">
                     <h4 class="project-card-title">${this.escapeHtml(p.title)}</h4>
                     ${lessonCount ? `<div class="project-lesson-summary">${lessonSummary}${remainingLessons ? `<span class="project-lesson-more">+ ${remainingLessons}개 차시</span>` : ''}</div>` : '<span class="project-lesson-empty">차시를 추가해 주세요.</span>'}
@@ -160,7 +160,21 @@ window.TeacherAdminModule = {
     }
   },
   setProjectPublished: async function (projectId, isPublished) {
-    try { await window.SupabaseService.setProjectPublished(projectId, isPublished); await this.renderProjects(); }
+    try {
+      await window.SupabaseService.setProjectPublished(projectId, isPublished);
+      const card = document.querySelector(`[data-project-id="${projectId}"]`);
+      const status = card?.querySelector('.project-link-status');
+      const toggle = card?.querySelector('.project-link-switch');
+      if (status) status.textContent = isPublished ? '학급 연결 가능' : '학급 연결 안 함';
+      if (toggle) {
+        toggle.classList.toggle('is-enabled', isPublished);
+        toggle.setAttribute('aria-pressed', String(isPublished));
+        toggle.setAttribute('aria-label', isPublished ? '학급 연결 가능 끄기' : '학급 연결 가능 켜기');
+        toggle.setAttribute('onclick', `TeacherAdminModule.setProjectPublished('${projectId}', ${!isPublished})`);
+      }
+      const cached = (this.cachedProjects || []).find(project => project.id === projectId);
+      if (cached) cached.is_published = isPublished;
+    }
     catch (error) { alert(`학급 연결 가능 상태 변경 실패: ${error.message}`); }
   },
   moveProject: async function (event, projectId, direction) {
@@ -765,23 +779,6 @@ window.TeacherAdminModule.createProjectPrompt = async function () {
   if (title === null || !title.trim()) return;
   await window.SupabaseService.createProject({ title: title.trim(), lessons: [] });
   this.renderProjects();
-};
-
-window.TeacherAdminModule.attachProjectPrompt = async function (classId) {
-  const result = await window.SupabaseService.listProjects();
-  const projects = result.projects || [];
-  if (!projects.length) {
-    await window.ModalService.alert({ title: '프로젝트가 없습니다', message: '먼저 수업 설계에서 프로젝트를 만들어 주세요.', tone: 'info' });
-    return;
-  }
-  const projectId = await window.ModalService.select({ title: '프로젝트 불러오기', message: '학급에 연결할 프로젝트를 선택하세요.', label: '프로젝트', options: projects.map(project => ({ value: project.id, label: project.title })) });
-  if (projectId === null) return;
-  const project = projects.find(item => item.id === projectId);
-  const version = project?.project_versions?.[0];
-  if (!version) return;
-  await window.SupabaseService.attachProjectToClass(classId, version.id, project.title);
-  await window.ModalService.alert({ title: '프로젝트 연결 완료', message: '학급에 프로젝트를 연결했습니다.', tone: 'success' });
-  this.renderClassOperations();
 };
 
 window.TeacherAdminModule.showProjectListSubView = function () {

@@ -157,3 +157,12 @@ test('class project connection uses only link-enabled projects and exposes a dir
   assert.match(teacherAdmin, /aria-pressed/);
   assert.doesNotMatch(teacherAdmin, /학생 게시/);
 });
+
+test('project link toggle updates its card without rerendering the full project list', () => {
+  const toggleStart = teacherAdmin.indexOf('setProjectPublished: async function');
+  const toggleEnd = teacherAdmin.indexOf('moveProject:', toggleStart);
+  const toggleSource = teacherAdmin.slice(toggleStart, toggleEnd);
+  assert.doesNotMatch(toggleSource, /renderProjects\(/);
+  assert.match(teacherAdmin, /data-project-id="\$\{p\.id\}"/);
+  assert.equal((teacherAdmin.match(/attachProjectPrompt\s*[:=]/g) || []).length, 1);
+});
