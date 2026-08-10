@@ -19,7 +19,7 @@ serve(async req => {
 
   const admin = createClient(url, key);
   const { data: student } = await admin.from("student_accounts")
-    .select("id,student_number")
+    .select("id,student_number,student_name")
     .eq("auth_user_id", user.id)
     .single();
   if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 403);
@@ -102,5 +102,5 @@ serve(async req => {
     else if (response.submitted_at) existing.status = "submitted";
   }
 
-  return json({ classId, lessons, history: Array.from(historyByLesson.values()) });
+  return json({ classId, studentName: student.student_name, lessons, history: Array.from(historyByLesson.values()) });
 });

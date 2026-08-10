@@ -37,8 +37,28 @@
           if (session && session.user) {
             console.log("🔒 Active Authenticated Supabase Session Verified:", session.user.email);
             
+            // 1. Check if user is a Student first
+            const studentMatch = (session.user.email || '').match(/^student_(\d+)@school\.internal$/);
+            if (studentMatch) {
+              const studentNumber = studentMatch[1];
+              let studentName = null;
+              if (window.SupabaseService && window.SupabaseService.getClient()) {
+                try {
+                  const sb = window.SupabaseService.getClient();
+                  const { data: stData } = await sb.from("student_accounts").select("student_name").eq("student_number", studentNumber).maybeSingle();
+                  if (stData && stData.student_name) studentName = stData.student_name;
+                } catch (e) {
+                  console.warn("Student name query failed:", e.message);
+                }
+              }
+              const { mustChangePassword } = await window.SupabaseService.getStudentPasswordChangeStatus();
+              if (mustChangePassword) window.AuthModule.showStudentPasswordChange(state, studentNumber, studentName);
+              else window.AuthModule.enterStudentLobby(state, studentNumber, studentName);
+              return;
+            }
+
+            // 2. Otherwise handle Teacher or Admin profiles
             const profile = await window.SupabaseService.getUserProfile(session.user.id);
-            // Default to 'pending' if profile is not explicitly approved
             const status = profile && profile.approval_status ? profile.approval_status : 'pending';
 
             if (status === 'rejected') {
@@ -62,18 +82,6 @@
               document.getElementById('studentAppSection').style.display = 'none';
               document.getElementById('teacherAppSection').style.display = 'none';
               document.getElementById('teacherPendingSection').style.display = 'grid';
-              return;
-            }
-
-            if (profile && profile.role === 'student') {
-              const studentNumber = (session.user.email || '').match(/^student_(\d+)@school\.internal$/)?.[1] || '';
-              if (!studentNumber) {
-                await window.SupabaseService.signOut();
-                return;
-              }
-              const { mustChangePassword } = await window.SupabaseService.getStudentPasswordChangeStatus();
-              if (mustChangePassword) window.AuthModule.showStudentPasswordChange(state, studentNumber);
-              else window.AuthModule.enterStudentLobby(state, studentNumber);
               return;
             }
 

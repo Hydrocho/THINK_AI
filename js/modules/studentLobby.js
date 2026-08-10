@@ -15,6 +15,11 @@ window.StudentLobbyModule = {
     history.innerHTML = '';
     try {
       const result = await window.SupabaseService.fetchStudentClassLessons();
+      if (result && result.studentName) {
+        state.studentData.name = result.studentName;
+        const userName = document.getElementById('lblUserName');
+        if (userName) userName.innerText = result.studentName;
+      }
       state.classLessons = result.lessons || [];
       this.renderClassLessons(classLessons, state.classLessons, result.classResolution);
       this.renderHistory(history, result.history || []);

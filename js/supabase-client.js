@@ -43,6 +43,18 @@
         password: password,
       });
 
+      let studentName = null;
+      try {
+        const { data: stData } = await supabaseClient
+          .from("student_accounts")
+          .select("student_name")
+          .eq("student_number", studentNumber)
+          .maybeSingle();
+        if (stData && stData.student_name) {
+          studentName = stData.student_name;
+        }
+      } catch (e) {}
+
       if (error) {
         // Check student_accounts table in Supabase DB for verification
         const { data: stData, error: stErr } = await supabaseClient
@@ -54,8 +66,9 @@
         if (stErr || !stData) {
           throw new Error("등록되지 않은 학번이거나 비밀번호가 일치하지 않습니다.");
         }
+        if (stData.student_name) studentName = stData.student_name;
       }
-      return { success: true, data };
+      return { success: true, data, studentName };
     },
 
     signInTeacherGoogle: async function () {

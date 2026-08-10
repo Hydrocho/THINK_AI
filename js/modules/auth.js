@@ -23,25 +23,25 @@ window.AuthModule = {
     }
   },
 
-  prepareStudent: function (state, studentNumber) {
+  prepareStudent: function (state, studentNumber, studentName) {
     state.currentRole = 'student';
     state.studentData.studentNumber = studentNumber;
+    if (studentName) state.studentData.name = studentName;
+    
     const roleTag = document.getElementById('userRoleTag');
     const userName = document.getElementById('lblUserName');
     const logoutBtn = document.getElementById('btnLogout');
 
-    const grade = studentNumber.length >= 5 ? studentNumber.charAt(0) : '3';
-    const cls = studentNumber.length >= 5 ? parseInt(studentNumber.substring(1, 3)) : '1';
-    const sNo = studentNumber.length >= 5 ? parseInt(studentNumber.substring(3, 5)) : studentNumber;
+    const displayName = state.studentData.name || studentName || (studentNumber ? `${studentNumber}번` : '');
 
     if (roleTag) roleTag.innerText = '학생';
-    if (userName) userName.innerText = `${grade}학년 ${cls}반 ${sNo}번 (${studentNumber})`;
+    if (userName) userName.innerText = displayName;
     if (logoutBtn) logoutBtn.style.display = 'inline-block';
     document.getElementById('userNavArea').style.display = 'flex';
   },
 
-  enterStudentLobby: function (state, studentNumber) {
-    this.prepareStudent(state, studentNumber);
+  enterStudentLobby: function (state, studentNumber, studentName) {
+    this.prepareStudent(state, studentNumber, studentName);
     document.getElementById('authSection').style.display = 'none';
     document.getElementById('teacherAppSection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'none';
@@ -50,8 +50,8 @@ window.AuthModule = {
     window.StudentLobbyModule.renderLobby(state);
   },
 
-  showStudentPasswordChange: function (state, studentNumber) {
-    this.prepareStudent(state, studentNumber);
+  showStudentPasswordChange: function (state, studentNumber, studentName) {
+    this.prepareStudent(state, studentNumber, studentName);
     const studentForm = document.getElementById('studentLoginForm');
     const teacherForm = document.getElementById('teacherLoginForm');
     const passwordChangeForm = document.getElementById('studentPasswordChangeForm');
@@ -72,10 +72,11 @@ window.AuthModule = {
     if (!num || !pw) { alert('학번과 비밀번호를 모두 입력해 주세요.'); return; }
     if (!window.SupabaseService?.isConnected()) { alert('Supabase 서버 연결 상태를 확인해 주세요.'); return; }
     try {
-      await window.SupabaseService.signInStudent(num, pw);
+      const res = await window.SupabaseService.signInStudent(num, pw);
+      const studentName = res?.studentName || null;
       const { mustChangePassword } = await window.SupabaseService.getStudentPasswordChangeStatus();
-      if (mustChangePassword) this.showStudentPasswordChange(state, num);
-      else this.enterStudentLobby(state, num);
+      if (mustChangePassword) this.showStudentPasswordChange(state, num, studentName);
+      else this.enterStudentLobby(state, num, studentName);
     } catch (err) {
       alert(`학생 로그인 실패: ${err.message}`);
     }
