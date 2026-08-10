@@ -12,6 +12,7 @@ const studentLessons = fs.readFileSync(new URL('../supabase/functions/get-studen
 const responseFunction = fs.readFileSync(new URL('../supabase/functions/save-think-stage-response/index.ts', import.meta.url), 'utf8');
 const projectFunction = fs.readFileSync(new URL('../supabase/functions/manage-class-projects/index.ts', import.meta.url), 'utf8');
 const teacherAdmin = fs.readFileSync(new URL('../js/modules/teacherAdmin.js', import.meta.url), 'utf8');
+const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 test('student lobby contains one live lesson target and no PIN or legacy activity path', () => {
   assert.match(lobbyView, /id="lobbyActiveLessonContainer"/);
@@ -83,4 +84,9 @@ test('migration enforces at most one open session per class', () => {
 test('THINK renderer and view use the same content container', () => {
   assert.match(thinkView, /id="stepContentContainer"/);
   assert.match(think, /getElementById\('stepContentContainer'\)/);
+});
+
+test('THINK renderer has a safe fallback before optional sample configuration is loaded', () => {
+  assert.match(think, /window\.APP_CONFIG\?\.LESSONS \|\| \[\]/);
+  assert.match(index, /<script src="js\/config\.js"><\/script>/);
 });

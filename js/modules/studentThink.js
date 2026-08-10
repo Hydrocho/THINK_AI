@@ -7,7 +7,8 @@ window.StudentThinkModule = {
     const container = document.getElementById('stepContentContainer');
     if (!container) return;
 
-    const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex] || {
+    const sampleLessons = window.APP_CONFIG?.LESSONS || [];
+    const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || sampleLessons[state.currentLessonIndex] || {
       number: 1,
       title: "1차시",
       question: "질문 데이터를 불러오는 중입니다."
