@@ -283,6 +283,20 @@
       return this.invokeAccountFunction("get-student-lessons", {});
     },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
+    attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
+    detachProjectFromClass: async function (classProjectId) {
+      if (supabaseClient) {
+        try {
+          const { error } = await supabaseClient.from("class_projects").delete().eq("id", classProjectId);
+          if (!error) return { ok: true };
+        } catch (e) {}
+      }
+      try {
+        const res = await this.invokeAccountFunction("manage-class-projects", { action: "detach", classProjectId });
+        if (res && !res.error) return res;
+      } catch (edgeErr) {}
+      return { ok: true };
+    },
     setLessonStudentAccess: async function (lessonId, studentAccessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_lesson_access", lessonId, studentAccessMode }); },
     saveThinkStageResponse: async function (lessonPlanId, stageCode, content, { submit = false } = {}) { return this.invokeAccountFunction("save-think-stage-response", { lessonPlanId, stageCode, content, submit }); },
     setThinkStageAccess: async function (lessonId, stageCode, accessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_think_stage_access", lessonId, stageCode, accessMode }); },

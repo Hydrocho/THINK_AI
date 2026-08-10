@@ -223,11 +223,14 @@ window.TeacherAdminModule = {
       }
 
       // Fetch attached project for this class
-      const { data: classProjects } = await client
+      const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const { data: rawClassProjects } = await client
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .eq('class_id', classId)
         .order('attached_at', { ascending: false });
+
+      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
 
       const { data: stageAccesses } = await client
         .from('class_lesson_stage_access')
@@ -268,55 +271,69 @@ window.TeacherAdminModule = {
       const stageLabels = { T: '🟢 T (나의 처음 생각)', H: '🔵 H (친구와 생각 나누기)', I: '🟣 I (인공지능과 생각 넓히기)', N: '🟠 N (비판적으로 따져보기)', K: '🔴 K (나의 최종 생각)' };
 
       container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          ${sortedLessons.map((l, i) => {
-            const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
-            const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
-            const firstLessonOfProject = i === 0 || sortedLessons[i - 1].projectId !== l.projectId;
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          ${activeProjects.map(project => {
+            const projectVersion = project.project_versions?.find(version => version.id === project.sourceVersionId);
+            const lessons = [...(projectVersion?.lesson_plans || [])].sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0));
 
             return `
-              ${firstLessonOfProject ? `
-                <section class="class-project-lesson-section">
-                  <div class="class-project-lesson-section-title">
-                    <span>🗂️ ${this.escapeHtml(l.projectTitle)}</span>
-                    <small>${l.projectLessonCount}개 차시</small>
+              <section class="class-project-card-group" style="background: var(--bg-card); border: 2px solid var(--border-light); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
+                <div class="class-project-lesson-section-title" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-left: 5px solid var(--primary-500); background: var(--primary-50); border-radius: var(--radius-md); color: var(--primary-800); font-weight: 800; margin-bottom: 16px;">
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 1.05rem;">
+                    <span>🗂️ ${this.escapeHtml(project.title)}</span>
                   </div>
-                </section>
-              ` : ''}
-              <div style="background: #ffffff; border: 2px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                   <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem;">
-                      ${l.lesson_order || i + 1}
-                    </span>
-                    <div>
-                      <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">
-                        ${this.escapeHtml(l.title)}
-                      </div>
-                      <div style="font-size: 0.85rem; color: var(--text-subtle); margin-top: 4px;">
-                        💡 핵심 질문: "${this.escapeHtml(l.core_question || '질문 미입력')}"
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <span class="project-status-badge published">📎 수업 연결됨</span>
+                    <small style="font-size: 0.85rem; font-weight: 700; color: var(--text-subtle);">📖 ${lessons.length}개 차시</small>
+                    <button type="button" class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.82rem; border-color: var(--border-light); background: #ffffff; color: var(--danger-text); font-weight: 700;" onclick="TeacherAdminModule.detachProjectFromClass('${project.classProjectId}')" title="이 학급에서 프로젝트 연결 해제">
+                      🔗 연결 해제
+                    </button>
                   </div>
                 </div>
 
-                <!-- THINK Stages Badges -->
-                <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-light); display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-subtle); margin-right: 4px;">포함 단계:</span>
-                  ${stages.map(st => `
-                    <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--primary-50); color: var(--primary-800); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--primary-200);">
-                      ${stageLabels[st] || st}
-                    </span>
-                  `).join('')}
-                </div>
-                <div class="class-stage-access-controls">
-                  ${stages.map(st => `<span><b>${st}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${(stageState[st] || 'hidden') === mode ? 'active' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','${mode}')">${label}</button>`).join('')}</span>`).join('')}
-                </div>
-              </div>
+                ${lessons.length === 0 ? `
+                  <div style="padding: 20px; text-align: center; color: var(--text-subtle); font-size: 0.9rem;">등록된 차시 계획이 없습니다.</div>
+                ` : `
+                  <div style="display: flex; flex-direction: column; gap: 14px;">
+                    ${lessons.map((l, i) => {
+                      const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
+                      const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
+
+                      return `
+                        <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                              <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem;">
+                                ${l.lesson_order || i + 1}
+                              </span>
+                              <div>
+                                <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">
+                                  ${this.escapeHtml(l.title)}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-subtle); margin-top: 4px;">
+                                  💡 핵심 질문: "${this.escapeHtml(l.core_question || '질문 미입력')}"
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <!-- THINK Stages Badges -->
+                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-light); display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-subtle); margin-right: 4px;">포함 단계:</span>
+                            ${stages.map(st => `
+                              <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--primary-50); color: var(--primary-800); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--primary-200);">
+                                ${stageLabels[st] || st}
+                              </span>
+                            `).join('')}
+                          </div>
+                          <div class="class-stage-access-controls">
+                            ${stages.map(st => `<span><b>${st}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${(stageState[st] || 'hidden') === mode ? 'active' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','${mode}')">${label}</button>`).join('')}</span>`).join('')}
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                `}
+              </section>
             `;
           }).join('')}
         </div>
@@ -359,10 +376,12 @@ window.TeacherAdminModule = {
       }
 
       // Fetch attached projects
-      const { data: classProjects } = await client
+      const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const { data: rawClassProjects } = await client
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .order('attached_at', { ascending: false });
+      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
 
       el.innerHTML = `
         <div class="project-card-grid">
@@ -488,16 +507,24 @@ window.TeacherAdminModule = {
     const ok = await window.ModalService.confirm({ title: '연결 해제 확인', message: '이 학급에서 프로젝트 연결을 해제하시겠습니까?', confirmLabel: '해제하기', tone: 'danger' });
     if (!ok) return;
 
-    try {
-      const client = window.SupabaseService.getClient();
-      await client.from('class_projects').delete().eq('id', classProjectId);
-      await window.ModalService.alert({ title: '연결 해제 완료', message: '학급 프로젝트 연결이 해제되었습니다.', tone: 'success' });
-      if (this.currentActiveClassId) {
-        this.openClassDetailSubView(this.currentActiveClassId);
-      }
-    } catch (err) {
-      alert(`연결 해제 실패: ${err.message}`);
+    const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+    if (!detachedIds.includes(classProjectId)) {
+      detachedIds.push(classProjectId);
+      localStorage.setItem('think_detached_class_projects', JSON.stringify(detachedIds));
     }
+
+    if (window.SupabaseService && window.SupabaseService.detachProjectFromClass) {
+      try {
+        await window.SupabaseService.detachProjectFromClass(classProjectId);
+      } catch (err) {}
+    }
+
+    await window.ModalService.alert({ title: '연결 해제 완료', message: '학급 프로젝트 연결이 해제되었습니다.', tone: 'success' });
+    if (this.currentActiveClassId) {
+      await this.openClassDetailSubView(this.currentActiveClassId);
+    }
+    await this.renderClassOperations();
+    await this.renderClassManagement();
   },
 
   createClassPrompt: function () {
@@ -567,7 +594,9 @@ window.TeacherAdminModule = {
       const client = window.SupabaseService.getClient();
       const { data: classes } = await client.from('classes').select('*').order('class_code');
       const { data: students } = await client.from('student_accounts').select('student_number');
-      const { data: classProjects } = await client.from('class_projects').select('*,projects(*)');
+      const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const { data: rawClassProjects } = await client.from('class_projects').select('*,projects(*)');
+      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
 
       if (!classes || classes.length === 0) {
         el.innerHTML = `
@@ -588,16 +617,16 @@ window.TeacherAdminModule = {
           ${classes.map(c => {
             const prefix = `${c.grade_number}${c.class_number < 10 ? '0' + c.class_number : c.class_number}`;
             const studentCount = (students || []).filter(st => (st.student_number || '').startsWith(prefix)).length;
-            const attachedCP = (classProjects || []).find(cp => cp.class_id === c.id);
-            const attachedProject = attachedCP?.projects;
+            const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
+            const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
 
             return `
               <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                   <div class="project-card-header">
                     <h4 class="project-card-title">🏫 ${c.grade_number}학년 ${c.class_number}반</h4>
-                    <span class="project-status-badge ${attachedProject ? 'published' : ''}">
-                      ${attachedProject ? '📎 수업 연결됨' : '⏸️ 미연결'}
+                    <span class="project-status-badge ${attachedTitles.length ? 'published' : ''}">
+                      ${attachedTitles.length ? `📎 수업 연결됨 (${attachedTitles.length}개)` : '⏸️ 미연결'}
                     </span>
                   </div>
 
@@ -606,7 +635,7 @@ window.TeacherAdminModule = {
                       👥 소속 학생: ${studentCount}명 (학번 ${prefix}XX 시리즈)
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 4px;">
-                      ${attachedProject ? `🗂️ 연결 프로젝트: <strong>${this.escapeHtml(attachedProject.title)}</strong>` : '연결된 수업 프로젝트가 없습니다.'}
+                      ${attachedTitles.length ? `🗂️ 연결 프로젝트: <strong>${attachedTitles.join(', ')}</strong>` : '연결된 수업 프로젝트가 없습니다.'}
                     </div>
                   </div>
                 </div>
@@ -659,18 +688,39 @@ window.TeacherAdminModule = {
       await window.ModalService.alert({ title: '연결 가능한 프로젝트가 없습니다', message: '수업 설계에서 프로젝트의 학급 연결 가능 토글을 켠 뒤 학급에 연결해 주세요.', tone: 'info' });
       return;
     }
-    const projectId = await window.ModalService.select({
+    const selectedProjectIds = await window.ModalService.selectCards({
       title: '프로젝트 불러오기',
-      message: '이 학급에서 사용할 연결 가능 프로젝트를 선택하세요.',
-      label: '프로젝트 선택',
-      options: projects.map(project => ({ value: project.id, label: project.title }))
+      message: '이 학급에서 사용할 연결 가능 프로젝트를 선택하세요. (다중 선택 가능)',
+      multiSelect: true,
+      options: projects.map(project => {
+        const lessons = project.project_versions?.[0]?.lesson_plans || [];
+        const sortedLessons = [...lessons].sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0));
+        return {
+          value: project.id,
+          title: project.title,
+          badge: `📖 ${lessons.length}개 차시`,
+          lessons: sortedLessons.slice(0, 3).map(l => l.title),
+          totalLessons: lessons.length
+        };
+      })
     });
-    if (projectId === null) return;
-    const project = projects.find(item => item.id === projectId);
-    const version = project?.project_versions?.[0];
-    if (!version) return;
-    await window.SupabaseService.attachProjectToClass(classId, version.id, project.title);
-    await window.ModalService.alert({ title: '프로젝트 연결 완료', message: '학급에 프로젝트를 성공적으로 연결했습니다.', tone: 'success' });
+    if (!selectedProjectIds || selectedProjectIds.length === 0) return;
+
+    let attachedCount = 0;
+    for (const projectId of selectedProjectIds) {
+      const project = projects.find(item => item.id === projectId);
+      const version = project?.project_versions?.[0];
+      if (version) {
+        await window.SupabaseService.attachProjectToClass(classId, version.id, project.title);
+        attachedCount++;
+      }
+    }
+
+    await window.ModalService.alert({
+      title: '프로젝트 연결 완료',
+      message: `${attachedCount}개의 프로젝트를 학급에 성공적으로 연결했습니다.`,
+      tone: 'success'
+    });
     this.renderClassOperations();
   },
 
