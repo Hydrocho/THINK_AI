@@ -32,6 +32,17 @@ test('student class lesson APIs do not depend on class sessions', () => {
   assert.match(responseFunction, /access_mode !== "writable"/);
 });
 
+test('student class project authorization uses existence lookup, reports lookup errors, and defaults missing stages to hidden', () => {
+  assert.match(responseFunction, /const \{ data: lesson, error: lessonError \}/);
+  assert.match(responseFunction, /if \(lessonError\) return json\(\{ error: lessonError\.message \}, 400\)/);
+  assert.match(responseFunction, /const \{ data: classProjects, error: classProjectError \}/);
+  assert.match(responseFunction, /if \(classProjectError\) return json\(\{ error: classProjectError\.message \}, 400\)/);
+  assert.match(responseFunction, /\.eq\("class_id", classId\)\s*\.eq\("source_version_id", lesson\.project_version_id\)\s*\.limit\(1\)/);
+  assert.doesNotMatch(responseFunction, /\.eq\("source_version_id", lesson\.project_version_id\)\s*\.maybeSingle\(\)/);
+  assert.match(studentLessons, /const stageCodes = \["T", "H", "I", "N", "K"\]/);
+  assert.match(studentLessons, /thinkStageAccess: stageAccessByLesson\.get\(lesson\.id\)\s*\|\|\s*Object\.fromEntries\(stageCodes\.map\(stage => \[stage, "hidden"\]\)\)/);
+});
+
 test('student APIs use the authenticated student account and retain final submission state', () => {
   assert.match(studentLessons, /auth_user_id/);
   assert.match(studentLessons, /think_stage_responses/);

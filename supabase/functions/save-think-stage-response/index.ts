@@ -34,17 +34,20 @@ serve(async req => {
   }
   const classId = resolvedClass.classroom.id;
 
-  const { data: lesson } = await admin.from("lesson_plans")
+  const { data: lesson, error: lessonError } = await admin.from("lesson_plans")
     .select("id,project_version_id")
     .eq("id", body.lessonPlanId)
     .maybeSingle();
-  const { data: classProject } = lesson
-    ? await admin.from("class_projects")
-      .select("id,source_version_id")
-      .eq("class_id", classId)
-      .eq("source_version_id", lesson.project_version_id)
-      .maybeSingle()
-    : { data: null };
+  if (lessonError) return json({ error: lessonError.message }, 400);
+  if (!lesson) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
+
+  const { data: classProjects, error: classProjectError } = await admin.from("class_projects")
+    .select("id,source_version_id")
+    .eq("class_id", classId)
+    .eq("source_version_id", lesson.project_version_id)
+    .limit(1);
+  if (classProjectError) return json({ error: classProjectError.message }, 400);
+  const classProject = classProjects?.[0];
   if (!classProject) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
 
   const { data: access } = await admin.from("class_lesson_stage_access")
