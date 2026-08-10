@@ -109,7 +109,7 @@ serve(async (req) => {
   if (body.action === "delete_student") {
     if (!body.studentId) return json({ error: "삭제할 학생 계정을 선택해 주세요." }, 400);
 
-    const { data: student } = await admin.from("student_accounts").select("id, auth_user_id").eq("id", body.studentId).maybeSingle();
+    const { data: student } = await admin.from("student_accounts").select("id, student_number, auth_user_id").eq("id", body.studentId).maybeSingle();
     if (!student) return json({ success: true });
 
     // 1. Delete student submissions and activity history
@@ -120,26 +120,30 @@ serve(async (req) => {
     await admin.from("ai_evidence").delete().eq("student_id", body.studentId);
     await admin.from("teacher_assessments").delete().eq("student_id", body.studentId);
 
-    // 2. Delete student account record
-    const { error: deleteAccErr } = await admin.from("student_accounts").delete().eq("id", body.studentId);
-    if (deleteAccErr) return json({ error: deleteAccErr.message }, 400);
-
-    // 3. Delete auth user if exists
+    // 2. Delete auth user if exists
     if (student.auth_user_id) {
       await admin.auth.admin.deleteUser(student.auth_user_id).catch(() => null);
+    } else if (student.student_number) {
+      const email = `student_${student.student_number}@school.internal`;
+      const { data: listData } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const orphan = listData?.users?.find((u: any) => u.email === email);
+      if (orphan) {
+        await admin.auth.admin.deleteUser(orphan.id).catch(() => null);
+      }
     }
+
+    // 3. Delete student account record
+    const { error: deleteAccErr } = await admin.from("student_accounts").delete().eq("id", body.studentId);
+    if (deleteAccErr) return json({ error: deleteAccErr.message }, 400);
 
     return json({ success: true });
   }
 
   if (body.action !== "batch_create" || !Number.isInteger(body.grade) || !Number.isInteger(body.classNumber) || !Array.isArray(body.students) || body.students.length === 0) return json({ error: "학생 일괄 생성 요청이 올바르지 않습니다." }, 400);
-  const classCode = `${body.grade}${String(body.classNumber).padStart(2, "0")}`;
-  const { data: existingClass } = await admin.from("classes").select("id").eq("class_code", classCode).limit(1).maybeSingle();
-  let classId = existingClass?.id;
+  const { data: existingClass } = await admin.from("classes").select("id").eq("grade_number", body.grade).eq("class_number", body.classNumber).limit(1).maybeSingle();
+  const classId = existingClass?.id;
   if (!classId) {
-    const { data: created, error } = await admin.from("classes").insert({ teacher_id: teacherId, class_code: classCode, grade_number: body.grade, class_number: body.classNumber }).select("id").single();
-    if (error) return json({ error: error.message }, 400);
-    classId = created.id;
+    return json({ error: `${body.grade}학년 ${body.classNumber}반 학급이 존재하지 않습니다. 먼저 학급을 개설해 주세요.` }, 400);
   }
   const students = [];
   const duplicates = [];
@@ -151,11 +155,44 @@ serve(async (req) => {
     const { data: exists } = await admin.from("student_accounts").select("id").eq("student_number", studentNumber).maybeSingle();
     if (exists) { duplicates.push(studentNumber); continue; }
     const password = "000000";
-    const { data: authUser, error: authError } = await admin.auth.admin.createUser({ email: `student_${studentNumber}@school.internal`, password, email_confirm: true });
-    if (authError) return json({ error: authError.message }, 400);
+    const email = `student_${studentNumber}@school.internal`;
+
+    let authUser = null;
+    const { data: createdAuthUser, error: authError } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+
+    if (authError) {
+      // If auth user already exists (orphaned from previous delete or failed DB insert), search & clean up orphan auth user then retry
+      if (authError.message?.includes("already registered") || authError.message?.includes("already been registered")) {
+        let existingUser = null;
+        let page = 1;
+        while (!existingUser && page <= 10) {
+          const { data: listData } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+          if (!listData?.users || listData.users.length === 0) break;
+          existingUser = listData.users.find((u: any) => u.email === email);
+          if (listData.users.length < 1000) break;
+          page++;
+        }
+
+        if (existingUser) {
+          await admin.auth.admin.deleteUser(existingUser.id).catch(() => null);
+          const retry = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+          if (retry.error) return json({ error: retry.error.message }, 400);
+          authUser = retry.data;
+        } else {
+          return json({ error: authError.message }, 400);
+        }
+      } else {
+        return json({ error: authError.message }, 400);
+      }
+    } else {
+      authUser = createdAuthUser;
+    }
+
     const { data: student, error } = await admin.from("student_accounts").insert({ class_id: classId, student_number: studentNumber, student_name: name, auth_user_id: authUser.user.id, must_change_password: true }).select("id, student_number, student_name, created_at").single();
     if (error) {
-      await admin.auth.admin.deleteUser(authUser.user.id);
+      if (authUser?.user?.id) {
+        await admin.auth.admin.deleteUser(authUser.user.id).catch(() => null);
+      }
       return json({ error: error.message }, 400);
     }
     students.push(student);

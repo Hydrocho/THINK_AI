@@ -180,7 +180,8 @@ window.StudentManagerModule = {
       const students = valid.map(row => ({ number: row.number, name: row.name }));
       const result = await window.SupabaseService.batchCreateStudentAccounts({ grade, classNumber: cls, students });
 
-      const createdCount = result?.students?.length || valid.length;
+      const createdCount = result?.students?.length ?? (result?.duplicates ? valid.length - result.duplicates.length : valid.length);
+      const dupCount = result?.duplicates?.length ?? 0;
 
       // 1. Reset batch creation input fields & preview
       const inputEl = document.getElementById('batchRosterText');
@@ -200,10 +201,17 @@ window.StudentManagerModule = {
 
       // 5. Show clean success dialog popup without modal collision
       setTimeout(async () => {
+        let msg = `${grade}학년 ${cls}반 학생 계정 ${createdCount}개가 성공적으로 생성되었습니다.\n(초기 비밀번호: 000000)`;
+        if (dupCount > 0 && createdCount > 0) {
+          msg = `${grade}학년 ${cls}반 학생 계정 ${createdCount}개가 생성되었습니다.\n(이미 등록되어 제외된 학번: ${dupCount}개 / 초기 비밀번호: 000000)`;
+        } else if (dupCount > 0 && createdCount === 0) {
+          msg = `입력하신 학생 계정(${dupCount}개)은 이미 모두 등록되어 있습니다.`;
+        }
+
         await window.ModalService.alert({
-          title: '🎉 학생 계정 일괄 생성 완료',
-          message: `${grade}학년 ${cls}반 학생 계정 ${createdCount}개가 성공적으로 생성되었습니다.\n(초기 비밀번호: 000000)`,
-          tone: 'success'
+          title: createdCount > 0 ? '🎉 학생 계정 일괄 생성 완료' : 'ℹ️ 학생 계정 생성 안내',
+          message: msg,
+          tone: createdCount > 0 ? 'success' : 'info'
         });
       }, 50);
 
