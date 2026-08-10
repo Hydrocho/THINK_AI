@@ -22,6 +22,7 @@ serve(async req => {
     .eq("auth_user_id", user.id)
     .single();
   if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 403);
+  if (!student.class_id) return json({ liveLesson: null, history: [], unassigned: true });
 
   const { data: session, error: sessionError } = await admin.from("class_sessions")
     .select("id,class_id,lesson_plan_id,opened_at,class_projects!inner(id,source_project_id,title),lesson_plans!inner(id,lesson_order,title,core_question,think_stages,ai_question_limit,ai_response_mode)")

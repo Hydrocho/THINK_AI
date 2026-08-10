@@ -16,7 +16,11 @@ window.StudentLobbyModule = {
     try {
       const result = await window.SupabaseService.fetchStudentLiveLesson();
       state.liveLesson = result.liveLesson || null;
-      this.renderLiveLesson(active, state.liveLesson);
+      if (result.unassigned) {
+        active.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 학급에 연결되지 않았습니다. 선생님께 학급 연결을 요청해 주세요.</div>';
+      } else {
+        this.renderLiveLesson(active, state.liveLesson);
+      }
       this.renderHistory(history, result.history || []);
     } catch (error) {
       active.innerHTML = `<div style="text-align:center; color:var(--danger-text); padding:20px;">수업 정보를 불러오지 못했습니다. ${this.escapeHtml(error.message)}</div>`;
