@@ -20,6 +20,7 @@
     },
     peerOpinions: []
   };
+  window.AppState = state;
 
   window.App = {
     init: async function () {
@@ -116,9 +117,6 @@
     handleTeacherLogin: function () { window.AuthModule.handleTeacherLogin(state); },
     logout: function () { window.AuthModule.logout(); },
 
-    // Student Lobby Delegation
-    enterActiveLesson: function () { window.StudentLobbyModule.enterLiveLesson(state); },
-
     // THINK Steps Navigation
     selectLesson: function (index) {
       state.currentLessonIndex = parseInt(index);
@@ -212,7 +210,7 @@
     },
     saveThinkDraft: async function (stageCode, value) {
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      if (!lesson?.id || lesson.think_stage_access?.[stageCode] !== 'writable') return;
+      if (!lesson?.id || (lesson.thinkStageAccess || lesson.think_stage_access)?.[stageCode] !== 'writable') return;
       const fieldId = stageCode === 'T' ? 'txtInitialThought' : stageCode === 'N' ? 'txtPeerRationale' : 'txtFinalThought';
       const content = typeof value === 'string' ? value : document.getElementById(fieldId)?.value || '';
       const key = `${lesson.id}:${stageCode}`;

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Student Lobby Module: Current live lesson and personal learning history
+   Student Lobby Module: Class activity list and personal learning history
    ========================================================================== */
 
 window.StudentLobbyModule = {
@@ -8,43 +8,50 @@ window.StudentLobbyModule = {
   },
 
   renderLobby: async function (state) {
-    const active = document.getElementById('lobbyActiveLessonContainer');
+    const classLessons = document.getElementById('lobbyClassLessonsContainer');
     const history = document.getElementById('lobbyHistoryContainer');
-    if (!active || !history) return;
-    active.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 수업을 확인하는 중입니다…</div>';
+    if (!classLessons || !history) return;
+    classLessons.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">학급 활동을 불러오는 중입니다…</div>';
     history.innerHTML = '';
     try {
-      const result = await window.SupabaseService.fetchStudentLiveLesson();
-      state.liveLesson = result.liveLesson || null;
-      if (result.unassigned) {
-        active.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 학급에 연결되지 않았습니다. 선생님께 학급 연결을 요청해 주세요.</div>';
-      } else {
-        this.renderLiveLesson(active, state.liveLesson);
-      }
+      const result = await window.SupabaseService.fetchStudentClassLessons();
+      state.classLessons = result.lessons || [];
+      this.renderClassLessons(classLessons, state.classLessons, result.classResolution);
       this.renderHistory(history, result.history || []);
     } catch (error) {
-      active.innerHTML = `<div style="text-align:center; color:var(--danger-text); padding:20px;">수업 정보를 불러오지 못했습니다. ${this.escapeHtml(error.message)}</div>`;
+      classLessons.innerHTML = `<div style="text-align:center; color:var(--danger-text); padding:20px;">학급 활동을 불러오지 못했습니다. ${this.escapeHtml(error.message)}</div>`;
       history.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">기록을 불러올 수 없습니다.</div>';
     }
   },
 
-  renderLiveLesson: function (container, liveLesson) {
-    if (!liveLesson?.lesson) {
-      container.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">현재 열린 수업이 없습니다. 선생님이 수업을 열면 자동으로 표시됩니다.</div>';
+  renderClassLessons: function (container, lessons, classResolution) {
+    if (!lessons.length) {
+      const message = classResolution
+        ? '학급 정보를 확인할 수 없습니다. 선생님께 문의해 주세요.'
+        : '우리 학급에 등록된 수업 및 활동이 없습니다.';
+      container.innerHTML = `<div style="text-align:center; color:var(--text-subtle); padding:20px;">${message}</div>`;
       return;
     }
-    const lesson = liveLesson.lesson;
-    const openStages = Object.entries(lesson.thinkStageAccess || {}).filter(([, mode]) => mode !== 'hidden').map(([stage]) => stage).join(' · ') || '아직 열린 단계 없음';
-    container.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 18px; background:var(--primary-50); border:1px solid var(--primary-200); border-radius:var(--radius-md);">
-        <div>
-          <div style="font-size:.8rem; color:var(--primary-700); font-weight:700;">${this.escapeHtml(liveLesson.projectTitle)}</div>
-          <div style="font-weight:800; color:var(--text-main); margin-top:4px;">${lesson.number}차시 · ${this.escapeHtml(lesson.title)}</div>
-          <div style="font-size:.88rem; color:var(--text-subtle); margin-top:5px;">${this.escapeHtml(lesson.coreQuestion)}</div>
-          <div style="font-size:.78rem; color:var(--primary-700); margin-top:8px;">열린 단계: ${openStages}</div>
-        </div>
-        <button class="btn btn-primary" onclick="App.enterActiveLesson()">수업 입장하기 →</button>
-      </div>`;
+    container.innerHTML = lessons.map((lesson, index) => {
+      const visibleStages = Object.entries(lesson.thinkStageAccess || {})
+        .filter(([, mode]) => mode !== 'hidden')
+        .map(([stage]) => this.escapeHtml(stage))
+        .join(' · ');
+      const accessible = Object.values(lesson.thinkStageAccess || {}).some(mode => mode !== 'hidden');
+      const entry = accessible
+        ? `<button class="btn btn-primary" onclick="StudentLobbyModule.enterClassLesson(window.AppState, ${index})">활동 참여하기 →</button>`
+        : '<span class="role-tag">공개된 단계가 없습니다</span>';
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:14px 18px; background:var(--primary-50); border:1px solid var(--primary-200); border-radius:var(--radius-md);">
+          <div>
+            <div style="font-size:.8rem; color:var(--primary-700); font-weight:700;">${this.escapeHtml(lesson.projectTitle)}</div>
+            <div style="font-weight:800; color:var(--text-main); margin-top:4px;">${this.escapeHtml(lesson.number)}차시 · ${this.escapeHtml(lesson.title)}</div>
+            <div style="font-size:.88rem; color:var(--text-subtle); margin-top:5px;">${this.escapeHtml(lesson.coreQuestion)}</div>
+            <div style="font-size:.78rem; color:var(--primary-700); margin-top:8px;">공개 단계: ${visibleStages || '없음'}</div>
+          </div>
+          ${entry}
+        </div>`;
+    }).join('');
   },
 
   renderHistory: function (container, history) {
@@ -59,13 +66,15 @@ window.StudentLobbyModule = {
       </div>`).join('');
   },
 
-  enterLiveLesson: function (state) {
-    if (!state.liveLesson?.lesson) return;
-    state.activeLessonPlans = [state.liveLesson.lesson];
-    state.currentLessonIndex = 0;
+  enterClassLesson: function (state, lessonIndex) {
+    const lesson = state.classLessons?.[lessonIndex];
+    const accessible = Object.values(lesson?.thinkStageAccess || {}).some(mode => mode !== 'hidden');
+    if (!accessible) return;
+    state.activeLessonPlans = state.classLessons;
+    state.currentLessonIndex = lessonIndex;
     state.currentStep = 1;
     document.getElementById('studentLobbySection').style.display = 'none';
     document.getElementById('studentAppSection').style.display = 'grid';
-    window.App.selectLesson(0);
+    window.App.selectLesson(lessonIndex);
   }
 };

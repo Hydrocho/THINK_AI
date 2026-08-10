@@ -16,11 +16,17 @@ const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const accountFunction = fs.readFileSync(new URL('../supabase/functions/manage-student-accounts/index.ts', import.meta.url), 'utf8');
 const studentClassPath = new URL('../supabase/functions/_shared/student-class.ts', import.meta.url);
 
-test('student lobby contains one live lesson target and no PIN or legacy activity path', () => {
-  assert.match(lobbyView, /id="lobbyActiveLessonContainer"/);
+test('student lobby presents class activities instead of a live session', () => {
+  assert.match(lobbyView, /id="lobbyClassLessonsContainer"/);
   assert.doesNotMatch(lobbyView, /inputPinCode|PIN 번호/);
-  assert.match(lobby, /fetchStudentLiveLesson/);
-  assert.doesNotMatch(lobby, /fetchActivities|enterByPin|APP_CONFIG\.LESSONS/);
+  assert.doesNotMatch(lobbyView, /실시간|라이브|지금 참여|현재 열린 수업/);
+  assert.match(lobby, /fetchStudentClassLessons/);
+  assert.match(lobby, /renderClassLessons/);
+  assert.match(lobby, /enterClassLesson/);
+  assert.doesNotMatch(lobby, /fetchStudentLiveLesson|renderLiveLesson|enterLiveLesson|liveLesson|현재 열린 수업/);
+  assert.doesNotMatch(app, /enterActiveLesson/);
+  assert.match(app, /lesson\.thinkStageAccess \|\| lesson\.think_stage_access/);
+  assert.match(app, /window\.AppState\s*=\s*state/);
 });
 
 test('student class lesson APIs do not depend on class sessions', () => {
