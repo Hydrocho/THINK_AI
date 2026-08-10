@@ -13,6 +13,7 @@ const responseFunction = fs.readFileSync(new URL('../supabase/functions/save-thi
 const projectFunction = fs.readFileSync(new URL('../supabase/functions/manage-class-projects/index.ts', import.meta.url), 'utf8');
 const teacherAdmin = fs.readFileSync(new URL('../js/modules/teacherAdmin.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const studentClassPath = new URL('../supabase/functions/_shared/student-class.ts', import.meta.url);
 
 test('student lobby contains one live lesson target and no PIN or legacy activity path', () => {
   assert.match(lobbyView, /id="lobbyActiveLessonContainer"/);
@@ -93,4 +94,13 @@ test('student lesson API returns a lobby-safe empty state for an unassigned stud
 test('THINK renderer has a safe fallback before optional sample configuration is loaded', () => {
   assert.match(think, /window\.APP_CONFIG\?\.LESSONS \|\| \[\]/);
   assert.match(index, /<script src="js\/config\.js"><\/script>/);
+});
+
+test('student class is derived from a five-digit student number', () => {
+  const studentClass = fs.readFileSync(studentClassPath, 'utf8');
+  assert.match(studentClass, /export function parseStudentClass/);
+  assert.match(studentClass, /\/\^\\d\{5\}\$\//);
+  assert.match(studentClass, /grade_number/);
+  assert.match(studentClass, /class_number/);
+  assert.match(studentClass, /ambiguous_class/);
 });
