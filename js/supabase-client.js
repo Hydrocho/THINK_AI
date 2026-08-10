@@ -307,6 +307,13 @@
       }
       return res;
     },
+    fetchStudentPublishedLessons: async function () {
+      return this.invokeAccountFunction("get-student-lessons", {});
+    },
+    setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
+    setLessonStudentAccess: async function (lessonId, studentAccessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_lesson_access", lessonId, studentAccessMode }); },
+    saveThinkStageResponse: async function (lessonPlanId, stageCode, content) { return this.invokeAccountFunction("save-think-stage-response", { lessonPlanId, stageCode, content }); },
+    setThinkStageAccess: async function (lessonId, stageCode, accessMode) { return this.invokeAccountFunction("manage-class-projects", { action: "set_think_stage_access", lessonId, stageCode, accessMode }); },
     createProject: async function (payload) {
       return this.invokeAccountFunction("manage-class-projects", {
         action: "create_project",
@@ -317,7 +324,8 @@
           coreQuestion: l.coreQuestion || l.core_question || "",
           studentGuidance: l.studentGuidance || l.student_guidance || "",
           thinkStages: l.thinkStages || l.think_stages || ["T", "H", "I", "N", "K"],
-          aiQuestionLimit: l.aiQuestionLimit || l.ai_question_limit || 12
+          aiQuestionLimit: l.aiQuestionLimit || l.ai_question_limit || 12,
+          aiResponseMode: l.aiResponseMode || l.ai_response_mode || "THOUGHT_PROVOKING"
         }))
       });
     },
@@ -334,10 +342,7 @@
       return res;
     },
     deleteProject: async function (projectId) {
-      if (!supabaseClient) return { ok: true };
-      const { error } = await supabaseClient.from("projects").delete().eq("id", projectId);
-      if (error) console.warn("Direct project delete notice:", error.message);
-      return { ok: true };
+      return this.invokeAccountFunction("manage-class-projects", { action: "delete_project", projectId });
     },
 
     // 4. Fetch Activities from Supabase DB

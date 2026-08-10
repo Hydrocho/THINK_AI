@@ -12,6 +12,7 @@ window.TeacherAdminModule = {
   },
   toggleSidebar: function () { document.getElementById('teacherAppSection')?.classList.toggle('sidebar-collapsed'); },
   renderDashboard: async function () {
+    this.installLessonDraftUnloadGuard();
     document.querySelector('.app-container')?.classList.add('teacher-dashboard-container');
     const userNav = document.getElementById('userNavArea');
     const userSlot = document.getElementById('teacherUserSlot');
@@ -37,6 +38,7 @@ window.TeacherAdminModule = {
   },
 
   switchTab: function (tabName) {
+    if (tabName !== 'design' && !this.confirmDiscardLessonChanges()) return;
     const nav = this.navigation[tabName];
     if (nav) {
       const bc = document.getElementById('teacherBreadcrumb');
@@ -119,45 +121,34 @@ window.TeacherAdminModule = {
       el.innerHTML = `
         <div class="project-card-grid">
           ${projects.map(p => {
-            const isPublished = p.visibility === 'published';
             const lessons = p.project_versions?.[0]?.lesson_plans || [];
             const lessonCount = lessons.length;
-            const updatedDate = p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR') : '';
+            const lessonSummary = [...lessons]
+              .sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0))
+              .slice(0, 3)
+              .map((lesson, index) => `<span class="project-lesson-chip">${index + 1}차시 ${this.escapeHtml(lesson.title)}</span>`)
+              .join('');
+            const remainingLessons = Math.max(lessonCount - 3, 0);
 
             return `
+              <div class="project-list-row">
               <div class="project-card" style="cursor: pointer;" onclick="TeacherAdminModule.openProjectDetailSubView('${p.id}')" title="클릭하여 차시별 활동 및 질문 상세 설계">
-                <div>
-                  <div class="project-card-header">
+                <div class="project-card-header">
                     <h4 class="project-card-title">${this.escapeHtml(p.title)}</h4>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="project-status-badge ${isPublished ? 'published' : 'private'}">
-                        ${isPublished ? '🟢 공개' : '🔒 초안'}
-                      </span>
-                      <button type="button" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem; line-height: 1; border-radius: 6px;" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', '${this.escapeHtml(p.title)}')" title="프로젝트 삭제">
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div class="project-card-body">
-                    <p class="project-card-desc">${p.description ? this.escapeHtml(p.description) : '클릭하여 차시별 질문과 활동을 추가하세요.'}</p>
-                  </div>
+                    ${lessonCount ? `<div class="project-lesson-summary">${lessonSummary}${remainingLessons ? `<span class="project-lesson-more">+ ${remainingLessons}개 차시</span>` : ''}</div>` : '<span class="project-lesson-empty">차시를 추가해 주세요.</span>'}
                 </div>
-
-                <div>
+                <div class="project-card-details">
                   <div class="project-card-meta">
                     <span class="project-card-meta-item">📖 ${lessonCount}개 차시</span>
-                    ${updatedDate ? `<span class="project-card-meta-item">🕒 ${updatedDate}</span>` : ''}
-                  </div>
-
-                  <div class="project-card-actions">
-                    ${!isPublished ? `
-                      <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="event.stopPropagation(); TeacherAdminModule.publishProject('${p.id}')">
-                        🚀 공개하기
-                      </button>
-                    ` : '<span style="font-size: 0.8rem; color: var(--success-text); font-weight: 600;">학급 연결 가능</span>'}
                   </div>
                 </div>
+                <label class="project-publish-toggle" onclick="event.stopPropagation()"><input type="checkbox" ${p.is_published ? 'checked' : ''} onchange="TeacherAdminModule.setProjectPublished('${p.id}', this.checked)"> 학생 게시</label>
+                <button type="button" class="btn btn-danger project-delete-button" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', '${this.escapeHtml(p.title)}')" title="프로젝트 삭제">🗑️</button>
+              </div>
+              <div class="project-order-actions">
+                <button type="button" class="project-order-button" onclick="TeacherAdminModule.moveProject(event, '${p.id}', -1)" ${projects.indexOf(p) === 0 ? 'disabled' : ''} aria-label="위로 이동">↑</button>
+                <button type="button" class="project-order-button" onclick="TeacherAdminModule.moveProject(event, '${p.id}', 1)" ${projects.indexOf(p) === projects.length - 1 ? 'disabled' : ''} aria-label="아래로 이동">↓</button>
+              </div>
               </div>
             `;
           }).join('')}
@@ -168,7 +159,18 @@ window.TeacherAdminModule = {
       el.innerHTML = `<div style="color: var(--danger-text); padding: 16px;">프로젝트를 불러오는 중 오류가 발생했습니다.</div>`;
     }
   },
-  publishProject: async function (id) { await window.SupabaseService.publishProject(id); this.renderProjects(); },
+  setProjectPublished: async function (projectId, isPublished) {
+    try { await window.SupabaseService.setProjectPublished(projectId, isPublished); await this.renderProjects(); }
+    catch (error) { alert(`학생 게시 상태 변경 실패: ${error.message}`); }
+  },
+  moveProject: async function (event, projectId, direction) {
+    event.stopPropagation();
+    const index = this.cachedProjects.findIndex(project => project.id === projectId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= this.cachedProjects.length) return;
+    [this.cachedProjects[index], this.cachedProjects[targetIndex]] = [this.cachedProjects[targetIndex], this.cachedProjects[index]];
+    this.renderProjects();
+  },
   createProjectPrompt: async function () {
     const title = await window.ModalService.prompt({ title: '새 프로젝트', message: '프로젝트 이름을 입력하세요.', label: '프로젝트명', confirmLabel: '만들기' });
     if (title === null || !title.trim()) return;
@@ -183,6 +185,8 @@ window.TeacherAdminModule = {
     if (listSubView) listSubView.style.display = 'block';
     if (detailSubView) detailSubView.style.display = 'none';
     this.currentActiveClassId = null;
+    const breadcrumb = document.getElementById('teacherBreadcrumb');
+    if (breadcrumb) breadcrumb.innerText = this.navigation.operation.breadcrumb;
     this.renderClassOperations();
   },
 
@@ -191,7 +195,7 @@ window.TeacherAdminModule = {
     const listSubView = document.getElementById('classListSubView');
     const detailSubView = document.getElementById('classDetailSubView');
     const container = document.getElementById('classDetailContent');
-    const titleEl = document.getElementById('classDetailTitle');
+    const breadcrumb = document.getElementById('teacherBreadcrumb');
 
     if (listSubView) listSubView.style.display = 'none';
     if (detailSubView) detailSubView.style.display = 'block';
@@ -200,8 +204,8 @@ window.TeacherAdminModule = {
     try {
       const client = window.SupabaseService.getClient();
       const { data: cls } = await client.from('classes').select('*').eq('id', classId).single();
-      if (titleEl && cls) {
-        titleEl.innerHTML = `🏫 ${cls.grade_number}학년 ${cls.class_number}반 상세 수업 운영`;
+      if (breadcrumb && cls) {
+        breadcrumb.innerText = `${this.navigation.operation.breadcrumb} › ${cls.grade_number}학년 ${cls.class_number}반`;
       }
 
       // Fetch attached project for this class
@@ -212,27 +216,39 @@ window.TeacherAdminModule = {
         .order('attached_at', { ascending: false });
 
       const attachedCP = classProjects?.[0];
-      const attachedProject = attachedCP?.projects;
-      const lessons = attachedCP?.projects?.project_versions?.[0]?.lesson_plans || [];
-      const sortedLessons = [...lessons].sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0));
+      const attachedProjectId = attachedCP?.id || '';
 
-      const { data: classSessions } = await client
-        .from('class_sessions')
-        .select('*,lesson_plans(*)')
-        .eq('status', 'open');
+      const { data: stageAccesses } = await client
+        .from('class_lesson_stage_access')
+        .select('lesson_plan_id,stage_code,access_mode')
+        .eq('class_id', classId);
 
-      const openSession = (classSessions || []).find(cs => cs.class_project_id === attachedCP?.id);
-      const openLessonPlanId = openSession?.lesson_plan_id;
+      const projectResult = await window.SupabaseService.listProjects();
+      const publishedProjects = (projectResult.projects || []).filter(project => project.is_published);
 
-      if (!attachedProject) {
+      const activeProjects = publishedProjects.length
+        ? publishedProjects
+        : (attachedCP?.projects ? [attachedCP.projects] : []);
+      const sortedLessons = activeProjects.flatMap(project => {
+        const projectLessons = project.project_versions?.[0]?.lesson_plans || [];
+        return [...projectLessons]
+          .sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0))
+          .map(lesson => ({
+            ...lesson,
+            projectId: project.id,
+            projectTitle: project.title,
+            projectLessonCount: projectLessons.length
+          }));
+      });
+
+      const openLessonPlanId = null;
+
+      if (!activeProjects.length) {
         container.innerHTML = `
           <div class="project-empty-state" style="margin-top: 20px;">
             <div class="project-empty-icon">🗂️</div>
-            <div class="project-empty-title">연결된 수업 프로젝트가 없습니다</div>
-            <div class="project-empty-desc">상단의 [＋ 프로젝트 불러오기] 버튼을 누르거나 아래 버튼을 클릭하여 학급에 적용할 프로젝트를 연결하세요.</div>
-            <button class="btn btn-primary" style="margin-top: 16px;" onclick="TeacherAdminModule.attachProjectToActiveClassPrompt()">
-              ＋ 프로젝트 불러오기
-            </button>
+            <div class="project-empty-title">학생 게시된 프로젝트가 없습니다</div>
+            <div class="project-empty-desc">수업 설계에서 프로젝트의 학생 게시를 켜면, 이 학급에 자동으로 표시됩니다.</div>
           </div>
         `;
         return;
@@ -241,43 +257,22 @@ window.TeacherAdminModule = {
       const stageLabels = { T: '🟢 T (나의 처음 생각)', H: '🔵 H (친구와 생각 나누기)', I: '🟣 I (인공지능과 생각 넓히기)', N: '🟠 N (비판적으로 따져보기)', K: '🔴 K (나의 최종 생각)' };
 
       container.innerHTML = `
-        <!-- Connected Project Header Card -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 28px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-          <div>
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--primary-700); text-transform: uppercase; margin-bottom: 4px;">
-              현재 연결된 수업 프로젝트
-            </div>
-            <h4 style="font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin: 0 0 6px 0;">
-              🗂️ ${this.escapeHtml(attachedProject.title)}
-            </h4>
-            <div style="font-size: 0.85rem; color: var(--text-subtle);">
-              총 ${sortedLessons.length}개 차시 포함 | 연결일: ${new Date(attachedCP.attached_at).toLocaleDateString()}
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-secondary" style="font-size: 0.85rem;" onclick="TeacherAdminModule.attachProjectToActiveClassPrompt()">
-              🔄 프로젝트 교체
-            </button>
-            <button class="btn btn-secondary" style="font-size: 0.85rem; color: var(--danger-text);" onclick="TeacherAdminModule.detachProjectFromClass('${attachedCP.id}')">
-              🗑️ 연결 해제
-            </button>
-            <button class="btn btn-secondary" style="font-size: 0.85rem; color: var(--danger-text);" onclick="TeacherAdminModule.deleteClassPrompt('${cls.id}', '${cls.grade_number}학년 ${cls.class_number}반')">
-              🗑️ 학급 삭제
-            </button>
-          </div>
-        </div>
-
-        <!-- Lessons Accordion/Card Operations List -->
-        <div style="margin-bottom: 16px; font-weight: 700; font-size: 1.05rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-          📖 차시별 수업 열기 및 관리 (${sortedLessons.length}개 차시)
-        </div>
-
         <div style="display: flex; flex-direction: column; gap: 14px;">
           ${sortedLessons.map((l, i) => {
             const isOpen = l.id === openLessonPlanId;
             const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
+            const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
+            const firstLessonOfProject = i === 0 || sortedLessons[i - 1].projectId !== l.projectId;
 
             return `
+              ${firstLessonOfProject ? `
+                <section class="class-project-lesson-section">
+                  <div class="class-project-lesson-section-title">
+                    <span>🗂️ ${this.escapeHtml(l.projectTitle)}</span>
+                    <small>${l.projectLessonCount}개 차시</small>
+                  </div>
+                </section>
+              ` : ''}
               <div style="background: #ffffff; border: 2px solid ${isOpen ? 'var(--primary-500)' : 'var(--border-light)'}; border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                   <div style="display: flex; align-items: center; gap: 12px;">
@@ -294,16 +289,16 @@ window.TeacherAdminModule = {
                     </div>
                   </div>
 
-                  <div style="display: flex; align-items: center; gap: 10px;">
+                  <div class="legacy-session-actions">
                     <span class="project-status-badge ${isOpen ? 'published' : 'private'}">
                       ${isOpen ? '🟢 현재 오픈 중' : '🔒 수업 대기'}
                     </span>
                     ${isOpen ? `
-                      <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedCP.id}', '${l.id}', false)">
+                      <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedProjectId}', '${l.id}', false)" ${attachedProjectId ? '' : 'disabled'}>
                         ⏸️ 수업 닫기
                       </button>
                     ` : `
-                      <button class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedCP.id}', '${l.id}', true)">
+                      <button class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700;" onclick="TeacherAdminModule.toggleClassLessonSession('${attachedProjectId}', '${l.id}', true)" ${attachedProjectId ? '' : 'disabled'}>
                         🚀 이 차시로 수업 열기
                       </button>
                     `}
@@ -318,6 +313,9 @@ window.TeacherAdminModule = {
                       ${stageLabels[st] || st}
                     </span>
                   `).join('')}
+                </div>
+                <div class="class-stage-access-controls">
+                  ${stages.map(st => `<span><b>${st}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${(stageState[st] || 'hidden') === mode ? 'active' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','${mode}')">${label}</button>`).join('')}</span>`).join('')}
                 </div>
               </div>
             `;
@@ -372,12 +370,15 @@ window.TeacherAdminModule = {
         .select('*,lesson_plans(*)')
         .eq('status', 'open');
 
+      const projectResult = await window.SupabaseService.listProjects();
+      const publishedProjects = (projectResult.projects || []).filter(project => project.is_published);
+
       el.innerHTML = `
         <div class="project-card-grid">
           ${classes.map(c => {
             const attachedCP = (classProjects || []).find(cp => cp.class_id === c.id);
-            const attachedProject = attachedCP?.projects;
-            const lessons = attachedCP?.projects?.project_versions?.[0]?.lesson_plans || [];
+            const attachedProject = publishedProjects[0] || attachedCP?.projects;
+            const lessons = attachedProject?.project_versions?.[0]?.lesson_plans || [];
             const openSession = (classSessions || []).find(cs => cs.class_project_id === attachedCP?.id);
             const openLesson = openSession?.lesson_plans;
             const className = `${c.grade_number}학년 ${c.class_number}반`;
@@ -842,6 +843,7 @@ window.TeacherAdminModule.attachProjectPrompt = async function (classId) {
 };
 
 window.TeacherAdminModule.showProjectListSubView = function () {
+  if (!this.confirmDiscardLessonChanges()) return;
   const listSub = document.getElementById('projectListSubView');
   const detailSub = document.getElementById('projectDetailSubView');
   if (listSub) listSub.style.display = 'block';
@@ -868,19 +870,7 @@ window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) 
   if (titleEl) titleEl.innerText = `🗂️ ${project.title}`;
   
   const actionsEl = document.getElementById('projectDetailHeaderActions');
-  const isPublished = project.visibility === 'published';
-  if (actionsEl) {
-    actionsEl.innerHTML = `
-      <span class="project-status-badge ${isPublished ? 'published' : 'private'}">
-        ${isPublished ? '🟢 공개 중' : '🔒 초안'}
-      </span>
-      ${!isPublished ? `
-        <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="TeacherAdminModule.publishProject('${project.id}')">
-          🚀 공개하기
-        </button>
-      ` : '<span style="font-size: 0.8rem; color: var(--success-text); font-weight: 600;">학급 연결 가능</span>'}
-    `;
-  }
+  if (actionsEl) actionsEl.innerHTML = '';
 
   const versionInput = document.getElementById('detailVersionId');
   if (versionInput) versionInput.value = versionId;
@@ -898,6 +888,7 @@ window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) 
 };
 
 window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
+  this.lessonDrafts.clear();
   const container = document.getElementById('lessonAccordionContainer');
   if (!container) return;
 
@@ -918,72 +909,71 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
   container.innerHTML = sorted.map((l, i) => {
     const orderNum = l.lesson_order || (i + 1);
     const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
-    const stageBadges = stages.map(st => `<span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: var(--primary-100); color: var(--primary-800); border: 1px solid var(--primary-200);">${st}</span>`).join(' ');
 
     return `
-      <div class="lesson-accordion-item" id="lesson-item-${l.id}" data-id="${l.id}" data-order="${orderNum}" draggable="true">
+      <div class="lesson-accordion-item expanded" id="lesson-item-${l.id}" data-id="${l.id}" data-order="${orderNum}" draggable="true">
         <div class="lesson-accordion-header" onclick="TeacherAdminModule.toggleAccordion('${l.id}')">
-          <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
             <span class="drag-handle" title="드래그하여 위아래 순서 변경" onclick="event.stopPropagation();">⋮⋮</span>
-            <div class="lesson-header-main">
-              <div class="lesson-header-title">
-                <span>${orderNum}차시 · ${this.escapeHtml(l.title)}</span>
-                <span style="display: inline-flex; gap: 4px; align-items: center; margin-left: 6px;">${stageBadges}</span>
-                <span class="role-tag" style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px;">Gemini 질문 ${l.ai_question_limit || 12}회</span>
-              </div>
-              <div class="lesson-header-question">
-                💡 ${this.escapeHtml(l.core_question || '핵심 질문 미입력')}
-              </div>
-            </div>
+            <span class="role-tag" style="background: var(--primary-600); color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px;">${orderNum}차시</span>
+            <span style="font-weight: 700; color: var(--text-main); font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(l.title)}</span>
           </div>
           <div class="lesson-accordion-actions" onclick="event.stopPropagation();">
-            <button class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.8rem;" onclick="TeacherAdminModule.toggleAccordion('${l.id}')">
-              ✏️ 편집
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: var(--danger-text);" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="차시 삭제">
+              🗑️ 차시 삭제
             </button>
-            <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="차시 삭제">
-              🗑️
-            </button>
-            <span class="accordion-chevron">▼</span>
+            <span class="accordion-chevron" style="font-size: 0.75rem; color: var(--text-subtle); padding: 4px;">▼</span>
           </div>
         </div>
 
         <div class="lesson-accordion-body">
-          <form onsubmit="TeacherAdminModule.handleUpdateLesson(event, '${l.id}')" style="display: flex; flex-direction: column; gap: 14px;">
-            <div class="form-group">
-              <label class="form-label" style="font-weight: 600;">차시 제목</label>
-              <input type="text" id="edit-title-${l.id}" class="form-input" value="${this.escapeHtml(l.title)}" required style="padding: 10px 12px;">
+          <form class="lesson-compact-form" data-draft-key="lesson-${l.id}" onsubmit="TeacherAdminModule.handleUpdateLesson(event, '${l.id}')">
+            <div class="lesson-meta-row">
+              <label class="lesson-inline-field lesson-title-field">
+                <span>차시 제목</span>
+                <input type="text" id="edit-title-${l.id}" class="form-input" value="${this.escapeHtml(l.title)}" required>
+              </label>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" style="font-weight: 600;">학생용 핵심 발문 질문</label>
-              <textarea id="edit-question-${l.id}" class="form-textarea" rows="3" required style="padding: 10px 12px; min-height: 80px;">${this.escapeHtml(l.core_question || '')}</textarea>
+            <label class="lesson-question-row">
+              <span>핵심 질문</span>
+              <textarea id="edit-question-${l.id}" class="form-textarea" rows="1" required>${this.escapeHtml(l.core_question || '')}</textarea>
+            </label>
+
+            <div class="lesson-ai-settings-row">
+              <label class="lesson-inline-field lesson-mode-field">
+                <span>AI 응답 모드</span>
+                <select id="edit-ai-mode-${l.id}" class="form-select">
+                  <option value="THOUGHT_PROVOKING" ${(l.ai_response_mode || 'THOUGHT_PROVOKING') === 'THOUGHT_PROVOKING' ? 'selected' : ''}>사고 촉진형 (답 대신 질문/반례 제시)</option>
+                  <option value="GENERAL" ${l.ai_response_mode === 'GENERAL' ? 'selected' : ''}>일반 대화형 (개념 직접 설명)</option>
+                </select>
+              </label>
+              <label class="lesson-inline-field lesson-limit-field">
+                <span>AI 질문</span>
+                <input type="number" id="edit-limit-${l.id}" class="form-input" min="1" max="30" value="${l.ai_question_limit || 12}" required>
+                <em>회</em>
+              </label>
             </div>
 
-            <div class="form-group">
-              <label class="form-label" style="font-weight: 600;">포함할 THINK 단계 구성</label>
-              <div style="display: flex; gap: 10px; flex-wrap: wrap; background: #ffffff; padding: 10px 14px; border: 1px solid var(--border-medium); border-radius: var(--radius-md);">
+            <div class="lesson-think-row">
+              <div class="lesson-think-options">
                 ${['T','H','I','N','K'].map(st => {
                   const isChecked = stages.includes(st);
-                  const labels = { T: '🟢 T (나의 처음 생각)', H: '🔵 H (친구와 생각 나누기)', I: '🟣 I (인공지능과 생각 넓히기)', N: '🟠 N (비판적으로 따져보기)', K: '🔴 K (나의 최종 생각)' };
+                  const labels = {
+                    T: 'T - 나의 처음 생각',
+                    H: 'H - 친구와 생각 나누기',
+                    I: 'I - 인공지능과 생각 넓히기',
+                    N: 'N - 비판적으로 따져보기',
+                    K: 'K - 나의 최종 생각'
+                  };
                   return `
-                    <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
-                      <input type="checkbox" class="chk-edit-think-stage-${l.id}" value="${st}" ${isChecked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: var(--primary-600);"> ${labels[st]}
+                    <label title="${labels[st]}">
+                      <input type="checkbox" class="chk-edit-think-stage-${l.id}" value="${st}" ${isChecked ? 'checked' : ''}> ${labels[st]}
                     </label>
                   `;
                 }).join('')}
               </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-              <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">학생별 AI 질문 제한 횟수</label>
-                <input type="number" id="edit-limit-${l.id}" class="form-input" min="1" max="30" value="${l.ai_question_limit || 12}" required style="padding: 10px 12px;">
-              </div>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
-              <button type="button" class="btn btn-secondary" onclick="TeacherAdminModule.toggleAccordion('${l.id}')">접기</button>
-              <button type="submit" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">💾 수정 내용 저장</button>
+              <button type="submit" class="btn btn-primary lesson-save-button" disabled>💾 저장</button>
             </div>
           </form>
         </div>
@@ -993,18 +983,147 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
 
   // Attach Drag & Drop handlers
   this.attachDragAndDropHandlers(container);
+  this.initializeLessonDraftTracking(container);
+};
+
+window.TeacherAdminModule.renderThinkStageAccessControls = function (container, lessons) {
+  container.querySelectorAll('.lesson-think-options').forEach((options, index) => {
+    const lesson = lessons[index];
+    if (!lesson) return;
+    const access = { T: 'hidden', H: 'hidden', I: 'hidden', N: 'hidden', K: 'hidden', ...(lesson.think_stage_access || {}) };
+    const panel = document.createElement('div');
+    panel.className = 'think-stage-access-panel';
+    panel.innerHTML = ['T','H','I','N','K'].map(stage => `<span class="think-stage-access"><b>${stage}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${access[stage] === mode ? 'active' : ''}" data-stage="${stage}" data-mode="${mode}">${label}</button>`).join('')}</span>`).join('');
+    panel.addEventListener('click', async event => {
+      const button = event.target.closest('button[data-stage]');
+      if (!button) return;
+      try { await window.SupabaseService.setThinkStageAccess(lesson.id, button.dataset.stage, button.dataset.mode); panel.querySelectorAll(`[data-stage="${button.dataset.stage}"]`).forEach(item => item.classList.toggle('active', item === button)); }
+      catch (error) { alert(`THINK 단계 상태 변경 실패: ${error.message}`); }
+    });
+    options.after(panel);
+  });
+};
+
+window.TeacherAdminModule.setClassStageAccess = async function (classId, lessonId, stageCode, accessMode) {
+  try { await window.SupabaseService.invokeAccountFunction('manage-class-projects', { action: 'set_class_stage_access', classId, lessonId, stageCode, accessMode }); await this.openClassDetailSubView(classId); }
+  catch (error) { alert(`학급 THINK 단계 상태 변경 실패: ${error.message}`); }
 };
 
 window.TeacherAdminModule.toggleAccordion = function (lessonId) {
   const item = document.getElementById(`lesson-item-${lessonId}`);
   if (item) {
+    if (item.classList.contains('expanded') && !this.confirmDiscardLessonChanges(`lesson-${lessonId}`)) return;
     item.classList.toggle('expanded');
   }
+};
+
+window.TeacherAdminModule.lessonDrafts = new Map();
+
+window.TeacherAdminModule.getLessonDraftValue = function (form) {
+  return JSON.stringify([...form.querySelectorAll('input, textarea, select')].map(field => ({
+    name: field.id || field.value,
+    value: field.type === 'checkbox' ? field.checked : field.value
+  })));
+};
+
+window.TeacherAdminModule.initializeLessonDraftTracking = function (container) {
+  container.querySelectorAll('.lesson-compact-form').forEach(form => {
+    const key = form.dataset.draftKey;
+    if (!key) return;
+    const saveButton = form.querySelector('.lesson-save-button');
+    const initialValue = this.getLessonDraftValue(form);
+    this.lessonDrafts.set(key, { initialValue, dirty: false });
+    if (saveButton) saveButton.disabled = true;
+
+    const updateDirtyState = () => {
+      const draft = this.lessonDrafts.get(key);
+      if (!draft) return;
+      draft.dirty = this.getLessonDraftValue(form) !== draft.initialValue;
+      if (saveButton) saveButton.disabled = !draft.dirty;
+      form.classList.toggle('has-unsaved-changes', draft.dirty);
+    };
+    form.querySelectorAll('input, textarea, select').forEach(field => {
+      field.addEventListener('input', updateDirtyState);
+      field.addEventListener('change', updateDirtyState);
+    });
+  });
+};
+
+window.TeacherAdminModule.isLessonDraftDirty = function (key) {
+  if (key) return Boolean(this.lessonDrafts.get(key)?.dirty);
+  return [...this.lessonDrafts.values()].some(draft => draft.dirty);
+};
+
+window.TeacherAdminModule.confirmDiscardLessonChanges = function (key) {
+  if (!this.isLessonDraftDirty(key)) return true;
+  const shouldDiscard = confirm('저장하지 않은 변경사항이 있습니다. 저장하지 않고 이동하시겠습니까?');
+  if (!shouldDiscard) return false;
+  if (key) this.lessonDrafts.delete(key);
+  else this.lessonDrafts.clear();
+  return true;
+};
+
+window.TeacherAdminModule.installLessonDraftUnloadGuard = function () {
+  if (this.lessonDraftUnloadGuardInstalled) return;
+  window.addEventListener('beforeunload', event => {
+    if (!this.isLessonDraftDirty()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+  this.lessonDraftUnloadGuardInstalled = true;
 };
 
 window.TeacherAdminModule.showAddLessonForm = function () {
   const box = document.getElementById('addLessonFormBox');
   if (box) {
+    const project = (this.cachedProjects || []).find(p => p.id === this.activeProjectId);
+    const nextOrder = (project?.project_versions?.[0]?.lesson_plans?.length || 0) + 1;
+    box.className = 'new-lesson-compact-card';
+    box.innerHTML = `
+      <div class="new-lesson-compact-header">
+        <span class="role-tag">${nextOrder}차시</span>
+        <strong>새 차시</strong>
+      </div>
+      <form class="lesson-compact-form" data-draft-key="new-lesson" onsubmit="TeacherAdminModule.handleAddLessonToProject(event)">
+        <input type="hidden" id="detailVersionId" value="">
+        <div class="lesson-meta-row">
+          <label class="lesson-inline-field lesson-title-field">
+            <span>차시 제목</span>
+            <input type="text" id="detailLessonTitle" class="form-input" placeholder="예: 유전과 형질" required>
+          </label>
+        </div>
+        <label class="lesson-question-row">
+          <span>핵심 질문</span>
+          <textarea id="detailCoreQuestion" class="form-textarea" rows="1" placeholder="학생들이 탐구할 핵심 질문을 입력하세요." required></textarea>
+        </label>
+        <div class="lesson-ai-settings-row">
+          <label class="lesson-inline-field lesson-mode-field">
+            <span>AI 응답 모드</span>
+            <select id="detailAiMode" class="form-select">
+              <option value="THOUGHT_PROVOKING">사고 촉진형 (답 대신 질문/반례 제시)</option>
+              <option value="GENERAL">일반 대화형 (개념 직접 설명)</option>
+            </select>
+          </label>
+          <label class="lesson-inline-field lesson-limit-field">
+            <span>AI 질문</span>
+            <input type="number" id="detailAiLimit" class="form-input" min="1" max="30" value="12" required>
+            <em>회</em>
+          </label>
+        </div>
+        <div class="lesson-think-row">
+          <div class="lesson-think-options">
+            <label><input type="checkbox" class="chk-add-think-stage" value="T" checked> T - 나의 처음 생각</label>
+            <label><input type="checkbox" class="chk-add-think-stage" value="H" checked> H - 친구와 생각 나누기</label>
+            <label><input type="checkbox" class="chk-add-think-stage" value="I" checked> I - 인공지능과 생각 넓히기</label>
+            <label><input type="checkbox" class="chk-add-think-stage" value="N" checked> N - 비판적으로 따져보기</label>
+            <label><input type="checkbox" class="chk-add-think-stage" value="K" checked> K - 나의 최종 생각</label>
+          </div>
+          <button type="button" class="btn btn-secondary new-lesson-cancel-button" onclick="TeacherAdminModule.hideAddLessonForm()">취소</button>
+          <button type="submit" class="btn btn-primary lesson-save-button" id="btnSubmitAddLesson" disabled>💾 저장</button>
+        </div>
+      </form>
+    `;
+    this.initializeLessonDraftTracking(box);
     box.style.display = 'block';
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.getElementById('detailLessonTitle')?.focus();
@@ -1013,6 +1132,8 @@ window.TeacherAdminModule.showAddLessonForm = function () {
 
 window.TeacherAdminModule.hideAddLessonForm = function () {
   const box = document.getElementById('addLessonFormBox');
+  if (!this.confirmDiscardLessonChanges('new-lesson')) return;
+  this.lessonDrafts.delete('new-lesson');
   if (box) box.style.display = 'none';
 };
 
@@ -1020,6 +1141,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
   e.preventDefault();
   const title = document.getElementById('detailLessonTitle').value.trim();
   const coreQuestion = document.getElementById('detailCoreQuestion').value.trim();
+  const aiResponseMode = document.getElementById('detailAiMode').value;
   const aiLimit = parseInt(document.getElementById('detailAiLimit').value) || 12;
 
   const selectedStages = [...document.querySelectorAll('.chk-add-think-stage:checked')].map(cb => cb.value);
@@ -1037,13 +1159,15 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
       title: l.title,
       coreQuestion: l.core_question,
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
-      aiQuestionLimit: l.ai_question_limit
+      aiQuestionLimit: l.ai_question_limit,
+      aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
     })),
     {
       title,
       coreQuestion,
       thinkStages,
-      aiQuestionLimit: aiLimit
+      aiQuestionLimit: aiLimit,
+      aiResponseMode
     }
   ];
 
@@ -1067,6 +1191,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
       if (newProj) {
         this.openProjectDetailSubView(newProj.id);
       }
+      this.lessonDrafts.delete('new-lesson');
       this.hideAddLessonForm();
       document.getElementById('detailLessonTitle').value = '';
       document.getElementById('detailCoreQuestion').value = '';
@@ -1083,6 +1208,7 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   e.preventDefault();
   const title = document.getElementById(`edit-title-${lessonId}`).value.trim();
   const coreQuestion = document.getElementById(`edit-question-${lessonId}`).value.trim();
+  const aiResponseMode = document.getElementById(`edit-ai-mode-${lessonId}`).value;
   const aiLimit = parseInt(document.getElementById(`edit-limit-${lessonId}`).value) || 12;
 
   const selectedStages = [...document.querySelectorAll(`.chk-edit-think-stage-${lessonId}:checked`)].map(cb => cb.value);
@@ -1094,13 +1220,14 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   const existingLessons = project.project_versions?.[0]?.lesson_plans || [];
   const updatedLessons = existingLessons.map(l => {
     if (l.id === lessonId) {
-      return { title, coreQuestion, thinkStages, aiQuestionLimit: aiLimit };
+      return { title, coreQuestion, thinkStages, aiQuestionLimit: aiLimit, aiResponseMode };
     }
     return {
       title: l.title,
       coreQuestion: l.core_question,
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
-      aiQuestionLimit: l.ai_question_limit
+      aiQuestionLimit: l.ai_question_limit,
+      aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
     };
   });
 
@@ -1143,7 +1270,8 @@ window.TeacherAdminModule.handleDeleteLesson = async function (lessonId) {
       title: l.title,
       coreQuestion: l.core_question,
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
-      aiQuestionLimit: l.ai_question_limit
+      aiQuestionLimit: l.ai_question_limit,
+      aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
     }));
 
   try {
@@ -1199,7 +1327,8 @@ window.TeacherAdminModule.attachDragAndDropHandlers = function (container) {
           title: found ? found.title : '',
           coreQuestion: found ? found.core_question : '',
           thinkStages: found ? (found.think_stages || found.thinkStages || ['T', 'H', 'I', 'N', 'K']) : ['T', 'H', 'I', 'N', 'K'],
-          aiQuestionLimit: found ? found.ai_question_limit : 12
+          aiQuestionLimit: found ? found.ai_question_limit : 12,
+          aiResponseMode: found ? (found.ai_response_mode || 'THOUGHT_PROVOKING') : 'THOUGHT_PROVOKING'
         };
       }).filter(l => l.title);
 

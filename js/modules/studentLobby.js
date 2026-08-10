@@ -9,6 +9,23 @@ window.StudentLobbyModule = {
 
     let lessons = window.APP_CONFIG.LESSONS || [];
 
+    if (window.SupabaseService?.isConnected()) {
+      const result = await window.SupabaseService.fetchStudentPublishedLessons();
+      const publishedLessons = (result.projects || []).flatMap(project =>
+        (project.project_versions?.[0]?.lesson_plans || []).map(lesson => ({
+          ...lesson,
+          number: lesson.lesson_order,
+          question: lesson.core_question,
+          accessMode: lesson.student_access_mode,
+          projectTitle: project.title
+        }))
+      );
+      if (publishedLessons.length) {
+        lessons = publishedLessons;
+        state.activeLessonPlans = publishedLessons;
+      }
+    }
+
     // Attempt to load live activities from Supabase if connected
     if (window.SupabaseService && window.SupabaseService.isConnected()) {
       const dbActivities = await window.SupabaseService.fetchActivities();

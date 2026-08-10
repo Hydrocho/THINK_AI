@@ -24,6 +24,7 @@
   window.App = {
     init: async function () {
       this.renderCurrentStep();
+      this.installThinkDraftAutosave();
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
         window.lucide.createIcons();
       }
@@ -184,6 +185,40 @@
     },
 
     // Student Actions
+    installThinkDraftAutosave: function () {
+      if (state.thinkDraftAutosaveInstalled) return;
+      state.thinkDraftAutosaveInstalled = true;
+      state.thinkDraftLastSaved = new Map();
+      state.thinkDraftTimers = new Map();
+      state.thinkDraftMaxTimers = new Map();
+      document.addEventListener('input', event => {
+        const field = event.target;
+        if (!field.matches('#txtInitialThought, #txtPeerRationale, #txtFinalThought')) return;
+        const stageCode = field.id === 'txtInitialThought' ? 'T' : field.id === 'txtPeerRationale' ? 'N' : 'K';
+        const key = `${state.currentLessonIndex}:${stageCode}`;
+        clearTimeout(state.thinkDraftTimers.get(key));
+        state.thinkDraftTimers.set(key, setTimeout(() => this.saveThinkDraft(stageCode, field.value), 3000));
+        if (!state.thinkDraftMaxTimers.has(key)) {
+          state.thinkDraftMaxTimers.set(key, setTimeout(async () => {
+            await this.saveThinkDraft(stageCode, field.value);
+            state.thinkDraftMaxTimers.delete(key);
+          }, 30000));
+        }
+      });
+      window.addEventListener('beforeunload', () => {
+        ['T','N','K'].forEach(stageCode => this.saveThinkDraft(stageCode));
+      });
+    },
+    saveThinkDraft: async function (stageCode, value) {
+      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      if (!lesson?.id || lesson.think_stage_access?.[stageCode] !== 'writable') return;
+      const fieldId = stageCode === 'T' ? 'txtInitialThought' : stageCode === 'N' ? 'txtPeerRationale' : 'txtFinalThought';
+      const content = typeof value === 'string' ? value : document.getElementById(fieldId)?.value || '';
+      const key = `${lesson.id}:${stageCode}`;
+      if (!content.trim() || state.thinkDraftLastSaved.get(key) === content) return;
+      try { await window.SupabaseService.saveThinkStageResponse(lesson.id, stageCode, content); state.thinkDraftLastSaved.set(key, content); }
+      catch (error) { console.warn('THINK draft autosave failed:', error.message); }
+    },
     saveInitialThought: function () {
       const el = document.getElementById('txtInitialThought');
       if (el) state.studentData.initialThought = el.value.trim();
