@@ -142,7 +142,7 @@ window.TeacherAdminModule = {
                     <span class="project-card-meta-item">📖 ${lessonCount}개 차시</span>
                   </div>
                 </div>
-                <button type="button" class="project-publish-toggle ${p.is_published ? 'is-enabled' : ''}" aria-pressed="${p.is_published ? 'true' : 'false'}" onclick="event.stopPropagation(); TeacherAdminModule.setProjectPublished('${p.id}', ${!p.is_published})">${p.is_published ? '학급 연결 가능' : '학급 연결 안 함'}</button>
+                <div class="project-link-control" onclick="event.stopPropagation()"><span class="project-link-status">${p.is_published ? '학급 연결 가능' : '학급 연결 안 함'}</span><button type="button" class="project-link-switch ${p.is_published ? 'is-enabled' : ''}" aria-pressed="${p.is_published ? 'true' : 'false'}" aria-label="${p.is_published ? '학급 연결 가능 끄기' : '학급 연결 가능 켜기'}" onclick="TeacherAdminModule.setProjectPublished('${p.id}', ${!p.is_published})"></button></div>
                 <button type="button" class="btn btn-danger project-delete-button" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', '${this.escapeHtml(p.title)}')" title="프로젝트 삭제">🗑️</button>
               </div>
               <div class="project-order-actions">

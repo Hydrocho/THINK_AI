@@ -10,3 +10,11 @@ test('project cards use a compact single column and summarize lesson titles', ()
   assert.match(teacher, /moveProject\(event, '\$\{p\.id\}', -1\)/);
   assert.match(teacher, /moveProject\(event, '\$\{p\.id\}', 1\)/);
 });
+
+test('class link control uses a text label and an accessible visual switch', () => {
+  assert.match(teacher, /project-link-status/);
+  assert.match(teacher, /project-link-switch/);
+  assert.match(css, /\.project-link-switch\s*\{[\s\S]*border-radius:\s*999px/);
+  assert.match(css, /\.project-link-switch\.is-enabled[\s\S]*background:\s*#00c853/);
+  assert.match(css, /\.project-link-switch::after/);
+});
