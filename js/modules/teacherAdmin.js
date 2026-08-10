@@ -215,21 +215,25 @@ window.TeacherAdminModule = {
         .eq('class_id', classId)
         .order('attached_at', { ascending: false });
 
-      const attachedCP = classProjects?.[0];
-
       const { data: stageAccesses } = await client
         .from('class_lesson_stage_access')
         .select('lesson_plan_id,stage_code,access_mode')
         .eq('class_id', classId);
 
-      const activeProjects = attachedCP?.projects ? [attachedCP.projects] : [];
+      const activeProjects = (classProjects || []).flatMap(classProject => classProject.projects ? [{
+        ...classProject.projects,
+        classProjectId: classProject.id,
+        sourceVersionId: classProject.source_version_id,
+        title: classProject.title || classProject.projects.title
+      }] : []);
       const sortedLessons = activeProjects.flatMap(project => {
-        const projectLessons = project.project_versions?.[0]?.lesson_plans || [];
+        const projectVersion = project.project_versions?.find(version => version.id === project.sourceVersionId);
+        const projectLessons = projectVersion?.lesson_plans || [];
         return [...projectLessons]
           .sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0))
           .map(lesson => ({
             ...lesson,
-            projectId: project.id,
+            projectId: project.classProjectId,
             projectTitle: project.title,
             projectLessonCount: projectLessons.length
           }));

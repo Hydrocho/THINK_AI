@@ -65,6 +65,15 @@ test('teacher and client flows do not expose lesson sessions', () => {
   assert.match(dropSessionsMigration, /^DROP TABLE IF EXISTS public\.class_sessions;\s*$/i);
 });
 
+test('teacher class details render every attached project and retain stage controls', () => {
+  assert.doesNotMatch(teacherAdmin, /const attachedCP = classProjects\?\.\[0\]/);
+  assert.match(teacherAdmin, /const activeProjects = \(classProjects \|\| \[\]\)\.flatMap\(classProject => classProject\.projects \? \[/);
+  assert.match(teacherAdmin, /classProjectId: classProject\.id/);
+  assert.match(teacherAdmin, /project\.project_versions\?\.find\(version => version\.id === project\.sourceVersionId\)/);
+  assert.match(teacherAdmin, /class_lesson_stage_access/);
+  assert.match(teacherAdmin, /TeacherAdminModule\.setClassStageAccess/);
+});
+
 test('student THINK screen uses the active live lesson instead of sample lessons', () => {
   assert.match(app, /state\.activeLessonPlans && state\.activeLessonPlans\[state\.currentLessonIndex\]/);
   assert.doesNotMatch(thinkView, /id="lessonSelect"/);
@@ -81,13 +90,17 @@ test('student response actions wait for saving and do not silently advance on er
   assert.match(app, /저장 중 오류가 발생했습니다/);
 });
 
-test('migration enforces at most one open session per class', () => {
-  const files = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url));
-  const migrationName = files.find(name => name.includes('single_open_class_session'));
-  assert.ok(migrationName);
-  const migration = fs.readFileSync(new URL(`../supabase/migrations/${migrationName}`, import.meta.url), 'utf8');
-  assert.match(migration, /add column if not exists class_id uuid/);
-  assert.match(migration, /create unique index.*one_open_session_per_class.*where status = 'open'/is);
+test('latest migration retires class sessions with no active task source references', () => {
+  const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url))
+    .filter(name => name.endsWith('.sql'))
+    .sort();
+  const latestMigrationName = migrations.at(-1);
+  const latestMigration = fs.readFileSync(new URL(`../supabase/migrations/${latestMigrationName}`, import.meta.url), 'utf8');
+  const activeSources = [projectFunction, accountFunction, client, teacherAdmin, studentLessons, responseFunction].join('\n');
+
+  assert.match(latestMigrationName, /drop_class_sessions/);
+  assert.match(latestMigration, /^DROP TABLE IF EXISTS public\.class_sessions;\s*$/i);
+  assert.doesNotMatch(activeSources, /class_sessions/);
 });
 
 test('THINK renderer and view use the same content container', () => {
