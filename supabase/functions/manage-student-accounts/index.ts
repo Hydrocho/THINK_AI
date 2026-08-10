@@ -31,20 +31,27 @@ serve(async (req) => {
   if (body.action === "create_class") {
     const grade = Number(body.grade);
     const classNum = Number(body.classNumber);
+    const subjectName = String(body.subjectName || "").trim();
     if (!Number.isInteger(grade) || !Number.isInteger(classNum)) {
       return json({ error: "학년과 반 번호를 정확히 선택해 주세요." }, 400);
     }
-    const classCode = `class-${grade}-${classNum}`;
+    if (!subjectName) {
+      return json({ error: "과목명을 입력해 주세요." }, 400);
+    }
+    const classCode = `class-${grade}-${classNum}-${subjectName}`;
 
-    const { data: existingClass } = await admin
+    const { data: existingClass, error: existingClassError } = await admin
       .from("classes")
       .select("id")
+      .eq("teacher_id", teacherId)
       .eq("grade_number", grade)
       .eq("class_number", classNum)
+      .eq("subject_name", subjectName)
       .maybeSingle();
 
+    if (existingClassError) return json({ error: existingClassError.message }, 400);
     if (existingClass) {
-      return json({ error: `${grade}학년 ${classNum}반은 이미 등록되어 있는 학급입니다.` }, 409);
+      return json({ error: `${grade}학년 ${classNum}반 ${subjectName}은 이미 등록되어 있는 과목 학급입니다.` }, 409);
     }
 
     const { data: newClass, error } = await admin
@@ -53,11 +60,15 @@ serve(async (req) => {
         teacher_id: teacherId,
         class_code: classCode,
         grade_number: grade,
-        class_number: classNum
+        class_number: classNum,
+        subject_name: subjectName
       })
       .select()
       .single();
 
+    if (error?.code === "23505") {
+      return json({ error: `${grade}학년 ${classNum}반 ${subjectName}은 이미 등록되어 있는 과목 학급입니다.` }, 409);
+    }
     if (error) return json({ error: error.message }, 400);
 
     return json({ class: newClass });

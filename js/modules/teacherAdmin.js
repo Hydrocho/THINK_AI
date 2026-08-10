@@ -199,6 +199,7 @@ window.TeacherAdminModule = {
     if (listSubView) listSubView.style.display = 'block';
     if (detailSubView) detailSubView.style.display = 'none';
     this.currentActiveClassId = null;
+    if (this.expandedClassLessonIds) this.expandedClassLessonIds.clear();
     const breadcrumb = document.getElementById('teacherBreadcrumb');
     if (breadcrumb) breadcrumb.innerText = this.navigation.operation.breadcrumb;
     this.renderClassOperations();
@@ -219,7 +220,7 @@ window.TeacherAdminModule = {
       const client = window.SupabaseService.getClient();
       const { data: cls } = await client.from('classes').select('*').eq('id', classId).single();
       if (breadcrumb && cls) {
-        breadcrumb.innerText = `${this.navigation.operation.breadcrumb} › ${cls.grade_number}학년 ${cls.class_number}반`;
+        breadcrumb.innerText = `${this.navigation.operation.breadcrumb} › ${cls.grade_number}학년 ${cls.class_number}반 · ${cls.subject_name || '미지정'}`;
       }
 
       // Fetch attached project for this class
@@ -297,6 +298,18 @@ window.TeacherAdminModule = {
                     ${lessons.map((l, i) => {
                       const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
                       const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
+                      const isExpanded = !!(this.expandedClassLessonIds && this.expandedClassLessonIds.has(l.id));
+                      const isActiveLesson = cls?.active_lesson_plan_id === l.id;
+
+                      const miniBadgesHtml = stages.map(st => {
+                        const currentMode = stageState[st] || 'hidden';
+                        const modeMeta = {
+                          writable: { label: `${st} ✍️`, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+                          read_only: { label: `${st} 👁️`, bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
+                          hidden: { label: `${st} 🔒`, bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' }
+                        }[currentMode];
+                        return `<span data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-summary style="padding: 2px 7px; border-radius: 12px; font-size: 0.76rem; font-weight: 700; background: ${modeMeta.bg}; color: ${modeMeta.color}; border: 1px solid ${modeMeta.border}; white-space: nowrap;">${modeMeta.label}</span>`;
+                      }).join('');
 
                       return `
                         <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
@@ -314,10 +327,37 @@ window.TeacherAdminModule = {
                                 </div>
                               </div>
                             </div>
+                            <button type="button"
+                                    class="class-lesson-active-toggle ${isActiveLesson ? 'is-active' : ''}"
+                                    data-active-class-lesson-id="${l.id}"
+                                    aria-pressed="${isActiveLesson}"
+                                    onclick="TeacherAdminModule.setActiveClassLesson('${classId}','${l.id}')">
+                              <span class="class-lesson-active-toggle-track" aria-hidden="true"><span class="class-lesson-active-toggle-thumb"></span></span>
+                              <span>수업 활성화</span>
+                            </button>
                           </div>
 
-                          <!-- Structured THINK Stage Access Table -->
-                          <div style="margin-top: 16px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; background: #ffffff;">
+                          <!-- THINK Stage Toggle Header -->
+                          <div id="think-stage-toggle-${l.id}"
+                               class="think-stage-toggle-header"
+                               onclick="TeacherAdminModule.toggleClassLessonThinkStage('${l.id}')"
+                               style="margin-top: 14px; padding: 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; transition: all 0.2s ease; user-select: none;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0;">
+                              <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
+                                ⚡ THINK 5단계 공개 설정
+                              </span>
+                              <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                ${miniBadgesHtml}
+                              </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: var(--primary-700); white-space: nowrap; flex-shrink: 0;">
+                              <span id="think-stage-label-${l.id}">${isExpanded ? '접기' : '상세 설정 펼치기'}</span>
+                              <span id="think-stage-chevron-${l.id}" style="font-size: 0.75rem; transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}; transition: transform 0.2s ease; display: inline-block;">▼</span>
+                            </div>
+                          </div>
+
+                          <!-- Structured THINK Stage Access Table (Collapsible Container) -->
+                          <div id="think-stage-container-${l.id}" style="display: ${isExpanded ? 'block' : 'none'}; margin-top: 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; background: #ffffff;">
                             <table style="width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: left;">
                               <thead>
                                 <tr style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); color: var(--text-subtle); font-weight: 700; font-size: 0.82rem;">
@@ -348,13 +388,13 @@ window.TeacherAdminModule = {
                                       </td>
                                       <td style="padding: 9px 14px; text-align: right;">
                                         <div class="stage-access-pill-group">
-                                          <button type="button" class="pill-btn ${currentMode === 'hidden' ? 'active-hidden' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','hidden')">
+                                          <button type="button" class="pill-btn ${currentMode === 'hidden' ? 'active-hidden' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="hidden" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','hidden')">
                                             🔒 비공개
                                           </button>
-                                          <button type="button" class="pill-btn ${currentMode === 'read_only' ? 'active-readonly' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
+                                          <button type="button" class="pill-btn ${currentMode === 'read_only' ? 'active-readonly' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="read_only" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
                                             👁️ 읽기 전용
                                           </button>
-                                          <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
+                                          <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="writable" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
                                             ✍️ 작성 가능
                                           </button>
                                         </div>
@@ -392,7 +432,7 @@ window.TeacherAdminModule = {
       const session = await window.SupabaseService.getUserSession();
       const teacherId = session?.user?.id;
 
-      let query = client.from('classes').select('id,class_code,grade_number,class_number,teacher_id').order('class_code');
+      let query = client.from('classes').select('id,class_code,grade_number,class_number,subject_name,active_lesson_plan_id,teacher_id').order('class_code');
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
       }
@@ -426,12 +466,13 @@ window.TeacherAdminModule = {
             const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
             const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
             const className = `${c.grade_number}학년 ${c.class_number}반`;
+            const subjectName = this.escapeHtml(c.subject_name || '미지정');
 
             return `
               <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer;">
                   <div class="project-card-header">
-                    <h4 class="project-card-title">🏫 ${className}</h4>
+                    <h4 class="project-card-title">📘 ${subjectName} · ${className}</h4>
                   </div>
 
                   <div class="project-card-body" style="margin-top: 10px; padding-left: 24px; display: flex; flex-direction: column; gap: 8px;">
@@ -563,7 +604,7 @@ window.TeacherAdminModule = {
   },
 
   createClassPrompt: function () {
-    window.ModalService.showCustom('createClassModal', 'selNewClassGrade');
+    window.ModalService.showCustom('createClassModal', 'inpNewClassSubject');
   },
 
   closeClassModal: function () {
@@ -574,38 +615,52 @@ window.TeacherAdminModule = {
     e.preventDefault();
     const grade = parseInt(document.getElementById('selNewClassGrade').value) || 3;
     const classNum = parseInt(document.getElementById('selNewClassNumber').value) || 1;
+    const subjectName = document.getElementById('inpNewClassSubject').value.trim();
     const className = `${grade}학년 ${classNum}반`;
+
+    if (!subjectName) {
+      await window.ModalService.alert({ title: '과목명 확인', message: '과목명을 입력해 주세요.', tone: 'info' });
+      return;
+    }
 
     const btn = document.getElementById('btnSubmitCreateClass');
     if (btn) { btn.disabled = true; btn.innerText = '개설 중...'; }
 
     try {
       const client = window.SupabaseService.getClient();
+      const session = await window.SupabaseService.getUserSession();
+      const teacherId = session?.user?.id;
+      if (!teacherId) throw new Error('교사 로그인 정보를 확인할 수 없습니다.');
 
-      // 1. Check if class already exists
-      const { data: existingClass } = await client
+      // 1. Check if this teacher already owns the same grade/class/subject combination
+      const { data: existingClasses, error: duplicateError } = await client
         .from('classes')
         .select('id')
         .eq('grade_number', grade)
         .eq('class_number', classNum)
-        .maybeSingle();
+        .eq('teacher_id', teacherId)
+        .ilike('subject_name', subjectName)
+        .limit(1);
 
-      if (existingClass) {
+      if (duplicateError) throw duplicateError;
+
+      if (existingClasses?.length) {
         await window.ModalService.alert({
           title: '학급 중복 안내',
-          message: `${className}은(는) 이미 등록되어 있는 학급입니다. 다른 학년/반을 선택해 주세요.`,
+          message: `${className} ${subjectName} 과목은 이미 등록되어 있습니다.`,
           tone: 'info'
         });
         return;
       }
 
       // 2. Insert new class via SupabaseService (uses Service Role Edge Function to bypass RLS)
-      const newClass = await window.SupabaseService.createClass({ grade, classNumber: classNum });
+      await window.SupabaseService.createClass({ grade, classNumber: classNum, subjectName });
 
       this.closeClassModal();
+      document.getElementById('inpNewClassSubject').value = '';
       await window.ModalService.alert({
         title: '🎉 학급 개설 완료',
-        message: `${className} 학급이 성공적으로 개설되었습니다. 해당 학년·반 학생은 로그인 시 학번을 기준으로 수업 활동을 불러옵니다.`,
+        message: `${className} ${subjectName} 과목이 성공적으로 개설되었습니다. 해당 학년·반 학생에게 과목 카드로 표시됩니다.`,
         tone: 'success'
       });
 
@@ -654,12 +709,13 @@ window.TeacherAdminModule = {
             const studentCount = (students || []).filter(st => (st.student_number || '').startsWith(prefix)).length;
             const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
             const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
+            const subjectName = this.escapeHtml(c.subject_name || '미지정');
 
             return `
               <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                   <div class="project-card-header">
-                    <h4 class="project-card-title">🏫 ${c.grade_number}학년 ${c.class_number}반</h4>
+                    <h4 class="project-card-title">📘 ${subjectName} · ${c.grade_number}학년 ${c.class_number}반</h4>
                     <span class="project-status-badge ${attachedTitles.length ? 'published' : ''}">
                       ${attachedTitles.length ? `📎 수업 연결됨 (${attachedTitles.length}개)` : '⏸️ 미연결'}
                     </span>
@@ -1058,8 +1114,82 @@ window.TeacherAdminModule.renderThinkStageAccessControls = function (container, 
 };
 
 window.TeacherAdminModule.setClassStageAccess = async function (classId, lessonId, stageCode, accessMode) {
-  try { await window.SupabaseService.invokeAccountFunction('manage-class-projects', { action: 'set_class_stage_access', classId, lessonId, stageCode, accessMode }); await this.openClassDetailSubView(classId); }
+  const selector = `[data-stage-access-lesson-id="${lessonId}"][data-stage-access-stage-code="${stageCode}"]`;
+  const buttons = [...document.querySelectorAll(`${selector}.pill-btn`)];
+  const activeClassByMode = { hidden: 'active-hidden', read_only: 'active-readonly', writable: 'active-writable' };
+  buttons.forEach(button => { button.disabled = true; });
+
+  try {
+    await window.SupabaseService.invokeAccountFunction('manage-class-projects', { action: 'set_class_stage_access', classId, lessonId, stageCode, accessMode });
+
+    buttons.forEach(button => {
+      button.classList.toggle(activeClassByMode[button.dataset.stageAccessMode], button.dataset.stageAccessMode === accessMode);
+    });
+
+    const modeMeta = {
+      hidden: { icon: '🔒', bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' },
+      read_only: { icon: '👁️', bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
+      writable: { icon: '✍️', bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }
+    }[accessMode];
+    const summary = document.querySelector(`${selector}[data-stage-access-summary]`);
+    if (summary) {
+      summary.replaceChildren(document.createTextNode(`${stageCode} ${modeMeta.icon}`));
+      summary.style.backgroundColor = modeMeta.bg;
+      summary.style.color = modeMeta.color;
+      summary.style.borderColor = modeMeta.border;
+    }
+  }
   catch (error) { alert(`학급 THINK 단계 상태 변경 실패: ${error.message}`); }
+  finally { buttons.forEach(button => { button.disabled = false; }); }
+};
+
+window.TeacherAdminModule.setActiveClassLesson = async function (classId, lessonId) {
+  const buttons = [...document.querySelectorAll('[data-active-class-lesson-id]')];
+  const selectedButton = buttons.find(button => button.dataset.activeClassLessonId === lessonId);
+  const nextLessonId = selectedButton?.getAttribute('aria-pressed') === 'true' ? null : lessonId;
+  buttons.forEach(button => { button.disabled = true; });
+
+  try {
+    await window.SupabaseService.setActiveClassLesson(classId, nextLessonId);
+    buttons.forEach(button => {
+      const isActive = button.dataset.activeClassLessonId === nextLessonId;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
+  } catch (error) {
+    alert(`수업 활성화 변경 실패: ${error.message}`);
+  } finally {
+    buttons.forEach(button => { button.disabled = false; });
+  }
+};
+
+window.TeacherAdminModule.expandedClassLessonIds = new Set();
+
+window.TeacherAdminModule.toggleClassLessonThinkStage = function (lessonId) {
+  if (!this.expandedClassLessonIds) {
+    this.expandedClassLessonIds = new Set();
+  }
+  const isExpanded = this.expandedClassLessonIds.has(lessonId);
+  if (isExpanded) {
+    this.expandedClassLessonIds.delete(lessonId);
+  } else {
+    this.expandedClassLessonIds.add(lessonId);
+  }
+  const nowExpanded = !isExpanded;
+
+  const container = document.getElementById(`think-stage-container-${lessonId}`);
+  const chevron = document.getElementById(`think-stage-chevron-${lessonId}`);
+  const label = document.getElementById(`think-stage-label-${lessonId}`);
+
+  if (container) {
+    container.style.display = nowExpanded ? 'block' : 'none';
+  }
+  if (chevron) {
+    chevron.style.transform = nowExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
+  if (label) {
+    label.textContent = nowExpanded ? '접기' : '상세 설정 펼치기';
+  }
 };
 
 window.TeacherAdminModule.toggleAccordion = function (lessonId) {

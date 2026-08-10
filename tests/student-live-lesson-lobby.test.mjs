@@ -23,9 +23,9 @@ test('student lobby presents class activities instead of a live session', () => 
   assert.doesNotMatch(lobbyView, /inputPinCode|PIN 번호/);
   assert.doesNotMatch(lobbyView, /실시간|라이브|지금 참여|현재 열린 수업/);
   assert.match(lobby, /fetchStudentClassLessons/);
-  assert.match(lobby, /renderClassLessons/);
-  assert.match(lobby, /enterClassLesson/);
-  assert.doesNotMatch(lobby, /fetchStudentLiveLesson|renderLiveLesson|enterLiveLesson|liveLesson|현재 열린 수업/);
+  assert.match(lobby, /renderSubjectClasses/);
+  assert.match(lobby, /enterSubjectClass/);
+  assert.doesNotMatch(lobby, /fetchStudentLiveLesson|renderLiveLesson|enterLiveLesson|liveLesson|현재 열린 수업|renderClassLessons|enterClassLesson/);
   assert.doesNotMatch(app, /enterActiveLesson/);
   assert.match(app, /lesson\.thinkStageAccess \|\| lesson\.think_stage_access/);
   assert.match(app, /window\.AppState\s*=\s*state/);
@@ -45,16 +45,15 @@ test('student class project authorization uses existence lookup, reports lookup 
   assert.match(responseFunction, /if \(lessonError\) return json\(\{ error: lessonError\.message \}, 400\)/);
   assert.match(responseFunction, /const \{ data: classProjects, error: classProjectError \}/);
   assert.match(responseFunction, /if \(classProjectError\) return json\(\{ error: classProjectError\.message \}, 400\)/);
-  assert.match(responseFunction, /\.eq\("class_id", classId\)\s*\.eq\("source_version_id", lesson\.project_version_id\)\s*\.limit\(1\)/);
+  assert.match(responseFunction, /\.eq\("source_version_id", lesson\.project_version_id\)/);
   assert.doesNotMatch(responseFunction, /\.eq\("source_version_id", lesson\.project_version_id\)\s*\.maybeSingle\(\)/);
   assert.match(studentLessons, /const stageCodes = \["T", "H", "I", "N", "K"\]/);
-  assert.match(studentLessons, /thinkStageAccess: stageAccessByLesson\.get\(lesson\.id\)\s*\|\|\s*Object\.fromEntries\(stageCodes\.map\(stage => \[stage, "hidden"\]\)\)/);
+  assert.match(studentLessons, /thinkStageAccess: stageAccessByClassLesson\.get\(`\$\{classroom\.id\}:\$\{lesson\.id\}`\)\s*\|\|\s*Object\.fromEntries\(stageCodes\.map\(stage => \[stage, "hidden"\]\)\)/);
 });
 
 test('student APIs use the authenticated student account and retain final submission state', () => {
   assert.match(studentLessons, /auth_user_id/);
-  assert.match(studentLessons, /think_stage_responses/);
-  assert.match(studentLessons, /submitted_at/);
+  assert.doesNotMatch(studentLessons, /think_stage_responses|submitted_at/);
   assert.match(responseFunction, /auth_user_id/);
   assert.match(responseFunction, /submitted_at/);
 });
@@ -80,6 +79,8 @@ test('teacher class details render every attached project and retain stage contr
   assert.match(teacherAdmin, /project\.project_versions\?\.find\(version => version\.id === project\.sourceVersionId\)/);
   assert.match(teacherAdmin, /class_lesson_stage_access/);
   assert.match(teacherAdmin, /TeacherAdminModule\.setClassStageAccess/);
+  assert.match(teacherAdmin, /TeacherAdminModule\.toggleClassLessonThinkStage/);
+  assert.match(teacherAdmin, /display:\s*\${isExpanded\s*\?\s*'block'\s*:\s*'none'}/);
 });
 
 test('student THINK screen uses the active live lesson instead of sample lessons', () => {
@@ -110,11 +111,25 @@ test('THINK renderer and view use the same content container', () => {
 });
 
 test('student lesson and response APIs use the class derived from the student number', () => {
-  assert.match(studentLessons, /resolveStudentClass/);
-  assert.match(responseFunction, /resolveStudentClass/);
+  assert.match(studentLessons, /parseStudentClass/);
+  assert.doesNotMatch(studentLessons, /resolveStudentClass/);
+  assert.match(responseFunction, /parseStudentClass/);
+  assert.doesNotMatch(responseFunction, /resolveStudentClass/);
   assert.doesNotMatch(studentLessons, /student\.class_id/);
   assert.doesNotMatch(responseFunction, /student\.class_id/);
-  assert.match(studentLessons, /classResolution/);
+  assert.match(studentLessons, /parsedClass/);
+});
+
+test('student response authorization resolves the active attached subject class from the lesson', () => {
+  assert.match(responseFunction, /from\("class_projects"\)/);
+  assert.match(responseFunction, /classes!inner\(id,grade_number,class_number,active_lesson_plan_id\)/);
+  assert.match(responseFunction, /\.eq\("source_version_id", lesson\.project_version_id\)/);
+  assert.match(responseFunction, /\.eq\("classes\.grade_number", parsedClass\.grade\)/);
+  assert.match(responseFunction, /\.eq\("classes\.class_number", parsedClass\.classNumber\)/);
+  assert.match(responseFunction, /\.eq\("classes\.active_lesson_plan_id", body\.lessonPlanId\)/);
+  assert.match(responseFunction, /classProjects\?\.length !== 1/);
+  assert.match(responseFunction, /const classId = classProject\.class_id/);
+  assert.match(responseFunction, /from\("class_lesson_stage_access"\)[\s\S]*\.eq\("class_id", classId\)[\s\S]*access\?\.access_mode !== "writable"/);
 });
 
 test('THINK renderer has a safe fallback before optional sample configuration is loaded', () => {
@@ -160,4 +175,89 @@ test('project link toggle updates its card without rerendering the full project 
   assert.doesNotMatch(toggleSource, /renderProjects\(/);
   assert.match(teacherAdmin, /data-project-id="\$\{p\.id\}"/);
   assert.equal((teacherAdmin.match(/attachProjectPrompt\s*[:=]/g) || []).length, 1);
+});
+
+test('class THINK stage access saves inline without recreating the class detail view', () => {
+  const setterStart = teacherAdmin.indexOf('TeacherAdminModule.setClassStageAccess = async function');
+  const setterEnd = teacherAdmin.indexOf('TeacherAdminModule.expandedClassLessonIds', setterStart);
+  const setterSource = teacherAdmin.slice(setterStart, setterEnd);
+
+  assert.doesNotMatch(setterSource, /openClassDetailSubView\(classId\)/);
+  assert.match(setterSource, /data-stage-access-lesson-id/);
+  assert.match(setterSource, /data-stage-access-stage-code/);
+  assert.match(setterSource, /data-stage-access-summary/);
+});
+
+test('class creation requires a trimmed subject and scopes duplicate subjects to the owning teacher', () => {
+  const createClassStart = accountFunction.indexOf('if (body.action === "create_class")');
+  const createClassEnd = accountFunction.indexOf('if (body.action === "delete_class")', createClassStart);
+  const createClassSource = accountFunction.slice(createClassStart, createClassEnd);
+
+  assert.match(createClassSource, /String\(body\.subjectName \|\| ""\)\.trim\(\)/);
+  assert.match(createClassSource, /if \(!subjectName\)/);
+  assert.match(createClassSource, /subject_name: subjectName/);
+  assert.match(createClassSource, /from\("classes"\).*eq\("teacher_id", teacherId\).*eq\("grade_number", grade\).*eq\("class_number", classNum\).*eq\("subject_name", subjectName\)/s);
+  assert.match(createClassSource, /이미 등록되어 있는 과목 학급/);
+});
+
+test('active class lesson action verifies teacher ownership and the lesson connection before updating', () => {
+  const actionStart = projectFunction.indexOf('if(b.action==="set_active_class_lesson")');
+  const actionEnd = projectFunction.indexOf('if(b.action==="', actionStart + 1);
+  const actionSource = projectFunction.slice(actionStart, actionEnd);
+
+  assert.notEqual(actionStart, -1, 'expected set_active_class_lesson action');
+  assert.match(actionSource, /from\("classes"\).*eq\("id",b\.classId\).*eq\("teacher_id",userId\)/s);
+  assert.match(actionSource, /from\("lesson_plans"\).*eq\("id",b\.lessonId\)/s);
+  assert.match(actionSource, /from\("class_projects"\).*eq\("class_id",b\.classId\).*eq\("source_version_id",lesson\.project_version_id\)/s);
+  assert.match(actionSource, /active_lesson_plan_id:b\.lessonId\|\|null/);
+});
+
+test('subject classes migration preserves existing rows and references active lesson plans', () => {
+  const migrations = fs.readdirSync(new URL('../supabase/migrations/', import.meta.url));
+  const migrationName = migrations.find(name => name.includes('subject_classes_and_active_lesson'));
+
+  assert.ok(migrationName, 'expected subject_classes_and_active_lesson migration');
+  const migration = fs.readFileSync(new URL(`../supabase/migrations/${migrationName}`, import.meta.url), 'utf8');
+  assert.match(migration, /subject_name\s+text\s+not null\s+default\s+'미지정'/i);
+  assert.match(migration, /active_lesson_plan_id\s+uuid\s+references\s+public\.lesson_plans\s*\(id\)\s+on delete set null/i);
+  assert.match(migration, /unique index[^;]+\(\s*teacher_id\s*,\s*grade_number\s*,\s*class_number\s*,\s*subject_name\s*\)/i);
+});
+
+test('student lesson API returns every matching subject class and only active lessons', () => {
+  assert.match(studentLessons, /parseStudentClass/);
+  assert.doesNotMatch(studentLessons, /resolveStudentClass/);
+  assert.match(studentLessons, /from\("classes"\)/);
+  assert.match(studentLessons, /subject_name/);
+  assert.match(studentLessons, /active_lesson_plan_id/);
+  assert.match(studentLessons, /subjectClasses/);
+  assert.match(studentLessons, /\.in\("id", activeLessonIds\)/);
+  assert.doesNotMatch(studentLessons, /think_stage_responses/);
+  assert.doesNotMatch(studentLessons, /historyByLesson|history:/);
+});
+
+test('student lobby renders one subject card with entry only for its active lesson', () => {
+  assert.match(lobby, /result\.subjectClasses \|\| \[\]/);
+  assert.match(lobby, /renderSubjectClasses/);
+  assert.match(lobby, /subjectClass\.subjectName/);
+  assert.match(lobby, /subjectClass\.activeLesson/);
+  assert.match(lobby, /수업 준비 중/);
+  assert.match(lobby, />입장하기</);
+  assert.doesNotMatch(lobby, /renderHistory|classLessons/);
+});
+
+test('entering a subject class exposes its active lesson as the sole lesson plan', () => {
+  const enterStart = lobby.indexOf('enterSubjectClass: function');
+  const enterEnd = lobby.indexOf('exitToLobby: function', enterStart);
+  const enterSource = lobby.slice(enterStart, enterEnd);
+
+  assert.notEqual(enterStart, -1, 'expected an active subject-class entry method');
+  assert.match(enterSource, /if \(!subjectClass\?\.activeLesson\) return/);
+  assert.match(enterSource, /state\.activeClassId = subjectClass\.classId/);
+  assert.match(enterSource, /state\.activeLessonPlans = \[subjectClass\.activeLesson\]/);
+  assert.match(enterSource, /window\.App\.selectLesson\(0\)/);
+});
+
+test('student lobby hides previous lesson history', () => {
+  assert.doesNotMatch(lobbyView, /lobbyHistoryCard|lobbyHistoryContainer|내 생각 기록|내가 참여한 활동/);
+  assert.doesNotMatch(lobby, /renderHistory|result\.history/);
 });

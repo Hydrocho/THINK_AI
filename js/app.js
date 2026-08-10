@@ -8,6 +8,9 @@
     currentRole: 'student', // 'student' | 'teacher'
     currentLessonIndex: 0,
     currentStep: 1, // 1: T, 2: H, 3: I, 4: N, 5: K
+    subjectClasses: [],
+    activeClassId: null,
+    activeLessonPlans: [],
     studentData: {
       studentNumber: '',
       remainingQuestions: 12,

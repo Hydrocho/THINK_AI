@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { resolveStudentClass } from "../_shared/student-class.ts";
+import { parseStudentClass } from "../_shared/student-class.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -27,12 +27,10 @@ serve(async req => {
     .eq("auth_user_id", user.id)
     .single();
   if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 403);
-  const resolvedClass = await resolveStudentClass(admin, student.student_number);
-  if (resolvedClass.error) return json({ error: resolvedClass.error }, 400);
-  if (!resolvedClass.classroom) {
+  const parsedClass = parseStudentClass(student.student_number);
+  if (!parsedClass) {
     return json({ error: "학번으로 연결되는 학급이 없어 현재 수업 답변을 저장할 수 없습니다." }, 403);
   }
-  const classId = resolvedClass.classroom.id;
 
   const { data: lesson, error: lessonError } = await admin.from("lesson_plans")
     .select("id,project_version_id")
@@ -42,13 +40,16 @@ serve(async req => {
   if (!lesson) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
 
   const { data: classProjects, error: classProjectError } = await admin.from("class_projects")
-    .select("id,source_version_id")
-    .eq("class_id", classId)
+    .select("id,class_id,source_version_id,classes!inner(id,grade_number,class_number,active_lesson_plan_id)")
     .eq("source_version_id", lesson.project_version_id)
-    .limit(1);
+    .eq("classes.grade_number", parsedClass.grade)
+    .eq("classes.class_number", parsedClass.classNumber)
+    .eq("classes.active_lesson_plan_id", body.lessonPlanId)
+    .limit(2);
   if (classProjectError) return json({ error: classProjectError.message }, 400);
-  const classProject = classProjects?.[0];
-  if (!classProject) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
+  if (classProjects?.length !== 1) return json({ error: "현재 활성화된 학급 차시에서만 작성할 수 있습니다." }, 403);
+  const classProject = classProjects[0];
+  const classId = classProject.class_id;
 
   const { data: access } = await admin.from("class_lesson_stage_access")
     .select("access_mode")

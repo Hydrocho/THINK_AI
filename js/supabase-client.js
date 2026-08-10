@@ -185,10 +185,10 @@
 
       return { success: true };
     },
-    createClass: async function ({ grade, classNumber }) {
+    createClass: async function ({ grade, classNumber, subjectName }) {
       if (!supabaseClient) throw new Error("Supabase client is not initialized.");
 
-      const res = await this.invokeAccountFunction("manage-student-accounts", { action: "create_class", grade, classNumber });
+      const res = await this.invokeAccountFunction("manage-student-accounts", { action: "create_class", grade, classNumber, subjectName });
       if (res && res.error) throw new Error(res.error);
       if (res && res.class) return res.class;
       throw new Error("학급 생성 결과를 받지 못했습니다.");
@@ -295,6 +295,7 @@
     fetchStudentClassLessons: async function () {
       return this.invokeAccountFunction("get-student-lessons", {});
     },
+    setActiveClassLesson: async function (classId, lessonId) { return this.invokeAccountFunction("manage-class-projects", { action: "set_active_class_lesson", classId, lessonId }); },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
     attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
     detachProjectFromClass: async function (classProjectId) {

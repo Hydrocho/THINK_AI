@@ -10,6 +10,25 @@ if(b.action==="create_project"){if(!b.title?.trim())return json({error:"프로�
 if(b.action==="set_project_published"){const {error}=await admin.from("projects").update({is_published:!!b.isPublished,updated_at:new Date().toISOString()}).eq("id",b.projectId).eq("author_id",userId);return error?json({error:error.message},400):json({ok:true});}
 if(b.action==="set_lesson_access"){if(!["hidden","read_only","writable"].includes(b.studentAccessMode))return json({error:"유효하지 않은 학생 활동 상태입니다."},400);const {data,error}=await admin.from("lesson_plans").update({student_access_mode:b.studentAccessMode}).eq("id",b.lessonId).select().single();return error?json({error:error.message},400):json({lesson:data});}
 if(b.action==="set_think_stage_access"){if(!["T","H","I","N","K"].includes(b.stageCode)||!["hidden","read_only","writable"].includes(b.accessMode))return json({error:"유효하지 않은 THINK 단계 상태입니다."},400);const {data:lesson}=await admin.from("lesson_plans").select("think_stage_access").eq("id",b.lessonId).single();if(!lesson)return json({error:"차시를 찾을 수 없습니다."},404);const access={T:"hidden",H:"hidden",I:"hidden",N:"hidden",K:"hidden",...(lesson.think_stage_access||{}),[b.stageCode]:b.accessMode};const {data,error}=await admin.from("lesson_plans").update({think_stage_access:access}).eq("id",b.lessonId).select().single();return error?json({error:error.message},400):json({lesson:data});}
+if(b.action==="set_active_class_lesson"){
+  if(!b.classId||!("lessonId" in b))return json({error:"학급과 활성 차시 정보를 입력해 주세요."},400);
+  if(b.lessonId!==null&&(typeof b.lessonId!=="string"||!b.lessonId))return json({error:"유효한 차시를 선택해 주세요."},400);
+  const {data:classroom,error:classError}=await admin.from("classes").select("id").eq("id",b.classId).eq("teacher_id",userId).maybeSingle();
+  if(classError)return json({error:classError.message},400);
+  if(!classroom)return json({error:"학급을 찾을 수 없거나 권한이 없습니다."},404);
+  if(b.lessonId!==null){
+    const {data:lesson,error:lessonError}=await admin.from("lesson_plans").select("project_version_id").eq("id",b.lessonId).maybeSingle();
+    if(lessonError)return json({error:lessonError.message},400);
+    if(!lesson)return json({error:"차시를 찾을 수 없습니다."},404);
+    const {data:classProjects,error:classProjectError}=await admin.from("class_projects").select("id").eq("class_id",b.classId).eq("source_version_id",lesson.project_version_id).limit(1);
+    if(classProjectError)return json({error:classProjectError.message},400);
+    if(!classProjects?.length)return json({error:"해당 학급에 연결된 차시만 활성화할 수 있습니다."},400);
+  }
+  const {data:updated,error}=await admin.from("classes").update({active_lesson_plan_id:b.lessonId||null}).eq("id",b.classId).eq("teacher_id",userId).select().maybeSingle();
+  if(error)return json({error:error.message},400);
+  if(!updated)return json({error:"학급을 찾을 수 없거나 권한이 없습니다."},404);
+  return json({class:updated});
+}
 if(b.action==="set_class_stage_access"){if(!["T","H","I","N","K"].includes(b.stageCode)||!["hidden","read_only","writable"].includes(b.accessMode))return json({error:"유효하지 않은 THINK 단계 상태입니다."},400);const {data:classroom}=await admin.from("classes").select("id").eq("id",b.classId).eq("teacher_id",userId).single();if(!classroom)return json({error:"학급을 찾을 수 없거나 권한이 없습니다."},404);const {data,error}=await admin.from("class_lesson_stage_access").upsert({class_id:b.classId,lesson_plan_id:b.lessonId,stage_code:b.stageCode,access_mode:b.accessMode,updated_at:new Date().toISOString()},{onConflict:"class_id,lesson_plan_id,stage_code"}).select().single();return error?json({error:error.message},400):json({access:data});}
 if(b.action==="delete_project"){if(!b.projectId)return json({error:"프로젝트 ID가 필요합니다."},400);const {data:deleted,error}=await admin.from("projects").delete().eq("id",b.projectId).eq("author_id",userId).select("id");if(error)return json({error:error.message},400);if(!deleted?.length)return json({error:"삭제할 프로젝트를 찾을 수 없거나 권한이 없습니다."},404);return json({ok:true});}
 if(b.action==="attach"){const {data:v}=await admin.from("project_versions").select("project_id,projects!inner(author_id)").eq("id",b.versionId).eq("projects.author_id",userId).single();if(!v)return json({error:"연결할 수업 프로젝트를 찾을 수 없거나 권한이 없습니다."},404);const {data:classroom}=await admin.from("classes").select("id").eq("id",b.classId).eq("teacher_id",userId).single();if(!classroom)return json({error:"연결할 학급을 찾을 수 없거나 권한이 없습니다."},404);const {data,error}=await admin.from("class_projects").insert({class_id:b.classId,source_project_id:v.project_id,source_version_id:b.versionId,attached_by:userId,title:b.title||"프로젝트"}).select().single();return error?json({error:error.message},400):json({classProject:data});}

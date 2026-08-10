@@ -8,11 +8,7 @@
       <ul class="think-steps-list">
         <li class="think-step-item active" style="background: var(--primary-50); border-left: 4px solid var(--primary-600); color: var(--primary-800); font-weight: 800; cursor: pointer;" onclick="document.getElementById('lobbyClassLessonsCard')?.scrollIntoView({behavior:'smooth'})">
           <span class="step-icon-badge" style="background: var(--primary-600); color: #ffffff; border-color: var(--primary-600);">📚</span>
-          <span>우리 학급 수업</span>
-        </li>
-        <li class="think-step-item" style="cursor: pointer;" onclick="document.getElementById('lobbyHistoryCard')?.scrollIntoView({behavior:'smooth'})">
-          <span class="step-icon-badge" style="border-color: var(--border-medium); color: var(--text-subtle);">📝</span>
-          <span>내 생각 기록</span>
+          <span>과목별 수업</span>
         </li>
       </ul>
     </div>
@@ -23,18 +19,11 @@
     
     <!-- Class Activity List -->
     <div id="lobbyClassLessonsCard" style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
-      <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 16px;">📚 우리 학급 수업 및 활동</h3>
+      <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 6px;">📚 과목별 현재 수업</h3>
+      <p style="font-size: .88rem; color: var(--text-subtle); margin: 0 0 16px;">선생님이 활성화한 현재 차시만 입장할 수 있습니다.</p>
 
       <div id="lobbyClassLessonsContainer">
         <!-- Injected by JS -->
-      </div>
-    </div>
-
-    <!-- My Learning History List -->
-    <div id="lobbyHistoryCard" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-xl); padding: 24px;">
-      <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 16px;">📝 내가 참여한 활동 및 생각 기록</h3>
-      <div style="display: flex; flex-direction: column; gap: 12px;" id="lobbyHistoryContainer">
-        <!-- Dynamic history cards inserted by JS -->
       </div>
     </div>
 
