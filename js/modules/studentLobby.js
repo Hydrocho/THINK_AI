@@ -73,7 +73,7 @@ window.StudentLobbyModule = {
 
       const entryAction = lesson
         ? `<button type="button" class="btn btn-primary student-enter-btn" onclick="StudentLobbyModule.enterSubjectClass(window.AppState, '${this.escapeHtml(subjectClass.classId)}')">
-            <span>수업 입장하기</span>
+            <span>입장하기</span>
             <span class="btn-arrow">→</span>
            </button>`
         : `<button type="button" class="btn btn-disabled student-enter-btn" disabled>입장 대기 중</button>`;

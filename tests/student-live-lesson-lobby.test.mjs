@@ -15,6 +15,7 @@ const teacherAdmin = fs.readFileSync(new URL('../js/modules/teacherAdmin.js', im
 const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const accountFunction = fs.readFileSync(new URL('../supabase/functions/manage-student-accounts/index.ts', import.meta.url), 'utf8');
 const studentClassPath = new URL('../supabase/functions/_shared/student-class.ts', import.meta.url);
+const componentLoader = fs.readFileSync(new URL('../js/componentLoader.js', import.meta.url), 'utf8');
 
 test('student lobby presents class activities instead of a live session', () => {
   assert.match(lobbyView, /id="lobbyClassLessonsContainer"/);
@@ -198,6 +199,12 @@ test('class creation requires a trimmed subject and scopes duplicate subjects to
   assert.match(createClassSource, /subject_name: subjectName/);
   assert.match(createClassSource, /from\("classes"\).*eq\("teacher_id", teacherId\).*eq\("grade_number", grade\).*eq\("class_number", classNum\).*eq\("subject_name", subjectName\)/s);
   assert.match(createClassSource, /이미 등록되어 있는 과목 학급/);
+});
+
+test('component loader waits for legacy service workers to unregister before reloading views', () => {
+  assert.match(componentLoader, /await Promise\.all\(registrations\.map\(registration => registration\.unregister\(\)\)\)/);
+  assert.match(componentLoader, /sessionStorage\.getItem\('legacy-service-worker-cleared'\)/);
+  assert.match(componentLoader, /window\.location\.reload\(\)/);
 });
 
 test('active class lesson action verifies teacher ownership and the lesson connection before updating', () => {

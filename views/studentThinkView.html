@@ -1,11 +1,12 @@
 <!-- Main App Content (Student THINK View - Hidden until student enters lesson) -->
 <main id="studentAppSection" class="main-shell" style="display: none; grid-template-columns: 280px 1fr; gap: 24px;">
-  
+
   <!-- Sidebar Navigation: LMS Style Course Navigation -->
   <aside class="sidebar">
     <div style="margin-bottom: 16px;">
-      <button type="button" class="btn btn-secondary" onclick="StudentLobbyModule.exitToLobby()" style="width: 100%; padding: 7px 12px; font-size: 0.84rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--border-medium); background: #ffffff;">
-        ← 수업 로비로 (목록)
+      <button type="button" class="btn btn-secondary" onclick="StudentLobbyModule.exitToLobby()"
+        style="width: 100%; padding: 7px 12px; font-size: 0.84rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--border-medium); background: #ffffff;">
+        ← 수업 로비로
       </button>
     </div>
 
@@ -47,13 +48,11 @@
 
   <!-- Main Step View Panel -->
   <section class="content-area">
-    
+
     <!-- Step Header -->
     <div class="step-header">
-      <div class="step-tag-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px;">
-        <button type="button" class="btn btn-secondary" onclick="StudentLobbyModule.exitToLobby()" style="padding: 5px 12px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border-color: var(--border-medium); background: #ffffff;">
-          ← 수업 로비로
-        </button>
+      <div class="step-tag-row"
+        style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="role-tag" id="stepTagBadge">T - STEP 1</span>
           <span style="font-size: 0.85rem; color: var(--text-subtle);" id="stepSubTitleBadge">1단계 · 개인 사고 형성</span>

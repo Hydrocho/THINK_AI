@@ -37,7 +37,21 @@
     }
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', async function () {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        if (registrations.length) {
+          await Promise.all(registrations.map(registration => registration.unregister()));
+          if (!sessionStorage.getItem('legacy-service-worker-cleared')) {
+            sessionStorage.setItem('legacy-service-worker-cleared', 'true');
+            window.location.reload();
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+    sessionStorage.removeItem('legacy-service-worker-cleared');
     window.ComponentLoader.loadAllViews();
   });
 })();
