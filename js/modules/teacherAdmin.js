@@ -363,7 +363,7 @@ window.TeacherAdminModule = {
                                 <tr style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); color: var(--text-subtle); font-weight: 700; font-size: 0.82rem;">
                                   <th style="padding: 10px 14px; white-space: nowrap; width: 220px;">구분</th>
                                   <th style="padding: 10px 14px;">핵심 목적</th>
-                                  <th style="padding: 10px 14px; text-align: right; width: 270px;">상태 설정</th>
+                                  <th style="padding: 10px 14px; text-align: right; width: 440px;">상태 설정</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -387,6 +387,7 @@ window.TeacherAdminModule = {
                                         ${info.desc}
                                       </td>
                                       <td style="padding: 9px 14px; text-align: right;">
+                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
                                         <div class="stage-access-pill-group">
                                           <button type="button" class="pill-btn ${currentMode === 'hidden' ? 'active-hidden' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="hidden" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','hidden')">
                                             🔒 비공개
@@ -397,6 +398,8 @@ window.TeacherAdminModule = {
                                           <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="writable" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
                                             ✍️ 작성 가능
                                           </button>
+                                        </div>
+                                        <button type="button" class="stage-response-view-button" onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${st}')">학생 작성 글 보기</button>
                                         </div>
                                       </td>
                                     </tr>
@@ -1141,6 +1144,12 @@ window.TeacherAdminModule.setClassStageAccess = async function (classId, lessonI
   }
   catch (error) { alert(`학급 THINK 단계 상태 변경 실패: ${error.message}`); }
   finally { buttons.forEach(button => { button.disabled = false; }); }
+};
+
+window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonId, stageCode) {
+  const query = new URLSearchParams({ classId, lessonId, stageCode });
+  const detailUrl = `teacher-stage-responses.html?${query.toString()}`;
+  window.open(detailUrl, '_blank', 'noopener');
 };
 
 window.TeacherAdminModule.setActiveClassLesson = async function (classId, lessonId) {

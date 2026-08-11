@@ -295,6 +295,12 @@
     fetchStudentClassLessons: async function () {
       return this.invokeAccountFunction("get-student-lessons", {});
     },
+    fetchTeacherStageResponses: async function (classId, lessonId, stageCode) {
+      return this.invokeAccountFunction("get-teacher-stage-responses", { classId, lessonId, stageCode });
+    },
+    analyzeTeacherStageResponses: async function (classId, lessonId, stageCode) {
+      return this.invokeAccountFunction("analyze-teacher-stage-responses", { classId, lessonId, stageCode });
+    },
     setActiveClassLesson: async function (classId, lessonId) { return this.invokeAccountFunction("manage-class-projects", { action: "set_active_class_lesson", classId, lessonId }); },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
     attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
