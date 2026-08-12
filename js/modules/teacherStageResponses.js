@@ -388,8 +388,18 @@ async function generateClassInsight() {
 
 function selectTab(tab) {
   const writing = tab === 'writing';
-  if (element('studentWritingPanel')) element('studentWritingPanel').hidden = !writing;
-  if (element('classInsightsPanel')) element('classInsightsPanel').hidden = writing;
+  const writingPanel = element('studentWritingPanel');
+  const insightsPanel = element('classInsightsPanel');
+
+  if (writingPanel) {
+    writingPanel.hidden = !writing;
+    writingPanel.style.display = writing ? 'block' : 'none';
+  }
+  if (insightsPanel) {
+    insightsPanel.hidden = writing;
+    insightsPanel.style.display = writing ? 'none' : 'grid';
+  }
+  if (element('stageResponseHeader')) element('stageResponseHeader').style.display = writing ? 'none' : 'block';
   element('studentWritingTab')?.classList.toggle('is-active', writing);
   element('classInsightsTab')?.classList.toggle('is-active', !writing);
   element('studentWritingTab')?.setAttribute('aria-selected', String(writing));
@@ -405,7 +415,7 @@ function bindEvents() {
   document.querySelector("[id='generateClassInsightButton']")?.addEventListener('click', generateClassInsight);
 }
 
-export async function renderInPageContainer(container, classId, lessonId, stageCode) {
+export async function renderInPageContainer(container, classId, lessonId, stageCode, initialTab = 'writing') {
   if (!container) return;
   state.classId = classId;
   state.lessonId = lessonId;
@@ -486,6 +496,8 @@ export async function renderInPageContainer(container, classId, lessonId, stageC
     renderSummary('insightSummary');
     renderStudentList();
     renderWordCloud();
+
+    selectTab(initialTab || 'writing');
   } catch (error) {
     showError(error.message || '학생 글을 불러오지 못했습니다.');
   }

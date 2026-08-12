@@ -355,7 +355,7 @@ window.TeacherAdminModule = {
                               </button>
                               <button type="button"
                                       class="stage-response-view-button"
-                                      onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${earliestStage}')">
+                                      onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${earliestStage}', 'writing')">
                                 학생 작성 글 보기
                               </button>
                             </div>
@@ -1167,7 +1167,7 @@ window.TeacherAdminModule.setClassStageAccess = async function (classId, lessonI
   finally { buttons.forEach(button => { button.disabled = false; }); }
 };
 
-window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonId, stageCode) {
+window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonId, stageCode, initialTab = 'writing') {
   const listSubView = document.getElementById('classListSubView');
   const detailSubView = document.getElementById('classDetailSubView');
   const responsesSubView = document.getElementById('stageResponsesSubView');
@@ -1184,7 +1184,7 @@ window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonI
   }
 
   if (container && window.TeacherStageResponsesModule?.renderInPageContainer) {
-    window.TeacherStageResponsesModule.renderInPageContainer(container, classId, lessonId, stageCode);
+    window.TeacherStageResponsesModule.renderInPageContainer(container, classId, lessonId, stageCode, initialTab);
   }
 };
 
