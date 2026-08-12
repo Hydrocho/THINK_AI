@@ -43,7 +43,7 @@ window.StudentThinkModule = {
             </div>
             <div style="display: flex; justify-content: ${isFirstStep ? 'flex-end' : 'space-between'};">
               ${!isFirstStep ? `<button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>` : ''}
-              <button class="btn btn-primary" onclick="App.saveInitialThought()">${isLastStep ? '다음 이동 →' : '다음 단계 이동 →'}</button>
+              <button class="btn btn-primary" onclick="App.saveInitialThought()">제출하기</button>
             </div>
           </div>
         `;
@@ -69,7 +69,7 @@ window.StudentThinkModule = {
               </div>
               <div style="display: flex; justify-content: space-between;">
                 <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-                <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
+                <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">제출하기</button>
               </div>
             </div>
           `;
@@ -90,7 +90,7 @@ window.StudentThinkModule = {
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 10px;">
                   <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
+                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">제출하기</button>
                 </div>
               </div>
             `;
@@ -116,7 +116,7 @@ window.StudentThinkModule = {
 
                 <div style="display: flex; justify-content: space-between; margin-top: 10px;">
                   <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
+                  <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">제출하기</button>
                 </div>
               </div>
             `;
@@ -156,7 +156,7 @@ window.StudentThinkModule = {
 
             <div style="display: flex; justify-content: space-between;">
               <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-              <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">다음 단계 이동 →</button>
+              <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">제출하기</button>
             </div>
           </div>
         `;
@@ -186,7 +186,7 @@ window.StudentThinkModule = {
 
             <div style="display: flex; justify-content: space-between;">
               <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-              <button class="btn btn-primary" onclick="App.savePeerRationale()">다음 단계 이동 →</button>
+              <button class="btn btn-primary" onclick="App.savePeerRationale()">제출하기</button>
             </div>
           </div>
         `;
@@ -213,7 +213,7 @@ window.StudentThinkModule = {
 
             <div style="display: flex; justify-content: ${isFirstStep ? 'flex-end' : 'space-between'};">
               ${!isFirstStep ? `<button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>` : ''}
-              <button class="btn btn-primary" style="background: var(--success-text);" onclick="App.submitFinalReflection()">최종 생각 교사에게 제출 완료 ✓</button>
+              <button class="btn btn-primary" style="background: var(--success-text);" onclick="App.submitFinalReflection()">제출하기</button>
             </div>
           </div>
         `;

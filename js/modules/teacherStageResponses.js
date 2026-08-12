@@ -162,7 +162,7 @@ export async function switchStage(newStageCode) {
       lesson: result.lesson,
       stageAccessMode: result.stageAccessMode,
       students: result.students || [],
-      selectedStudentNumber: result.students?.[0]?.studentNumber || null
+      selectedStudentNumber: null
     });
     renderHeader();
     renderSummary('responseSummary');
@@ -192,10 +192,37 @@ function renderSelectedStudent() {
   target.replaceChildren();
   const student = state.students.find((item) => item.studentNumber === state.selectedStudentNumber);
   if (!student) {
-    const empty = document.createElement('p');
-    empty.className = 'stage-response-empty';
-    empty.textContent = '학생을 선택해 주세요.';
-    target.appendChild(empty);
+    const emptyContainer = document.createElement('div');
+    emptyContainer.style.display = 'flex';
+    emptyContainer.style.flexDirection = 'column';
+    emptyContainer.style.alignItems = 'center';
+    emptyContainer.style.justifyContent = 'center';
+    emptyContainer.style.height = '100%';
+    emptyContainer.style.minHeight = '360px';
+    emptyContainer.style.color = '#64748b';
+    emptyContainer.style.textAlign = 'center';
+    emptyContainer.style.padding = '40px 20px';
+
+    const icon = document.createElement('div');
+    icon.style.fontSize = '2.5rem';
+    icon.style.marginBottom = '12px';
+    icon.textContent = '👈';
+
+    const text = document.createElement('p');
+    text.style.fontSize = '1.05rem';
+    text.style.fontWeight = '700';
+    text.style.color = '#334155';
+    text.style.margin = '0 0 6px 0';
+    text.textContent = '학생을 선택해 주세요';
+
+    const subText = document.createElement('p');
+    subText.style.fontSize = '0.88rem';
+    subText.style.color = '#94a3b8';
+    subText.style.margin = '0';
+    subText.textContent = '왼쪽 목록에서 학생을 클릭하면 작성한 글을 확인할 수 있습니다.';
+
+    emptyContainer.append(icon, text, subText);
+    target.appendChild(emptyContainer);
     return;
   }
 
@@ -285,8 +312,8 @@ function renderStudentList() {
     return;
   }
 
-  if (!students.some((student) => student.studentNumber === state.selectedStudentNumber)) {
-    state.selectedStudentNumber = students[0].studentNumber;
+  if (state.selectedStudentNumber && !students.some((student) => student.studentNumber === state.selectedStudentNumber)) {
+    state.selectedStudentNumber = null;
   }
 
   students.forEach((student) => {
@@ -297,12 +324,15 @@ function renderStudentList() {
     
     const identity = document.createElement('strong');
     const studentNumber = document.createElement('span');
+    studentNumber.className = 'stage-response-student-num';
     studentNumber.textContent = student.studentNumber;
     const studentName = document.createElement('span');
+    studentName.className = 'stage-response-student-name';
     studentName.textContent = student.studentName;
     identity.append(studentNumber, document.createTextNode(' '), studentName);
     
     const meta = document.createElement('span');
+    meta.className = 'stage-response-student-meta';
     meta.textContent = status === 'not_started' ? '미작성' : status === 'submitted' ? '제출 완료' : '작성 중';
     
     button.append(identity, meta);
@@ -399,7 +429,7 @@ function selectTab(tab) {
     insightsPanel.hidden = writing;
     insightsPanel.style.display = writing ? 'none' : 'grid';
   }
-  if (element('stageResponseHeader')) element('stageResponseHeader').style.display = writing ? 'none' : 'block';
+  if (element('stageResponseHeader')) element('stageResponseHeader').style.display = 'block';
   element('studentWritingTab')?.classList.toggle('is-active', writing);
   element('classInsightsTab')?.classList.toggle('is-active', !writing);
   element('studentWritingTab')?.setAttribute('aria-selected', String(writing));
@@ -466,7 +496,7 @@ export async function renderInPageContainer(container, classId, lessonId, stageC
       </section>
 
       <section id="classInsightsPanel" class="class-insights-panel" hidden>
-        <div class="class-insight-card"><h2>작성 현황</h2><div id="insightSummary" class="stage-response-summary"></div></div>
+        <div class="class-insight-card class-insight-summary-card"><h2>작성 현황</h2><div id="insightSummary" class="stage-response-summary"></div></div>
         <div class="class-insight-card"><h2>핵심 표현 워드 클라우드</h2><p class="class-insight-help">학생 글에서 자주 나온 표현을 이 브라우저에서만 집계합니다.</p><div id="wordCloud" class="teacher-word-cloud"></div></div>
         <div class="class-insight-card">
           <div class="class-insight-heading">
@@ -489,7 +519,7 @@ export async function renderInPageContainer(container, classId, lessonId, stageC
       lesson: result.lesson,
       stageAccessMode: result.stageAccessMode,
       students: result.students || [],
-      selectedStudentNumber: result.students?.[0]?.studentNumber || null
+      selectedStudentNumber: null
     });
     renderHeader();
     renderSummary('responseSummary');

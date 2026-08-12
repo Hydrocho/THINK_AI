@@ -1347,15 +1347,26 @@ body.modal-open { overflow: hidden; }
 .stage-response-summary span { padding: 6px 10px; background: #eef3fa; border-radius: 999px; color: #38516f; font-size: .87rem; }
 .stage-response-controls { display: flex; gap: 10px; color: #536984; font-size: .88rem; }
 .stage-response-controls select { margin-left: 4px; border: 1px solid #cbd8e8; border-radius: 8px; padding: 6px; background: white; }
-.stage-response-grid { display: grid; grid-template-columns: minmax(220px, .75fr) minmax(0, 2fr); gap: 14px; }
-.stage-response-roster { padding: 14px; }.stage-response-roster h2 { margin: 0 0 10px; font-size: 1rem; }
-.stage-response-student { display: flex; width: 100%; justify-content: space-between; text-align: left; padding: 11px; margin-top: 6px; border: 1px solid transparent; border-radius: 10px; background: #f7f9fc; cursor: pointer; color: inherit; }
-.stage-response-student.is-selected { background: #eaf2ff; border-color: #9fc2ff; }.stage-response-student strong { display: flex; gap: 6px; }.stage-response-student > span { color: #64748b; font-size: .82rem; }
-.stage-response-detail { padding: 22px; min-height: 320px; }.stage-response-detail h2 { margin-top: 0; }.stage-response-content { white-space: pre-wrap; line-height: 1.8; background: #f8fafc; border-radius: 10px; padding: 18px; }
+.stage-response-grid { display: grid; grid-template-columns: minmax(240px, .75fr) minmax(0, 2fr); gap: 16px; min-height: 580px; align-items: stretch; }
+.stage-response-roster { padding: 18px; display: flex; flex-direction: column; min-height: 580px; }
+.stage-response-roster h2 { margin: 0 0 12px; font-size: 1.05rem; flex-shrink: 0; }
+#studentResponseList { flex: 1; overflow-y: auto; padding-right: 4px; min-height: 480px; max-height: calc(100vh - 280px); }
+#studentResponseList::-webkit-scrollbar { width: 6px; }
+#studentResponseList::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+#studentResponseList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+#studentResponseList::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.stage-response-student { display: flex; align-items: center; width: 100%; justify-content: space-between; text-align: left; padding: 12px 14px; margin-top: 6px; border: 1px solid transparent; border-radius: 10px; background: #f7f9fc; cursor: pointer; color: inherit; transition: all 0.15s ease; }
+.stage-response-student.is-selected { background: #eaf2ff; border-color: #9fc2ff; }
+.stage-response-student strong { display: inline-flex; align-items: center; gap: 8px; line-height: 1.4; }
+.stage-response-student-num, .stage-response-student-name { display: inline-block; line-height: 1; vertical-align: middle; }
+.stage-response-student > span, .stage-response-student-meta { color: #64748b; font-size: .82rem; display: inline-flex; align-items: center; }
+.stage-response-detail { padding: 24px; min-height: 580px; display: flex; flex-direction: column; }.stage-response-detail h2 { margin-top: 0; }.stage-response-content { white-space: pre-wrap; line-height: 1.8; background: #f8fafc; border-radius: 10px; padding: 20px; flex: 1; min-height: 380px; }
 .stage-response-empty { color: #72829b; padding: 14px 0; }.stage-response-error { margin: 14px 0; padding: 12px 14px; border-radius: 10px; color: #a12626; background: #fff1f1; }
 .class-insights-panel { display: grid; gap: 14px; }
 .class-insights-panel[hidden], .student-writing-panel[hidden] { display: none !important; }
 .class-insight-card { padding: 20px; }.class-insight-card h2 { margin: 0 0 7px; font-size: 1.1rem; }.class-insight-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.class-insight-summary-card { display: flex; align-items: center; gap: 18px; padding: 16px 20px; }
+.class-insight-summary-card h2 { margin: 0; white-space: nowrap; flex-shrink: 0; }
 .teacher-word-cloud { display: flex; flex-wrap: wrap; gap: 10px 15px; align-items: center; min-height: 70px; }.teacher-word-cloud span { color: #2865c7; font-weight: 700; }.class-insight-overview { line-height: 1.7; }.class-insight-question { padding: 12px; background: #eef7ef; border-radius: 9px; color: #256a37; font-weight: 700; }
 /* In-Page Direct Content View Wrapper (Frameless & Compact) */
 .stage-response-inpage-wrapper {
@@ -1670,9 +1681,12 @@ body.modal-open { overflow: hidden; }
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
+  padding: 20px;
+  margin-bottom: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .stage-response-record-title {
