@@ -7,7 +7,6 @@ const clientPath = new URL('../js/supabase-client.js', import.meta.url);
 const functionPath = new URL('../supabase/functions/get-teacher-stage-responses/index.ts', import.meta.url);
 const denoConfigPath = new URL('../supabase/functions/get-teacher-stage-responses/deno.json', import.meta.url);
 const teacherAdminPath = new URL('../js/modules/teacherAdmin.js', import.meta.url);
-const detailPagePath = new URL('../teacher-stage-responses.html', import.meta.url);
 const detailModulePath = new URL('../js/modules/teacherStageResponses.js', import.meta.url);
 const analysisFunctionPath = new URL('../supabase/functions/analyze-teacher-stage-responses/index.ts', import.meta.url);
 const analysisDenoConfigPath = new URL('../supabase/functions/analyze-teacher-stage-responses/deno.json', import.meta.url);
@@ -15,7 +14,6 @@ const analysisDenoConfigPath = new URL('../supabase/functions/analyze-teacher-st
 const clientSource = fs.readFileSync(clientPath, 'utf8');
 const functionSource = fs.existsSync(functionPath) ? fs.readFileSync(functionPath, 'utf8') : '';
 const teacherAdminSource = fs.readFileSync(teacherAdminPath, 'utf8');
-const detailPageSource = fs.existsSync(detailPagePath) ? fs.readFileSync(detailPagePath, 'utf8') : '';
 const detailModuleSource = fs.existsSync(detailModulePath) ? fs.readFileSync(detailModulePath, 'utf8') : '';
 const analysisFunctionSource = fs.existsSync(analysisFunctionPath) ? fs.readFileSync(analysisFunctionPath, 'utf8') : '';
 
@@ -94,22 +92,9 @@ test('teacher stage response API returns class, project, lesson, access, and res
   assert.match(functionSource, /submittedAt:\s*response\.submitted_at/);
 });
 
-test('each THINK access row opens its class, lesson, and stage response page in a new tab', () => {
-  assert.match(teacherAdminSource, /학생 작성 글 보기/);
+test('each THINK access row opens its class, lesson, and stage response view in-page', () => {
   assert.match(teacherAdminSource, /openTeacherStageResponses\('\$\{classId\}',\s*'\$\{l\.id\}',\s*'\$\{st\}'\)/);
-  assert.match(teacherAdminSource, /new URLSearchParams\(\{\s*classId,\s*lessonId,\s*stageCode\s*\}\)/);
-  assert.match(teacherAdminSource, /window\.open\([^,]+,\s*['_"]_blank['_"],\s*['_"]noopener['_"]\)/);
-});
-
-test('standalone response page exposes writing and class-insight regions', () => {
-  assert.notEqual(detailPageSource, '', 'expected standalone teacher response page');
-  assert.match(detailPageSource, /id="stageResponseHeader"/);
-  assert.match(detailPageSource, /id="studentWritingTab"/);
-  assert.match(detailPageSource, /id="classInsightsTab"/);
-  assert.match(detailPageSource, /id="responseSummary"/);
-  assert.match(detailPageSource, /id="studentResponseList"/);
-  assert.match(detailPageSource, /id="selectedStudentResponse"/);
-  assert.match(detailPageSource, /js\/modules\/teacherStageResponses\.js/);
+  assert.match(teacherAdminSource, /renderInPageContainer/);
 });
 
 test('response detail utilities derive writing counts and local word frequencies', async () => {

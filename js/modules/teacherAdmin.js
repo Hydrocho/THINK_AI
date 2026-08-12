@@ -196,8 +196,10 @@ window.TeacherAdminModule = {
   showClassListSubView: function () {
     const listSubView = document.getElementById('classListSubView');
     const detailSubView = document.getElementById('classDetailSubView');
+    const responsesSubView = document.getElementById('stageResponsesSubView');
     if (listSubView) listSubView.style.display = 'block';
     if (detailSubView) detailSubView.style.display = 'none';
+    if (responsesSubView) responsesSubView.style.display = 'none';
     this.currentActiveClassId = null;
     if (this.expandedClassLessonIds) this.expandedClassLessonIds.clear();
     const breadcrumb = document.getElementById('teacherBreadcrumb');
@@ -205,16 +207,28 @@ window.TeacherAdminModule = {
     this.renderClassOperations();
   },
 
+  showClassDetailSubView: function () {
+    const listSubView = document.getElementById('classListSubView');
+    const detailSubView = document.getElementById('classDetailSubView');
+    const responsesSubView = document.getElementById('stageResponsesSubView');
+    if (listSubView) listSubView.style.display = 'none';
+    if (detailSubView) detailSubView.style.display = 'block';
+    if (responsesSubView) responsesSubView.style.display = 'none';
+  },
+
   openClassDetailSubView: async function (classId) {
     this.currentActiveClassId = classId;
     const listSubView = document.getElementById('classListSubView');
     const detailSubView = document.getElementById('classDetailSubView');
+    const responsesSubView = document.getElementById('stageResponsesSubView');
     const container = document.getElementById('classDetailContent');
     const breadcrumb = document.getElementById('teacherBreadcrumb');
 
     if (listSubView) listSubView.style.display = 'none';
     if (detailSubView) detailSubView.style.display = 'block';
+    if (responsesSubView) responsesSubView.style.display = 'none';
     if (container) container.innerHTML = '<div style="padding: 32px; text-align: center; color: var(--text-subtle);">학급 상세 수업 운영 정보를 불러오는 중입니다...</div>';
+
 
     try {
       const client = window.SupabaseService.getClient();
@@ -303,17 +317,19 @@ window.TeacherAdminModule = {
 
                       const miniBadgesHtml = stages.map(st => {
                         const currentMode = stageState[st] || 'hidden';
+                        const modeKey = (currentMode === 'writable') ? 'writable' : 'read_only';
                         const modeMeta = {
                           writable: { label: `${st} ✍️`, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-                          read_only: { label: `${st} 👁️`, bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
-                          hidden: { label: `${st} 🔒`, bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0' }
-                        }[currentMode];
+                          read_only: { label: `${st} 🔒`, bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' }
+                        }[modeKey];
+
                         return `<span data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-summary style="padding: 2px 7px; border-radius: 12px; font-size: 0.76rem; font-weight: 700; background: ${modeMeta.bg}; color: ${modeMeta.color}; border: 1px solid ${modeMeta.border}; white-space: nowrap;">${modeMeta.label}</span>`;
                       }).join('');
 
                       return `
-                        <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 18px 22px; transition: all 0.2s ease;">
+                        <div class="class-lesson-card ${isActiveLesson ? 'is-active-card' : ''}">
                           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+
                             <div style="display: flex; align-items: center; gap: 12px;">
                               <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem;">
                                 ${l.lesson_order || i + 1}
@@ -389,11 +405,8 @@ window.TeacherAdminModule = {
                                       <td style="padding: 9px 14px; text-align: right;">
                                         <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
                                         <div class="stage-access-pill-group">
-                                          <button type="button" class="pill-btn ${currentMode === 'hidden' ? 'active-hidden' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="hidden" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','hidden')">
-                                            🔒 비공개
-                                          </button>
-                                          <button type="button" class="pill-btn ${currentMode === 'read_only' ? 'active-readonly' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="read_only" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
-                                            👁️ 읽기 전용
+                                          <button type="button" class="pill-btn ${(currentMode === 'read_only' || currentMode === 'hidden') ? 'active-readonly' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="read_only" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
+                                            🔒 작성 잠금
                                           </button>
                                           <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="writable" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
                                             ✍️ 작성 가능
@@ -1147,10 +1160,26 @@ window.TeacherAdminModule.setClassStageAccess = async function (classId, lessonI
 };
 
 window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonId, stageCode) {
-  const query = new URLSearchParams({ classId, lessonId, stageCode });
-  const detailUrl = `teacher-stage-responses.html?${query.toString()}`;
-  window.open(detailUrl, '_blank', 'noopener');
+  const listSubView = document.getElementById('classListSubView');
+  const detailSubView = document.getElementById('classDetailSubView');
+  const responsesSubView = document.getElementById('stageResponsesSubView');
+  const container = document.getElementById('stageResponsesInPageContainer');
+  const breadcrumb = document.getElementById('teacherBreadcrumb');
+
+  if (listSubView) listSubView.style.display = 'none';
+  if (detailSubView) detailSubView.style.display = 'none';
+  if (responsesSubView) responsesSubView.style.display = 'block';
+
+  if (breadcrumb) {
+    const stageNameMap = { T: 'T (나의 처음 생각)', H: 'H (친구와 생각 나누기)', I: 'I (인공지능과 생각 넓히기)', N: 'N (비판적으로 따져보기)', K: 'K (나의 최종 생각)' };
+    breadcrumb.innerText = `내 수업 › 수업 운영 › 학생 작성 글 보기 (${stageNameMap[stageCode] || stageCode})`;
+  }
+
+  if (container && window.TeacherStageResponsesModule?.renderInPageContainer) {
+    window.TeacherStageResponsesModule.renderInPageContainer(container, classId, lessonId, stageCode);
+  }
 };
+
 
 window.TeacherAdminModule.setActiveClassLesson = async function (classId, lessonId) {
   const buttons = [...document.querySelectorAll('[data-active-class-lesson-id]')];
@@ -1164,7 +1193,12 @@ window.TeacherAdminModule.setActiveClassLesson = async function (classId, lesson
       const isActive = button.dataset.activeClassLessonId === nextLessonId;
       button.classList.toggle('is-active', isActive);
       button.setAttribute('aria-pressed', String(isActive));
+      const card = button.closest('.class-lesson-card');
+      if (card) {
+        card.classList.toggle('is-active-card', isActive);
+      }
     });
+
   } catch (error) {
     alert(`수업 활성화 변경 실패: ${error.message}`);
   } finally {

@@ -21,7 +21,10 @@
       finalThought: '',
       chatMessages: []
     },
-    peerOpinions: []
+    peerOpinions: [],
+    thinkDraftTimers: new Map(),
+    thinkDraftMaxTimers: new Map(),
+    thinkDraftLastSaved: new Map()
   };
   window.AppState = state;
 
@@ -147,24 +150,6 @@
       this.renderCurrentStep();
     },
 
-    selectLesson: function (index) {
-      state.currentLessonIndex = parseInt(index);
-      state.currentStep = 1;
-      
-      const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
-      if (!lesson) return;
-
-      const lblLesson = document.getElementById('currentLessonLabel');
-      const projectTitle = document.getElementById('currentProjectTitle');
-      const mainTitle = document.getElementById('stepMainTitle');
-      if (lblLesson) lblLesson.innerText = `${lesson.number}차시 활동 진행 중`;
-      if (projectTitle) projectTitle.innerText = lesson.projectTitle || '진행 중인 프로젝트';
-      if (mainTitle) mainTitle.innerText = lesson.coreQuestion || lesson.core_question || lesson.question;
-
-      this.updateStepNav();
-      this.renderCurrentStep();
-    },
-
     goToStep: function (stepNum) {
       state.currentStep = stepNum;
       this.updateStepNav();
@@ -183,7 +168,9 @@
         K: { code: 'K - STEP', title: '나의 최종 생각 (Knowledge)', name: '나의 최종 생각' }
       };
 
-      const listEl = document.querySelector('.think-steps-list');
+      const listEl = document.getElementById('studentThinkStepsList') || document.querySelector('#studentAppSection .think-steps-list') || document.querySelector('.think-steps-list');
+
+
       if (listEl) {
         listEl.innerHTML = activeStages.map((stageCode, idx) => {
           const stepIndex = idx + 1;
@@ -238,6 +225,7 @@
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
       if (!lesson?.id || (lesson.thinkStageAccess || lesson.think_stage_access)?.[stageCode] !== 'writable') return;
       const key = `${lesson.id}:${stageCode}`;
+      const content = value !== undefined ? value : (document.getElementById(stageCode === 'T' ? 'txtInitialThought' : stageCode === 'N' ? 'txtPeerRationale' : 'txtFinalThought')?.value || '');
       if (!content.trim() || state.thinkDraftLastSaved.get(key) === content) return;
       try { await window.SupabaseService.saveThinkStageResponse(lesson.id, stageCode, content); state.thinkDraftLastSaved.set(key, content); }
       catch (error) { console.warn('THINK draft autosave failed:', error.message); }
