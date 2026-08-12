@@ -96,13 +96,15 @@ function renderHeader() {
           ${accessToggleHtml}
         </div>
       </div>
-      <div class="stage-response-header-row-2">
+      <div class="stage-response-header-row-question" style="padding: 4px 2px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 1rem;">💡</span>
+        <strong style="color: #0284c7; font-weight: 800; white-space: nowrap;">핵심 질문:</strong>
+        <span style="font-weight: 800; color: #0f172a;">“${lesson.coreQuestion || '질문 미입력'}”</span>
+      </div>
+      <div class="stage-response-header-row-2" style="padding-top: 0; border-top: none;">
         <nav class="think-stage-pills-nav" aria-label="THINK 5단계 선택">
           ${stagePillsHtml}
         </nav>
-        <div class="stage-response-question-compact" style="font-size: 0.88rem; color: #334155; max-width: 50%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          💡 <strong>핵심 질문:</strong> “${lesson.coreQuestion || ''}”
-        </div>
       </div>
     `;
     return;

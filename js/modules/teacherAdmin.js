@@ -311,6 +311,7 @@ window.TeacherAdminModule = {
                   <div style="display: flex; flex-direction: column; gap: 14px;">
                     ${lessons.map((l, i) => {
                       const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
+                      const earliestStage = (stages && stages.length > 0) ? stages[0] : 'T';
                       const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
                       const isExpanded = !!(this.expandedClassLessonIds && this.expandedClassLessonIds.has(l.id));
                       const isActiveLesson = cls?.active_lesson_plan_id === l.id;
@@ -343,14 +344,21 @@ window.TeacherAdminModule = {
                                 </div>
                               </div>
                             </div>
-                            <button type="button"
-                                    class="class-lesson-active-toggle ${isActiveLesson ? 'is-active' : ''}"
-                                    data-active-class-lesson-id="${l.id}"
-                                    aria-pressed="${isActiveLesson}"
-                                    onclick="TeacherAdminModule.setActiveClassLesson('${classId}','${l.id}')">
-                              <span class="class-lesson-active-toggle-track" aria-hidden="true"><span class="class-lesson-active-toggle-thumb"></span></span>
-                              <span>수업 활성화</span>
-                            </button>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                              <button type="button"
+                                      class="class-lesson-active-toggle ${isActiveLesson ? 'is-active' : ''}"
+                                      data-active-class-lesson-id="${l.id}"
+                                      aria-pressed="${isActiveLesson}"
+                                      onclick="TeacherAdminModule.setActiveClassLesson('${classId}','${l.id}')">
+                                <span class="class-lesson-active-toggle-track" aria-hidden="true"><span class="class-lesson-active-toggle-thumb"></span></span>
+                                <span>수업 활성화</span>
+                              </button>
+                              <button type="button"
+                                      class="stage-response-view-button"
+                                      onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${earliestStage}')">
+                                학생 작성 글 보기
+                              </button>
+                            </div>
                           </div>
 
                           <!-- THINK Stage Toggle Header -->
