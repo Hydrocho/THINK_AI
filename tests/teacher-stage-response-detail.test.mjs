@@ -162,13 +162,15 @@ test('vector word art masks define usable interiors for every template', async (
   maskMap.occupy(interior);
   assert.equal(maskMap.canPlace(interior), false);
   assert.equal(maskMap.canPlace({ x: 10, y: 10, w: 30, h: 20 }), false);
-  assert.ok(maskMap.getCandidatePoints('filler').length > 0);
+  assert.equal(maskMap.getCandidatePoints('filler', 12).length, 12);
 });
 
 test('word art renderer packs every tier through the vector mask map', () => {
   assert.match(detailModuleSource, /createWordArtMaskMap\(/);
-  assert.match(detailModuleSource, /maskMap\.getCandidatePoints\(tier\)/);
+  assert.match(detailModuleSource, /maskMap\.getCandidatePoints\(tier,\s*tierPointLimits\[tier\]\)/);
   assert.match(detailModuleSource, /maskMap\.occupy\(/);
+  assert.match(detailModuleSource, /requestAnimationFrame/);
+  assert.match(detailModuleSource, /setTimeout\(callback, ?0\)/);
 });
 
 test('student-provided values are inserted as text and hidden stages remain readable to teachers', () => {

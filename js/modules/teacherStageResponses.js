@@ -745,8 +745,7 @@ export function getWordArtShapePoints(shape, cx, cy, radius) {
   ];
 }
 
-export function isPointInWordArtShape(x, y, shape, cx, cy, radius) {
-  const points = getWordArtShapePoints(shape, cx, cy, radius);
+function isPointInPolygon(x, y, points) {
   let inside = false;
   for (let current = 0, previous = points.length - 1; current < points.length; previous = current++) {
     const [x1, y1] = points[current];
@@ -756,12 +755,17 @@ export function isPointInWordArtShape(x, y, shape, cx, cy, radius) {
   return inside;
 }
 
+export function isPointInWordArtShape(x, y, shape, cx, cy, radius) {
+  return isPointInPolygon(x, y, getWordArtShapePoints(shape, cx, cy, radius));
+}
+
 export function createWordArtMaskMap({ shape, width, height, cx, cy, radius, cellSize = 4 }) {
   const occupied = new Set();
   const cells = [];
   const keyFor = (col, row) => `${col}:${row}`;
+  const shapePoints = getWordArtShapePoints(shape, cx, cy, radius);
   const isInside = (x, y) => x >= 0 && y >= 0 && x <= width && y <= height
-    && isPointInWordArtShape(x, y, shape, cx, cy, radius);
+    && isPointInPolygon(x, y, shapePoints);
 
   for (let row = 0; row < Math.ceil(height / cellSize); row += 1) {
     for (let col = 0; col < Math.ceil(width / cellSize); col += 1) {
@@ -796,11 +800,11 @@ export function createWordArtMaskMap({ shape, width, height, cx, cy, radius, cel
       cellsForBox({ x: box.x - gap, y: box.y - gap, w: box.w + gap * 2, h: box.h + gap * 2 })
         .forEach(([col, row]) => occupied.add(keyFor(col, row)));
     },
-    getCandidatePoints(tier) {
+    getCandidatePoints(tier, limit = Infinity) {
       return cells.filter((cell) => !occupied.has(keyFor(cell.col, cell.row))).sort((a, b) => {
         if (tier === 'filler' && a.edge !== b.edge) return a.edge ? -1 : 1;
         return tier === 'primary' ? a.distance - b.distance : b.distance - a.distance;
-      }).map((cell) => [cell.x, cell.y]);
+      }).slice(0, limit).map((cell) => [cell.x, cell.y]);
     }
   };
 }
@@ -960,7 +964,7 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
   const R = Math.min(displayW, displayH) * 0.43;
 
   const maskMap = createWordArtMaskMap({
-    shape, width: displayW, height: displayH, cx, cy, radius: R, cellSize: 4
+    shape, width: displayW, height: displayH, cx, cy, radius: R, cellSize: 8
   });
 
   // The guide and packing map share the same vector outline.
@@ -984,9 +988,16 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
   const placedBoxes = [];
   const candidates = buildWordArtCandidates(tokens);
   let colorIndex = 0;
+  const tiers = ['primary', 'medium', 'filler'];
+  const tierPointLimits = { primary: 1200, medium: 1600, filler: 2000 };
+  const schedule = typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame.bind(window)
+    : (callback) => setTimeout(callback, 0);
+  let tierIndex = 0;
 
-  ['primary', 'medium', 'filler'].forEach((tier) => {
-    const searchPoints = maskMap.getCandidatePoints(tier);
+  const renderNextTier = () => {
+    const tier = tiers[tierIndex];
+    const searchPoints = maskMap.getCandidatePoints(tier, tierPointLimits[tier]);
     candidates.filter((candidate) => candidate.tier === tier).forEach((candidate, index) => {
       const norm = maxCount === minCount ? 1 : (candidate.count - minCount) / (maxCount - minCount);
       const preferredSize = tier === 'primary'
@@ -1037,7 +1048,10 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
       ctx.restore();
       colorIndex += 1;
     });
-  });
+    tierIndex += 1;
+    if (tierIndex < tiers.length) schedule(renderNextTier);
+  };
+  schedule(renderNextTier);
 }
 
 function downloadWordArtImage() {
