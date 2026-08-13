@@ -1005,7 +1005,7 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
         : tier === 'medium'
           ? Math.round(13 + norm * 16)
           : Math.round(8 + norm * 9);
-      const minimumSize = tier === 'primary' ? 15 : tier === 'medium' ? 8 : 5;
+      const minimumSize = tier === 'primary' ? 15 : tier === 'medium' ? 10 : 10;
       const sizes = [...new Set([preferredSize, Math.round(preferredSize * 0.84), Math.round(preferredSize * 0.7), minimumSize])]
         .filter((size) => size >= minimumSize);
       const vertical = candidate.allowVertical && ((index + candidate.rank) % 4 === 0);
