@@ -103,7 +103,7 @@ window.TeacherAdminModule = {
     try {
       const result = await window.SupabaseService.listProjects();
       const deletedIds = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
-      const projects = (result.projects || []).filter(p => !deletedIds.includes(p.id));
+      const projects = (result.projects || []).filter(p => !deletedIds.includes(p.id) && !deletedIds.includes(p.title));
       this.cachedProjects = projects;
 
       if (projects.length === 0) {
@@ -239,13 +239,20 @@ window.TeacherAdminModule = {
 
       // Fetch attached project for this class
       const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const deletedProjects = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
       const { data: rawClassProjects } = await client
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .eq('class_id', classId)
         .order('attached_at', { ascending: false });
 
-      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
+      const classProjects = (rawClassProjects || []).filter(cp => 
+        !detachedIds.includes(cp.id) &&
+        !deletedProjects.includes(cp.source_project_id) &&
+        !deletedProjects.includes(cp.projects?.id) &&
+        !deletedProjects.includes(cp.title) &&
+        !deletedProjects.includes(cp.projects?.title)
+      );
 
       const { data: stageAccesses } = await client
         .from('class_lesson_stage_access')
@@ -329,22 +336,17 @@ window.TeacherAdminModule = {
 
                       return `
                         <div class="class-lesson-card ${isActiveLesson ? 'is-active-card' : ''}">
-                          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                              <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem;">
+                          <!-- 1행: 차시 번호 + 차시 제목 (좌측) & 수업 활성화 / 학생 작성 글 보기 버튼 (우측 상단 고정) -->
+                          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                              <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem; flex-shrink: 0;">
                                 ${l.lesson_order || i + 1}
                               </span>
-                              <div>
-                                <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">
-                                  ${this.escapeHtml(l.title)}
-                                </div>
-                                <div style="font-size: 0.85rem; color: var(--text-subtle); margin-top: 4px;">
-                                  💡 핵심 질문: "${this.escapeHtml(l.core_question || '질문 미입력')}"
-                                </div>
+                              <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">
+                                ${this.escapeHtml(l.title)}
                               </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                               <button type="button"
                                       class="class-lesson-active-toggle ${isActiveLesson ? 'is-active' : ''}"
                                       data-active-class-lesson-id="${l.id}"
@@ -360,6 +362,12 @@ window.TeacherAdminModule = {
                               </button>
                             </div>
                           </div>
+
+                          <!-- 2행: 핵심 질문 영역 (독립 배치로 길이에 영향 받지 않고 일관된 레이아웃 유지) -->
+                          <div style="font-size: 0.88rem; color: var(--text-subtle); margin-top: 10px; padding: 10px 14px; background: rgba(0, 0, 0, 0.02); border-radius: var(--radius-md); border-left: 3px solid var(--primary-400); line-height: 1.55;">
+                            💡 <strong style="color: var(--text-main);">핵심 질문:</strong> "${this.escapeHtml(l.core_question || '질문 미입력')}"
+                          </div>
+
 
                           <!-- THINK Stage Toggle Header -->
                           <div id="think-stage-toggle-${l.id}"
@@ -478,11 +486,18 @@ window.TeacherAdminModule = {
 
       // Fetch attached projects
       const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const deletedProjects = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
       const { data: rawClassProjects } = await client
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .order('attached_at', { ascending: false });
-      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
+      const classProjects = (rawClassProjects || []).filter(cp => 
+        !detachedIds.includes(cp.id) &&
+        !deletedProjects.includes(cp.source_project_id) &&
+        !deletedProjects.includes(cp.projects?.id) &&
+        !deletedProjects.includes(cp.title) &&
+        !deletedProjects.includes(cp.projects?.title)
+      );
 
       el.innerHTML = `
         <div class="project-card-grid">
@@ -709,8 +724,15 @@ window.TeacherAdminModule = {
       const { data: classes } = await client.from('classes').select('*').order('class_code');
       const { data: students } = await client.from('student_accounts').select('student_number');
       const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+      const deletedProjects = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
       const { data: rawClassProjects } = await client.from('class_projects').select('*,projects(*)');
-      const classProjects = (rawClassProjects || []).filter(cp => !detachedIds.includes(cp.id));
+      const classProjects = (rawClassProjects || []).filter(cp => 
+        !detachedIds.includes(cp.id) &&
+        !deletedProjects.includes(cp.source_project_id) &&
+        !deletedProjects.includes(cp.projects?.id) &&
+        !deletedProjects.includes(cp.title) &&
+        !deletedProjects.includes(cp.projects?.title)
+      );
 
       if (!classes || classes.length === 0) {
         el.innerHTML = `
@@ -799,9 +821,10 @@ window.TeacherAdminModule = {
   attachProjectPrompt: async function (classId) {
     const client = window.SupabaseService.getClient();
     const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+    const deletedProjects = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
 
     const result = await window.SupabaseService.listProjects();
-    const projects = (result.projects || []).filter(project => project.is_published);
+    const projects = (result.projects || []).filter(project => project.is_published && !deletedProjects.includes(project.id) && !deletedProjects.includes(project.title));
     if (!projects.length) {
       await window.ModalService.alert({ title: '연결 가능한 프로젝트가 없습니다', message: '수업 설계에서 프로젝트의 학급 연결 가능 토글을 켠 뒤 학급에 연결해 주세요.', tone: 'info' });
       return;
@@ -1601,22 +1624,114 @@ window.TeacherAdminModule.attachDragAndDropHandlers = function (container) {
 };
 
 window.TeacherAdminModule.deleteProject = async function (projectId, projectTitle) {
-  const confirmed = confirm(`"${projectTitle}" 프로젝트를 정말로 삭제하시겠습니까?\n삭제된 프로젝트는 목록에서 제거됩니다.`);
+  const client = window.SupabaseService?.getClient ? window.SupabaseService.getClient() : null;
+  const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
+
+  let attachedClasses = [];
+  let attachedClassProjects = [];
+
+  if (client) {
+    try {
+      const { data: rawCP } = await client
+        .from('class_projects')
+        .select('*, classes(*)');
+
+      attachedClassProjects = (rawCP || []).filter(cp => {
+        const isTargetProject = (cp.source_project_id === projectId) || (cp.project_id === projectId) || (cp.projects?.id === projectId);
+        return isTargetProject && !detachedIds.includes(cp.id);
+      });
+
+      attachedClasses = attachedClassProjects
+        .map(cp => cp.classes ? `${cp.classes.grade_number}학년 ${cp.classes.class_number}반 (${cp.classes.subject_name || '미지정'})` : null)
+        .filter(Boolean);
+    } catch (e) {
+      console.warn("Error checking attached classes:", e);
+    }
+  }
+
+  let confirmed = false;
+  if (attachedClasses.length > 0) {
+    const classListStr = attachedClasses.map(c => `• ${c}`).join('\n');
+    const message = `"${projectTitle}" 프로젝트는 현재 아래 학급에 연결되어 운영 중입니다:\n\n${classListStr}\n\n프로젝트를 삭제하면 해당 학급과의 연결도 자동으로 해제됩니다. 정말로 삭제하시겠습니까?`;
+
+    if (window.ModalService && window.ModalService.confirm) {
+      confirmed = await window.ModalService.confirm({
+        title: '프로젝트 삭제 및 연결 해제 확인',
+        message: message,
+        confirmLabel: '삭제 및 연결 해제',
+        tone: 'danger'
+      });
+    } else {
+      confirmed = confirm(message);
+    }
+  } else {
+    const message = `"${projectTitle}" 프로젝트를 정말로 삭제하시겠습니까?\n삭제된 프로젝트는 목록에서 제거됩니다.`;
+    if (window.ModalService && window.ModalService.confirm) {
+      confirmed = await window.ModalService.confirm({
+        title: '프로젝트 삭제 확인',
+        message: message,
+        confirmLabel: '삭제하기',
+        tone: 'danger'
+      });
+    } else {
+      confirmed = confirm(message);
+    }
+  }
+
   if (!confirmed) return;
 
   const deletedIds = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
-  if (!deletedIds.includes(projectId)) {
+  if (projectId && !deletedIds.includes(projectId)) {
     deletedIds.push(projectId);
-    localStorage.setItem('think_deleted_projects', JSON.stringify(deletedIds));
   }
+  if (projectTitle && !deletedIds.includes(projectTitle)) {
+    deletedIds.push(projectTitle);
+  }
+  localStorage.setItem('think_deleted_projects', JSON.stringify(deletedIds));
+
+  for (const cp of attachedClassProjects) {
+    if (!detachedIds.includes(cp.id)) {
+      detachedIds.push(cp.id);
+    }
+    if (window.SupabaseService && window.SupabaseService.detachProjectFromClass) {
+      try {
+        await window.SupabaseService.detachProjectFromClass(cp.id);
+      } catch (e) {
+        console.warn("Notice detaching class project:", e.message);
+      }
+    }
+  }
+  localStorage.setItem('think_detached_class_projects', JSON.stringify(detachedIds));
 
   if (window.SupabaseService && window.SupabaseService.deleteProject) {
     try {
-      await window.SupabaseService.deleteProject(projectId);
+      await window.SupabaseService.deleteProject(projectId, projectTitle);
     } catch (e) {
       console.warn("DB project delete notice:", e.message);
     }
   }
 
   await this.renderProjects();
+  await this.renderClassOperations();
+  await this.renderClassManagement();
+  if (this.currentActiveClassId) {
+    await this.openClassDetailSubView(this.currentActiveClassId);
+  }
+};
+
+window.TeacherAdminModule.runSeedGeneticsDummyData = async function () {
+  try {
+    const res = await window.SupabaseService.seedGeneticsDummyData();
+    if (res && res.error) {
+      alert(`더미 데이터 생성 실패: ${res.error}`);
+      return;
+    }
+    alert("3학년 1반 (30명) '유전자 조작 기술' 1차시 더미 데이터가 성공적으로 서버 DB에 생성 및 입력되었습니다!");
+    await this.renderOperationOverview();
+    if (res.classId) {
+      await this.openClassDetailSubView(res.classId);
+    }
+  } catch (error) {
+    alert(`더미 데이터 생성 실패: ${error.message}`);
+  }
 };

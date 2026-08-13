@@ -12,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -49,8 +49,8 @@ serve(async (req) => {
       contents: [
         { role: "user", parts: [{ text: systemInstruction }] },
         ...(previous_messages || []).map((msg: any) => ({
-          role: msg.sender_role === "student" ? "user" : "model",
-          parts: [{ text: msg.content }],
+          role: (msg.role === "user" || msg.role === "student" || msg.sender_role === "student") ? "user" : "model",
+          parts: [{ text: msg.text || msg.content || "" }],
         })),
         { role: "user", parts: [{ text: student_message }] },
       ],

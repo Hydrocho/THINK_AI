@@ -271,10 +271,14 @@
       this.renderCurrentStep();
 
       const lesson = (state.activeLessonPlans && state.activeLessonPlans[state.currentLessonIndex]) || window.APP_CONFIG.LESSONS[state.currentLessonIndex];
+      const activityTitle = lesson?.title || lesson?.topic || "수업 활동";
+      const coreQuestion = lesson?.question || "핵심 질문";
+      const history = state.studentData.chatMessages.slice(0, -1);
 
       try {
-        const reply = await window.SupabaseService.sendGeminiChat(lesson?.question || "유전자 조작", text, state.studentData.chatMessages);
-        state.studentData.chatMessages.push({ role: 'ai', text: reply });
+        const result = await window.SupabaseService.sendGeminiChat(activityTitle, coreQuestion, text, history);
+        const replyText = result?.reply || (typeof result === 'string' ? result : '답변을 생성하지 못했습니다.');
+        state.studentData.chatMessages.push({ role: 'ai', text: replyText });
       } catch (err) {
         state.studentData.chatMessages.push({ role: 'ai', text: 'AI 응답 처리 중 오류가 발생했습니다: ' + err.message });
       }

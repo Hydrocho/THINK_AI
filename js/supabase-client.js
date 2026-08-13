@@ -301,6 +301,9 @@
     analyzeTeacherStageResponses: async function (classId, lessonId, stageCode) {
       return this.invokeAccountFunction("analyze-teacher-stage-responses", { classId, lessonId, stageCode });
     },
+    seedGeneticsDummyData: async function () {
+      return this.invokeAccountFunction("manage-class-projects", { action: "seed_genetics_dummy_data" });
+    },
     setActiveClassLesson: async function (classId, lessonId) { return this.invokeAccountFunction("manage-class-projects", { action: "set_active_class_lesson", classId, lessonId }); },
     setProjectPublished: async function (projectId, isPublished) { return this.invokeAccountFunction("manage-class-projects", { action: "set_project_published", projectId, isPublished }); },
     attachProjectToClass: async function (classId, versionId, title) { return this.invokeAccountFunction("manage-class-projects", { action: "attach", classId, versionId, title }); },
@@ -347,8 +350,8 @@
       }
       return res;
     },
-    deleteProject: async function (projectId) {
-      return this.invokeAccountFunction("manage-class-projects", { action: "delete_project", projectId });
+    deleteProject: async function (projectId, projectTitle) {
+      return this.invokeAccountFunction("manage-class-projects", { action: "delete_project", projectId, title: projectTitle });
     },
 
     // 4. Fetch Activities from Supabase DB
