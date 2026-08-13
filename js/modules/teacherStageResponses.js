@@ -684,6 +684,111 @@ function isInsideShape(nx, ny, shape) {
   }
 }
 
+export function fitsInsideShape(box, cx, cy, radius, shape) {
+  const points = [
+    [box.x, box.y], [box.x + box.w, box.y],
+    [box.x, box.y + box.h], [box.x + box.w, box.y + box.h],
+    [box.x + box.w / 2, box.y], [box.x + box.w / 2, box.y + box.h],
+    [box.x, box.y + box.h / 2], [box.x + box.w, box.y + box.h / 2],
+    [box.x + box.w / 2, box.y + box.h / 2]
+  ];
+
+  return points.every(([x, y]) => isInsideShape((x - cx) / radius, (y - cy) / radius, shape));
+}
+
+export function boxesOverlap(first, second, gap = 2) {
+  return first.x - gap < second.x + second.w + gap
+    && first.x + first.w + gap > second.x - gap
+    && first.y - gap < second.y + second.h + gap
+    && first.y + first.h + gap > second.y - gap;
+}
+
+export function buildWordArtCandidates(tokens = [], {
+  primaryLimit = 60,
+  repeatLimit = 72,
+  fillerLimit = 120
+} = {}) {
+  const rankedTokens = tokens.filter((token) => token?.text).slice(0, primaryLimit);
+  if (!rankedTokens.length) return [];
+
+  const maxCount = rankedTokens[0].count || 1;
+  const weightedTokens = rankedTokens.flatMap((token) => Array.from(
+    { length: Math.max(1, Math.round(((token.count || 1) / maxCount) * 4)) },
+    () => token
+  ));
+  const candidates = rankedTokens.map((token, rank) => ({
+    text: token.text,
+    count: token.count,
+    rank,
+    tier: 'primary',
+    isMain: true,
+    allowVertical: false
+  }));
+
+  [['medium', repeatLimit], ['filler', fillerLimit]].forEach(([tier, limit]) => {
+    for (let index = 0; index < limit; index += 1) {
+      const token = weightedTokens[index % weightedTokens.length];
+      candidates.push({
+        text: token.text,
+        count: token.count,
+        rank: rankedTokens.indexOf(token),
+        tier,
+        isMain: false,
+        allowVertical: tier === 'medium'
+      });
+    }
+  });
+
+  return candidates;
+}
+
+export function findWordArtPlacement({
+  shape,
+  cx,
+  cy,
+  radius,
+  sizes,
+  widthForSize,
+  heightForSize,
+  placedBoxes,
+  searchPoints,
+  vertical = false,
+  gap = 2
+}) {
+  for (const fontSize of sizes) {
+    const naturalWidth = widthForSize(fontSize);
+    const naturalHeight = heightForSize(fontSize);
+    const width = vertical ? naturalHeight : naturalWidth;
+    const height = vertical ? naturalWidth : naturalHeight;
+
+    for (const [x, y] of searchPoints) {
+      const box = { x: x - width / 2, y: y - height / 2, w: width, h: height };
+      if (fitsInsideShape(box, cx, cy, radius, shape)
+        && !placedBoxes.some((other) => boxesOverlap(box, other, gap))) {
+        return { x, y, box, fontSize, vertical };
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildSpiralSearchPoints(cx, cy, tier) {
+  const config = {
+    primary: { maxAngle: Math.PI * 48, step: 0.16, growth: 4.1 },
+    medium: { maxAngle: Math.PI * 64, step: 0.13, growth: 3.4 },
+    filler: { maxAngle: Math.PI * 82, step: 0.1, growth: 2.8 }
+  }[tier] || { maxAngle: Math.PI * 64, step: 0.13, growth: 3.4 };
+  const points = [];
+
+  for (let angle = 0; angle <= config.maxAngle; angle += config.step) {
+    const distance = config.growth * angle;
+    points.push([cx + distance * Math.cos(angle), cy + distance * Math.sin(angle)]);
+  }
+
+  return points;
+}
+
 function renderWordArt() {
   const canvas = element('wordArtCanvas');
   if (!canvas) return;
@@ -746,84 +851,62 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
 
   const colors = colorPalettes[palette] || colorPalettes.rainbow;
 
-  // Build dense word list with high density filler words
-  let expandedWords = [];
-  tokens.forEach((t, i) => {
-    const repeat = Math.max(1, Math.min(8, Math.floor(t.count * 1.5)));
-    for (let r = 0; r < repeat; r++) {
-      expandedWords.push({ text: t.text, count: t.count, isMain: r === 0, rank: i });
-    }
-  });
-
-  expandedWords.sort((a, b) => (b.isMain ? 1 : 0) - (a.isMain ? 1 : 0) || b.count - a.count);
-  expandedWords = expandedWords.slice(0, 160);
-
   const maxCount = tokens[0].count;
   const minCount = tokens[tokens.length - 1].count;
-
   const placedBoxes = [];
+  const candidates = buildWordArtCandidates(tokens);
+  let colorIndex = 0;
 
-  expandedWords.forEach((wordObj, idx) => {
-    const text = wordObj.text;
-    const isMain = wordObj.isMain;
+  ['primary', 'medium', 'filler'].forEach((tier) => {
+    const searchPoints = buildSpiralSearchPoints(cx, cy, tier);
+    candidates.filter((candidate) => candidate.tier === tier).forEach((candidate, index) => {
+      const norm = maxCount === minCount ? 1 : (candidate.count - minCount) / (maxCount - minCount);
+      const preferredSize = tier === 'primary'
+        ? Math.round(20 + norm * 34)
+        : tier === 'medium'
+          ? Math.round(11 + norm * 14)
+          : Math.round(7 + norm * 8);
+      const minimumSize = tier === 'primary' ? 15 : tier === 'medium' ? 8 : 5;
+      const sizes = [...new Set([preferredSize, Math.round(preferredSize * 0.84), Math.round(preferredSize * 0.7), minimumSize])]
+        .filter((size) => size >= minimumSize);
+      const vertical = candidate.allowVertical && ((index + candidate.rank) % 4 === 0);
+      const fontForSize = (size) => `${candidate.isMain ? '800' : '600'} ${size}px "Outfit", "Inter", "Apple SD Gothic Neo", sans-serif`;
+      const placement = findWordArtPlacement({
+        shape,
+        cx,
+        cy,
+        radius: R,
+        sizes,
+        widthForSize: (size) => {
+          ctx.font = fontForSize(size);
+          return ctx.measureText(candidate.text).width + 4;
+        },
+        heightForSize: (size) => size * 1.08,
+        placedBoxes,
+        searchPoints,
+        vertical,
+        gap: tier === 'filler' ? 1 : 2
+      });
 
-    const norm = maxCount === minCount ? 1 : (wordObj.count - minCount) / (maxCount - minCount);
-    let fontSize = isMain ? Math.round(20 + norm * 34) : Math.round(10 + norm * 14);
+      if (!placement) return;
+      placedBoxes.push(placement.box);
 
-    const isVertical = !isMain && (idx % 4 === 0);
-
-    ctx.font = `${isMain ? '800' : '600'} ${fontSize}px "Outfit", "Inter", "Apple SD Gothic Neo", sans-serif`;
-    const metrics = ctx.measureText(text);
-
-    const wordW = isVertical ? (fontSize * 1.15) : (metrics.width + 5);
-    const wordH = isVertical ? (metrics.width + 5) : (fontSize * 1.15);
-
-    // Tight Archimedean spiral search
-    for (let angle = 0; angle < Math.PI * 60; angle += 0.18) {
-      const radius = 4.5 * angle;
-      const x = cx + radius * Math.cos(angle);
-      const y = cy + radius * Math.sin(angle);
-
-      const nx = (x - cx) / R;
-      const ny = (y - cy) / R;
-
-      if (!isInsideShape(nx, ny, shape)) continue;
-
-      const box = { x: x - wordW / 2, y: y - wordH / 2, w: wordW, h: wordH };
-
-      let collision = false;
-      for (const p of placedBoxes) {
-        if (box.x < p.x + p.w && box.x + box.w > p.x && box.y < p.y + p.h && box.y + box.h > p.y) {
-          collision = true;
-          break;
-        }
+      ctx.save();
+      ctx.translate(placement.x, placement.y);
+      if (placement.vertical) ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = colors[colorIndex % colors.length];
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = fontForSize(placement.fontSize);
+      if (candidate.isMain) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
       }
-
-      if (!collision) {
-        placedBoxes.push(box);
-
-        ctx.save();
-        ctx.translate(x, y);
-        if (isVertical) {
-          ctx.rotate(-Math.PI / 2);
-        }
-
-        ctx.fillStyle = colors[idx % colors.length];
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `${isMain ? '800' : '600'} ${fontSize}px "Outfit", "Inter", "Apple SD Gothic Neo", sans-serif`;
-
-        if (isMain) {
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 2;
-        }
-
-        ctx.fillText(text, 0, 0);
-        ctx.restore();
-        break;
-      }
-    }
+      ctx.fillText(candidate.text, 0, 0);
+      ctx.restore();
+      colorIndex += 1;
+    });
   });
 }
 

@@ -112,11 +112,37 @@ test('response detail utilities derive writing counts and local word frequencies
     notStarted: 1,
     submitted: 1
   });
-  assert.deepEqual(module.buildWordCloudTokens(students, 10), [
-    { text: '공정', count: 3 },
-    { text: '책임', count: 2 },
-    { text: '선택', count: 1 }
+  assert.deepEqual(module.buildWordCloudTokens(students, 10).map(({ text, count, totalMentions, percentage }) => ({ text, count, totalMentions, percentage })), [
+    { text: '공정', count: 2, totalMentions: 3, percentage: '100.0' },
+    { text: '책임', count: 2, totalMentions: 2, percentage: '100.0' },
+    { text: '선택', count: 1, totalMentions: 1, percentage: '50.0' }
   ]);
+});
+
+test('dense word art uses bounded candidate tiers and mask-safe placement helpers', async () => {
+  const module = await import(`${detailModulePath.href}?dense-layout=${Date.now()}`);
+  const candidates = module.buildWordArtCandidates([
+    { text: '유전자', count: 5 },
+    { text: '환경', count: 2 }
+  ], { primaryLimit: 2, repeatLimit: 4, fillerLimit: 6 });
+
+  assert.equal(candidates.filter((item) => item.tier === 'primary').length, 2);
+  assert.equal(candidates.filter((item) => item.tier === 'medium').length, 4);
+  assert.equal(candidates.filter((item) => item.tier === 'filler').length, 6);
+  assert.equal(candidates[0].text, '유전자');
+  assert.equal(module.fitsInsideShape({ x: 86, y: 86, w: 28, h: 28 }, 100, 100, 90, 'circle'), true);
+  assert.equal(module.fitsInsideShape({ x: 8, y: 88, w: 30, h: 24 }, 100, 100, 90, 'circle'), false);
+  assert.equal(module.boxesOverlap({ x: 10, y: 10, w: 20, h: 20 }, { x: 31, y: 10, w: 10, h: 10 }, 2), true);
+
+  const placement = module.findWordArtPlacement({
+    shape: 'circle', cx: 100, cy: 100, radius: 60,
+    sizes: [130, 20], widthForSize: (size) => size,
+    heightForSize: (size) => size / 2,
+    placedBoxes: [], searchPoints: [[100, 100]]
+  });
+
+  assert.equal(placement.fontSize, 20);
+  assert.equal(module.fitsInsideShape(placement.box, 100, 100, 60, 'circle'), true);
 });
 
 test('student-provided values are inserted as text and hidden stages remain readable to teachers', () => {
