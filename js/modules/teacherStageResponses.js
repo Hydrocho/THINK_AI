@@ -1001,10 +1001,10 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
     candidates.filter((candidate) => candidate.tier === tier).forEach((candidate, index) => {
       const norm = maxCount === minCount ? 1 : (candidate.count - minCount) / (maxCount - minCount);
       const preferredSize = tier === 'primary'
-        ? Math.round(20 + norm * 34)
+        ? Math.round(24 + norm * 40)
         : tier === 'medium'
-          ? Math.round(11 + norm * 14)
-          : Math.round(7 + norm * 8);
+          ? Math.round(13 + norm * 16)
+          : Math.round(8 + norm * 9);
       const minimumSize = tier === 'primary' ? 15 : tier === 'medium' ? 8 : 5;
       const sizes = [...new Set([preferredSize, Math.round(preferredSize * 0.84), Math.round(preferredSize * 0.7), minimumSize])]
         .filter((size) => size >= minimumSize);
@@ -1024,13 +1024,13 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
         placedBoxes,
         searchPoints,
         vertical,
-        gap: tier === 'filler' ? 1 : 2,
+        gap: tier === 'filler' ? -1 : 0,
         maskMap
       });
 
       if (!placement) return;
       placedBoxes.push(placement.box);
-      maskMap.occupy(placement.box, tier === 'filler' ? 1 : 2);
+      maskMap.occupy(placement.box, tier === 'filler' ? -1 : 0);
 
       ctx.save();
       ctx.translate(placement.x, placement.y);

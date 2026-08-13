@@ -171,6 +171,8 @@ test('word art renderer packs every tier through the vector mask map', () => {
   assert.match(detailModuleSource, /maskMap\.occupy\(/);
   assert.match(detailModuleSource, /requestAnimationFrame/);
   assert.match(detailModuleSource, /setTimeout\(callback, ?0\)/);
+  assert.match(detailModuleSource, /gap: tier === 'filler' \? -1 : 0/);
+  assert.match(detailModuleSource, /Math\.round\(24 \+ norm \* 40\)/);
 });
 
 test('student-provided values are inserted as text and hidden stages remain readable to teachers', () => {
