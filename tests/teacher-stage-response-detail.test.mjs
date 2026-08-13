@@ -145,6 +145,32 @@ test('dense word art uses bounded candidate tiers and mask-safe placement helper
   assert.equal(module.fitsInsideShape(placement.box, 100, 100, 60, 'circle'), true);
 });
 
+test('vector word art masks define usable interiors for every template', async () => {
+  const module = await import(`${detailModulePath.href}?vector-masks=${Date.now()}`);
+  ['heart', 'star', 'lightbulb', 'cloud', 'diamond', 'circle', 'apple'].forEach((shape) => {
+    const points = module.getWordArtShapePoints(shape, 200, 200, 120);
+    assert.ok(points.length >= 8, `${shape} should have a detailed outline`);
+    assert.equal(module.isPointInWordArtShape(200, 200, shape, 200, 200, 120), true);
+    assert.equal(module.isPointInWordArtShape(20, 20, shape, 200, 200, 120), false);
+  });
+
+  const maskMap = module.createWordArtMaskMap({
+    shape: 'circle', width: 400, height: 400, cx: 200, cy: 200, radius: 120, cellSize: 4
+  });
+  const interior = { x: 180, y: 180, w: 30, h: 20 };
+  assert.equal(maskMap.canPlace(interior), true);
+  maskMap.occupy(interior);
+  assert.equal(maskMap.canPlace(interior), false);
+  assert.equal(maskMap.canPlace({ x: 10, y: 10, w: 30, h: 20 }), false);
+  assert.ok(maskMap.getCandidatePoints('filler').length > 0);
+});
+
+test('word art renderer packs every tier through the vector mask map', () => {
+  assert.match(detailModuleSource, /createWordArtMaskMap\(/);
+  assert.match(detailModuleSource, /maskMap\.getCandidatePoints\(tier\)/);
+  assert.match(detailModuleSource, /maskMap\.occupy\(/);
+});
+
 test('student-provided values are inserted as text and hidden stages remain readable to teachers', () => {
   assert.match(detailModuleSource, /textContent\s*=\s*student\.studentName/);
   assert.match(detailModuleSource, /textContent\s*=\s*student\.studentNumber/);

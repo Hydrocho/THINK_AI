@@ -684,6 +684,127 @@ function isInsideShape(nx, ny, shape) {
   }
 }
 
+function sampleEllipse(cx, cy, rx, ry, start, end, steps = 18) {
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const angle = start + ((end - start) * index) / steps;
+    return [cx + Math.cos(angle) * rx, cy + Math.sin(angle) * ry];
+  });
+}
+
+export function getWordArtShapePoints(shape, cx, cy, radius) {
+  if (shape === 'circle') return sampleEllipse(cx, cy, radius, radius, 0, Math.PI * 2, 48);
+  if (shape === 'star') return Array.from({ length: 10 }, (_, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI / 5;
+    const r = index % 2 === 0 ? radius : radius * 0.46;
+    return [cx + Math.cos(angle) * r, cy + Math.sin(angle) * r];
+  });
+  if (shape === 'heart') return Array.from({ length: 72 }, (_, index) => {
+    const t = (index / 71) * Math.PI * 2;
+    return [
+      cx + (16 * Math.sin(t) ** 3) * (radius / 17),
+      cy - (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * (radius / 17)
+    ];
+  });
+  if (shape === 'lightbulb') {
+    return [
+      ...sampleEllipse(cx, cy - radius * 0.28, radius * 0.68, radius * 0.68, Math.PI * 1.15, Math.PI * 1.85, 24),
+      [cx + radius * 0.34, cy + radius * 0.36], [cx + radius * 0.24, cy + radius * 0.57],
+      [cx + radius * 0.38, cy + radius * 0.66], [cx + radius * 0.38, cy + radius * 0.84],
+      [cx - radius * 0.38, cy + radius * 0.84], [cx - radius * 0.38, cy + radius * 0.66],
+      [cx - radius * 0.24, cy + radius * 0.57], [cx - radius * 0.34, cy + radius * 0.36]
+    ];
+  }
+  if (shape === 'cloud') {
+    return [
+      [-0.76, 0.34], [-0.84, 0.08], [-0.72, -0.15], [-0.5, -0.16],
+      [-0.46, -0.49], [-0.22, -0.69], [0.06, -0.6], [0.2, -0.34],
+      [0.47, -0.46], [0.74, -0.22], [0.72, 0.1], [0.58, 0.34]
+    ].map(([x, y]) => [cx + x * radius, cy + y * radius]);
+  }
+  if (shape === 'diamond') {
+    const left = [];
+    const right = [];
+    for (let index = 0; index <= 36; index += 1) {
+      const t = index / 36;
+      const y = cy - radius + t * radius * 2;
+      const width = radius * (0.22 + 0.32 * Math.sin(Math.PI * t) ** 0.8);
+      const offset = Math.sin(t * Math.PI * 2) * radius * 0.2;
+      left.push([cx + offset - width, y]);
+      right.push([cx + offset + width, y]);
+    }
+    return [...left, ...right.reverse()];
+  }
+  // Apple includes a joined leaf and stem so it remains one fillable silhouette.
+  return [
+    [cx - radius * 0.08, cy - radius * 0.74], [cx - radius * 0.33, cy - radius * 1.02],
+    [cx + radius * 0.12, cy - radius * 0.98], [cx + radius * 0.36, cy - radius * 0.76],
+    [cx + radius * 0.08, cy - radius * 0.7], [cx + radius * 0.1, cy - radius * 0.48],
+    ...sampleEllipse(cx + radius * 0.28, cy + radius * 0.05, radius * 0.58, radius * 0.73, Math.PI * 1.3, Math.PI * 2.85, 28),
+    ...sampleEllipse(cx - radius * 0.28, cy + radius * 0.05, radius * 0.58, radius * 0.73, Math.PI * 0.15, Math.PI * 1.7, 28),
+    [cx - radius * 0.1, cy - radius * 0.48]
+  ];
+}
+
+export function isPointInWordArtShape(x, y, shape, cx, cy, radius) {
+  const points = getWordArtShapePoints(shape, cx, cy, radius);
+  let inside = false;
+  for (let current = 0, previous = points.length - 1; current < points.length; previous = current++) {
+    const [x1, y1] = points[current];
+    const [x2, y2] = points[previous];
+    if ((y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1) inside = !inside;
+  }
+  return inside;
+}
+
+export function createWordArtMaskMap({ shape, width, height, cx, cy, radius, cellSize = 4 }) {
+  const occupied = new Set();
+  const cells = [];
+  const keyFor = (col, row) => `${col}:${row}`;
+  const isInside = (x, y) => x >= 0 && y >= 0 && x <= width && y <= height
+    && isPointInWordArtShape(x, y, shape, cx, cy, radius);
+
+  for (let row = 0; row < Math.ceil(height / cellSize); row += 1) {
+    for (let col = 0; col < Math.ceil(width / cellSize); col += 1) {
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
+      if (!isInside(x, y)) continue;
+      const edge = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) => !isInside(x + dx * cellSize, y + dy * cellSize));
+      cells.push({ col, row, x, y, edge, distance: Math.hypot(x - cx, y - cy) });
+    }
+  }
+
+  const cellsForBox = (box) => {
+    const startCol = Math.floor(box.x / cellSize);
+    const endCol = Math.floor((box.x + box.w) / cellSize);
+    const startRow = Math.floor(box.y / cellSize);
+    const endRow = Math.floor((box.y + box.h) / cellSize);
+    const result = [];
+    for (let row = startRow; row <= endRow; row += 1) for (let col = startCol; col <= endCol; col += 1) result.push([col, row]);
+    return result;
+  };
+  const sampleBox = (box) => [
+    [box.x, box.y], [box.x + box.w, box.y], [box.x, box.y + box.h], [box.x + box.w, box.y + box.h],
+    [box.x + box.w / 2, box.y + box.h / 2]
+  ];
+
+  return {
+    canPlace(box) {
+      return sampleBox(box).every(([x, y]) => isInside(x, y))
+        && cellsForBox(box).every(([col, row]) => !occupied.has(keyFor(col, row)));
+    },
+    occupy(box, gap = 2) {
+      cellsForBox({ x: box.x - gap, y: box.y - gap, w: box.w + gap * 2, h: box.h + gap * 2 })
+        .forEach(([col, row]) => occupied.add(keyFor(col, row)));
+    },
+    getCandidatePoints(tier) {
+      return cells.filter((cell) => !occupied.has(keyFor(cell.col, cell.row))).sort((a, b) => {
+        if (tier === 'filler' && a.edge !== b.edge) return a.edge ? -1 : 1;
+        return tier === 'primary' ? a.distance - b.distance : b.distance - a.distance;
+      }).map((cell) => [cell.x, cell.y]);
+    }
+  };
+}
+
 export function fitsInsideShape(box, cx, cy, radius, shape) {
   const points = [
     [box.x, box.y], [box.x + box.w, box.y],
@@ -753,7 +874,8 @@ export function findWordArtPlacement({
   placedBoxes,
   searchPoints,
   vertical = false,
-  gap = 2
+  gap = 2,
+  maskMap = null
 }) {
   for (const fontSize of sizes) {
     const naturalWidth = widthForSize(fontSize);
@@ -763,7 +885,7 @@ export function findWordArtPlacement({
 
     for (const [x, y] of searchPoints) {
       const box = { x: x - width / 2, y: y - height / 2, w: width, h: height };
-      if (fitsInsideShape(box, cx, cy, radius, shape)
+      if ((maskMap ? maskMap.canPlace(box) : fitsInsideShape(box, cx, cy, radius, shape))
         && !placedBoxes.some((other) => boxesOverlap(box, other, gap))) {
         return { x, y, box, fontSize, vertical };
       }
@@ -771,6 +893,17 @@ export function findWordArtPlacement({
   }
 
   return null;
+}
+
+function drawWordArtShapeGuide(ctx, shape, cx, cy, radius) {
+  const points = getWordArtShapePoints(shape, cx, cy, radius);
+  ctx.beginPath();
+  points.forEach(([x, y], index) => {
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fill();
 }
 
 function buildSpiralSearchPoints(cx, cy, tier) {
@@ -826,19 +959,14 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
   const cy = displayH / 2;
   const R = Math.min(displayW, displayH) * 0.43;
 
-  // Draw subtle shape guide background for crisp outline definition
+  const maskMap = createWordArtMaskMap({
+    shape, width: displayW, height: displayH, cx, cy, radius: R, cellSize: 4
+  });
+
+  // The guide and packing map share the same vector outline.
   ctx.save();
   ctx.fillStyle = 'rgba(241, 245, 249, 0.65)';
-  const bgStep = 6;
-  for (let py = 0; py < displayH; py += bgStep) {
-    for (let px = 0; px < displayW; px += bgStep) {
-      const nx = (px - cx) / R;
-      const ny = (py - cy) / R;
-      if (isInsideShape(nx, ny, shape)) {
-        ctx.fillRect(px, py, bgStep, bgStep);
-      }
-    }
-  }
+  drawWordArtShapeGuide(ctx, shape, cx, cy, R);
   ctx.restore();
 
   const colorPalettes = {
@@ -858,7 +986,7 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
   let colorIndex = 0;
 
   ['primary', 'medium', 'filler'].forEach((tier) => {
-    const searchPoints = buildSpiralSearchPoints(cx, cy, tier);
+    const searchPoints = maskMap.getCandidatePoints(tier);
     candidates.filter((candidate) => candidate.tier === tier).forEach((candidate, index) => {
       const norm = maxCount === minCount ? 1 : (candidate.count - minCount) / (maxCount - minCount);
       const preferredSize = tier === 'primary'
@@ -885,11 +1013,13 @@ function drawWordArt(canvas, tokens, shape = 'heart', palette = 'rainbow') {
         placedBoxes,
         searchPoints,
         vertical,
-        gap: tier === 'filler' ? 1 : 2
+        gap: tier === 'filler' ? 1 : 2,
+        maskMap
       });
 
       if (!placement) return;
       placedBoxes.push(placement.box);
+      maskMap.occupy(placement.box, tier === 'filler' ? 1 : 2);
 
       ctx.save();
       ctx.translate(placement.x, placement.y);
