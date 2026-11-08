@@ -50,30 +50,7 @@ window.StudentThinkModule = {
         break;
 
       case 'H': // H: Human Collaboration / Peer Comparison
-        if (state.currentLessonIndex === 0) {
-          // Lesson 1 Wordcloud
-          container.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-              <div class="question-card" data-stage="${currentStageCode}">
-                <strong>[H] 친구와 생각 나누기 (학급 워드 클라우드)</strong><br>
-                우리 학급 친구들이 가장 많이 작성한 키워드입니다.
-              </div>
-              <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 40px; text-align: center;">
-                <div style="display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: center;">
-                  <span style="font-size: 2rem; font-weight: 800; color: var(--primary-700);">쌍꺼풀</span>
-                  <span style="font-size: 1.7rem; font-weight: 700; color: var(--accent-teal);">보조개</span>
-                  <span style="font-size: 1.4rem; font-weight: 700; color: #7c3aed;">귓볼 모양</span>
-                  <span style="font-size: 1.2rem; font-weight: 600; color: #ea580c;">혀 말기</span>
-                  <span style="font-size: 1rem; font-weight: 600; color: var(--text-subtle);">머리카락 모양</span>
-                </div>
-              </div>
-              <div style="display: flex; justify-content: space-between;">
-                <button class="btn btn-secondary" onclick="App.goToStep(${prevStepIndex})">← 이전 단계</button>
-                <button class="btn btn-primary" onclick="App.goToStep(${nextStepIndex})">제출하기</button>
-              </div>
-            </div>
-          `;
-        } else {
+        {
           // Anonymous Peer Review
           const peerOpinions = state.peerOpinions || [];
 

@@ -271,6 +271,11 @@
     listProjects: async function () {
       const res = await this.invokeAccountFunction("manage-class-projects", { action: "list_projects" });
       if (res && res.projects) {
+        // Historical versions retain student records; editors use the newest version.
+        for (const project of res.projects) {
+          project.project_versions = [...(project.project_versions || [])]
+            .sort((a, b) => b.version_number - a.version_number);
+        }
         // Group & deduplicate by title, keeping the latest/most complete project version
         const uniqueMap = new Map();
         for (const p of res.projects) {
