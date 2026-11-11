@@ -50,9 +50,9 @@ test('project editor selects newest version even when API returns oldest first',
 // Optional PostgreSQL-compatible integration test:
 // THINK_PGLITE_MODULE points to an installed @electric-sql/pglite/dist/index.js.
 test('curriculum migration preserves answers, switches links, and is repeatable', {
-  skip: !process.env.THINK_PGLITE_MODULE
+  skip: false
 }, async () => {
-  const { PGlite } = await import(pathToFileURL(process.env.THINK_PGLITE_MODULE).href);
+  const { PGlite } = await import(process.env.THINK_PGLITE_MODULE ? pathToFileURL(process.env.THINK_PGLITE_MODULE).href : '@electric-sql/pglite');
   const db = new PGlite();
   try {
     await db.exec(`

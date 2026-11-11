@@ -213,7 +213,7 @@ test('analysis endpoint authenticates ownership and loads response text server-s
   assert.match(analysisFunctionSource, /profile\.approval_status !== "approved"/);
   assert.match(analysisFunctionSource, /from\("classes"\)[\s\S]*\.eq\("id",\s*body\.classId\)[\s\S]*\.eq\("teacher_id",\s*teacherId\)/);
   assert.match(analysisFunctionSource, /from\("class_projects"\)[\s\S]*\.eq\("class_id",\s*body\.classId\)[\s\S]*\.eq\("source_version_id",\s*lesson\.project_version_id\)/);
-  assert.match(analysisFunctionSource, /from\("think_stage_responses"\)[\s\S]*\.select\("content"\)[\s\S]*\.eq\("lesson_plan_id",\s*body\.lessonId\)[\s\S]*\.eq\("stage_code",\s*body\.stageCode\)/);
+  assert.match(analysisFunctionSource, /from\("think_records"\)[\s\S]*\.select\("content"\)[\s\S]*\.eq\("class_id",\s*body\.classId\)[\s\S]*\.eq\("lesson_id",\s*body\.lessonId\)[\s\S]*\.eq\("stage",\s*body\.stageCode\)/);
   assert.doesNotMatch(analysisFunctionSource, /body\.(responses|contents|studentTexts|texts)/);
 });
 

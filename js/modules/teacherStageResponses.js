@@ -176,6 +176,8 @@ function renderHeader() {
             ${metaText}
           </span>
           ${accessToggleHtml}
+          <button class="btn btn-secondary" onclick="TeacherStageResponsesModule.switchStage('${state.stageCode}', true)">기록 새로고침</button>
+          ${state.stageCode === 'H' ? `<button class="btn btn-primary" onclick="ThinkWorkflow.assign('${state.classId}','${state.lessonId}')">친구 의견 배정</button>` : ''}
         </div>
       </div>
       <div class="stage-response-header-row-question" style="padding: 4px 2px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
@@ -235,8 +237,8 @@ export async function toggleCurrentStageAccess() {
   }
 }
 
-export async function switchStage(newStageCode) {
-  if (!newStageCode || state.stageCode === newStageCode) return;
+export async function switchStage(newStageCode, force = false) {
+  if (!newStageCode || (!force && state.stageCode === newStageCode)) return;
   state.stageCode = newStageCode;
   showError('');
   renderHeader();

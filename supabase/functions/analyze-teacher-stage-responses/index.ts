@@ -64,7 +64,7 @@ serve(async (req) => {
   const { data: classProject, error: projectError } = await admin.from("class_projects").select("id").eq("class_id", body.classId).eq("source_version_id", lesson.project_version_id).limit(1).maybeSingle();
   if (projectError) return json({ error: projectError.message }, 400);
   if (!classProject) return json({ error: "이 학급에 연결된 차시가 아닙니다." }, 404);
-  const { data: responseRows, error: responseError } = await admin.from("think_stage_responses").select("content").eq("lesson_plan_id", body.lessonId).eq("stage_code", body.stageCode).not("content", "is", null).order("updated_at", { ascending: false });
+  const { data: responseRows, error: responseError } = await admin.from("think_records").select("content").eq("class_id", body.classId).eq("lesson_id", body.lessonId).eq("stage", body.stageCode).not("content", "is", null).order("updated_at", { ascending: false });
   if (responseError) return json({ error: responseError.message }, 400);
   const excerpts: string[] = [];
   let totalChars = 0;

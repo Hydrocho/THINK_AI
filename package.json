@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "linkedom": "0.18.15"
+  },
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:workflow": "node --test tests/think-workflow*.test.mjs"
+  }
+}
