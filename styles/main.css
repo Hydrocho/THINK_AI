@@ -1244,8 +1244,8 @@ body.modal-open { overflow: hidden; }
 }
 
 .lesson-question-row .form-textarea {
-  min-height: 38px;
-  height: 38px;
+  min-height: 7rem;
+  height: 7rem;
   line-height: 1.4;
   resize: vertical;
 }
