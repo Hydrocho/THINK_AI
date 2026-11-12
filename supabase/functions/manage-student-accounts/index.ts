@@ -28,6 +28,35 @@ serve(async (req) => {
   const body = await req.json().catch(() => null);
   if (!body?.action) return json({ error: "요청 형식이 올바르지 않습니다." }, 400);
 
+  if (body.action === "reset_password") {
+    if (typeof body.studentId !== "string" || !body.studentId.trim()) {
+      return json({ error: "초기화할 학생 계정을 선택해 주세요." }, 400);
+    }
+
+    const { data: student, error: studentError } = await admin
+      .from("student_accounts")
+      .select("id, auth_user_id")
+      .eq("id", body.studentId)
+      .maybeSingle();
+    if (studentError) return json({ error: studentError.message }, 400);
+    if (!student) return json({ error: "학생 계정을 찾을 수 없습니다." }, 404);
+    if (!student.auth_user_id) return json({ error: "로그인 계정 연결 정보를 찾을 수 없습니다." }, 409);
+
+    const { error: authError } = await admin.auth.admin.updateUserById(student.auth_user_id, { password: "000000" });
+    if (authError) return json({ error: authError.message }, 400);
+
+    const { data: updatedStudent, error: flagError } = await admin
+      .from("student_accounts")
+      .update({ must_change_password: true })
+      .eq("id", student.id)
+      .select("id")
+      .maybeSingle();
+    if (flagError || !updatedStudent) {
+      return json({ error: "비밀번호는 000000으로 변경되었으나 다음 로그인 시 변경 필수 설정을 저장하지 못했습니다. 다시 초기화해 주세요." }, 500);
+    }
+    return json({ success: true });
+  }
+
   if (body.action === "create_class") {
     const grade = Number(body.grade);
     const classNum = Number(body.classNumber);
