@@ -1095,12 +1095,12 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
     const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
 
     return `
-      <div class="lesson-accordion-item expanded" id="lesson-item-${l.id}" data-id="${l.id}" data-order="${orderNum}" draggable="true">
+      <div class="lesson-accordion-item expanded" id="lesson-item-${l.id}" data-id="${l.id}" data-order="${orderNum}">
         <div class="lesson-accordion-header" onclick="TeacherAdminModule.toggleAccordion('${l.id}')">
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-            <span class="drag-handle" title="드래그하여 위아래 순서 변경" onclick="event.stopPropagation();">⋮⋮</span>
+            <span class="drag-handle" draggable="true" title="드래그하여 위아래 순서 변경" onclick="event.stopPropagation();">⋮⋮</span>
             <span class="role-tag" style="background: var(--primary-600); color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px;">${orderNum}차시</span>
-            <span style="font-weight: 700; color: var(--text-main); font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(l.title)}</span>
+            <span data-lesson-heading style="font-weight: 700; color: var(--text-main); font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(l.title)}</span>
           </div>
           <div class="lesson-accordion-actions" onclick="event.stopPropagation();">
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: var(--danger-text);" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="차시 삭제">
@@ -1502,42 +1502,34 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   const project = (this.cachedProjects || []).find(p => p.id === this.activeProjectId);
   if (!project) return;
 
-  const existingLessons = project.project_versions?.[0]?.lesson_plans || [];
-  const updatedLessons = existingLessons.map(l => {
-    if (l.id === lessonId) {
-      return { title, coreQuestion, thinkStages, aiQuestionLimit: aiLimit, aiResponseMode };
-    }
-    return {
-      title: l.title,
-      coreQuestion: l.core_question,
-      thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
-      aiQuestionLimit: l.ai_question_limit,
-      aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
-    };
-  });
-
+  const lesson = project.project_versions?.[0]?.lesson_plans?.find(row => row.id === lessonId);
+  if (!lesson) return;
+  const form = e.currentTarget;
+  const button = form.querySelector('.lesson-save-button');
+  if (!title || !coreQuestion) { alert('차시 제목과 핵심 질문을 입력해 주세요.'); return; }
+  if (form.dataset.saving === 'true') return;
+  const draft = this.lessonDrafts.get(form.dataset.draftKey);
+  const submittedValue = this.getLessonDraftValue(form);
+  form.dataset.saving = 'true';
+  button.disabled = true;
   try {
-    const res = await window.SupabaseService.saveProjectWithLessons({
-      id: project.id,
-      title: project.title,
-      description: project.description || '',
-      lessons: updatedLessons
+    const { error } = await window.SupabaseService.getClient().rpc('edit_teaching_lesson', {
+      p_id: lessonId, p_title: title, p_question: coreQuestion, p_mode: aiResponseMode,
+      p_limit: aiLimit, p_stages: thinkStages
     });
-
-    if (res && res.error) {
-      alert(`수정 실패: ${res.error}`);
-    } else {
-      const listRes = await window.SupabaseService.listProjects();
-      this.cachedProjects = listRes.projects || [];
-      const newProj = this.cachedProjects.find(p => p.title === project.title) || this.cachedProjects[0];
-      if (newProj) {
-        this.openProjectDetailSubView(newProj.id);
-      }
-      await window.ModalService.alert({ title: '수정 완료', message: '차시 정보가 업데이트되었습니다.', tone: 'success' });
-    }
-  } catch (err) {
-    console.error('Error updating lesson:', err);
-    alert(`차시 수정 중 오류가 발생했습니다: ${err.message}`);
+    if (error) throw error;
+    Object.assign(lesson, { title, core_question: coreQuestion, ai_response_mode: aiResponseMode,
+      ai_question_limit: aiLimit, think_stages: thinkStages });
+    form.closest('.lesson-accordion-item').querySelector('[data-lesson-heading]').textContent = title;
+    draft.initialValue = submittedValue;
+    await window.ModalService.alert({ title: '저장 완료', message: '차시 변경 사항을 저장했습니다.', tone: 'success' });
+  } catch (error) {
+    await window.ModalService.alert({ title: '차시 저장 실패', message: error.message, tone: 'danger' });
+  } finally {
+    delete form.dataset.saving;
+    draft.dirty = this.getLessonDraftValue(form) !== draft.initialValue;
+    button.disabled = !draft.dirty;
+    form.classList.toggle('has-unsaved-changes', draft.dirty);
   }
 };
 
@@ -1588,7 +1580,7 @@ window.TeacherAdminModule.attachDragAndDropHandlers = function (container) {
 
   const items = container.querySelectorAll('.lesson-accordion-item');
   items.forEach(item => {
-    item.addEventListener('dragstart', (e) => {
+    item.querySelector('.drag-handle').addEventListener('dragstart', (e) => {
       draggedItem = item;
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
