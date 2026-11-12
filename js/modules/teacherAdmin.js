@@ -143,7 +143,7 @@ window.TeacherAdminModule = {
                   </div>
                 </div>
                 <div class="project-link-control" onclick="event.stopPropagation()"><span class="project-link-status">${p.is_published ? '학급 연결 가능' : '학급 연결 안 함'}</span><button type="button" class="project-link-switch ${p.is_published ? 'is-enabled' : ''}" aria-pressed="${p.is_published ? 'true' : 'false'}" aria-label="${p.is_published ? '학급 연결 가능 끄기' : '학급 연결 가능 켜기'}" onclick="TeacherAdminModule.setProjectPublished('${p.id}', ${!p.is_published})"></button></div>
-                <button type="button" class="btn btn-danger project-delete-button" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', '${this.escapeHtml(p.title)}')" title="프로젝트 삭제">🗑️</button>
+                <button type="button" class="btn btn-danger project-delete-button" onclick="event.stopPropagation(); TeacherAdminModule.deleteProject('${p.id}', this.closest('.project-list-row').querySelector('.project-card-title').textContent)" title="프로젝트 삭제">🗑️</button>
               </div>
               <div class="project-order-actions">
                 <button type="button" class="project-order-button" onclick="TeacherAdminModule.moveProject(event, '${p.id}', -1)" ${projects.indexOf(p) === 0 ? 'disabled' : ''} aria-label="위로 이동">↑</button>
@@ -1007,6 +1007,27 @@ window.TeacherAdminModule.showProjectListSubView = function () {
   this.renderProjects();
 };
 
+window.TeacherAdminModule.renameProject = async function (project, button) {
+  button.disabled = true;
+  try {
+    const previous = project.title;
+    const input = await window.ModalService.prompt({
+      title: '프로젝트 이름 변경', label: '프로젝트명', initialValue: previous,
+      message: '새 프로젝트명을 입력해 주세요.', confirmLabel: '저장'
+    });
+    const title = input?.trim();
+    if (!title || title === previous) return;
+    const { data, error } = await window.SupabaseService.getClient().rpc('rename_teaching_project', {
+      p_id: project.id, p_previous: previous, p_title: title
+    });
+    if (error) throw error;
+    project.title = data;
+    if (this.activeProjectId === project.id) document.getElementById('projectDetailTitle').textContent = '🗂️ ' + data;
+  } catch (error) {
+    await window.ModalService.alert({ title: '이름 변경 실패', message: error.message, tone: 'danger' });
+  } finally { button.disabled = false; }
+};
+
 window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) {
   let project = (this.cachedProjects || []).find(p => p.id === projectId);
   
@@ -1026,7 +1047,14 @@ window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) 
   if (titleEl) titleEl.innerText = `🗂️ ${project.title}`;
   
   const actionsEl = document.getElementById('projectDetailHeaderActions');
-  if (actionsEl) actionsEl.innerHTML = '';
+  if (actionsEl) {
+    const renameButton = document.createElement('button');
+    renameButton.type = 'button';
+    renameButton.className = 'btn btn-secondary';
+    renameButton.textContent = '이름 변경';
+    renameButton.onclick = () => this.renameProject(project, renameButton);
+    actionsEl.replaceChildren(renameButton);
+  }
 
   const versionInput = document.getElementById('detailVersionId');
   if (versionInput) versionInput.value = versionId;

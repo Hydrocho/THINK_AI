@@ -173,7 +173,7 @@ function renderHeader() {
         </button>
         <div class="stage-response-meta-group" style="display: flex; align-items: center; gap: 8px;">
           <span class="stage-response-eyebrow" style="font-weight: 600; font-size: 0.85rem; color: #475569; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;">
-            ${metaText}
+            
           </span>
           ${accessToggleHtml}
           <button class="btn btn-secondary" onclick="TeacherStageResponsesModule.switchStage('${state.stageCode}', true)">기록 새로고침</button>
@@ -183,7 +183,7 @@ function renderHeader() {
       <div class="stage-response-header-row-question" style="padding: 4px 2px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
         <span style="font-size: 1rem;">💡</span>
         <strong style="color: #0284c7; font-weight: 800; white-space: nowrap;">핵심 질문:</strong>
-        <span style="font-weight: 800; color: #0f172a;">${questionText}</span>
+        <span style="font-weight: 800; color: #0f172a;"></span>
       </div>
       <div class="stage-response-header-row-2" style="padding-top: 0; border-top: none;">
         <nav class="think-stage-pills-nav" aria-label="THINK 5단계 선택">
@@ -191,6 +191,8 @@ function renderHeader() {
         </nav>
       </div>
     `;
+    headerEl.querySelector('.stage-response-eyebrow').textContent = metaText;
+    headerEl.querySelector('.stage-response-header-row-question span:last-child').textContent = questionText;
     return;
   }
 
