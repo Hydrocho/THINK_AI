@@ -2173,3 +2173,21 @@ body.modal-open { overflow: hidden; }
   border-radius: 10px;
   background: #ffffff;
 }
+
+.lesson-header-title {
+  flex: 1;
+  width: 0;
+  min-width: 3em;
+  padding: 4px 6px;
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 700;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+}
+.lesson-header-title:hover,
+.lesson-header-title:focus {
+  border-color: var(--primary-500);
+  background: white;
+}

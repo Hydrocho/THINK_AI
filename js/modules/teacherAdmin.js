@@ -1100,7 +1100,7 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
             <span class="drag-handle" draggable="true" title="드래그하여 위아래 순서 변경" onclick="event.stopPropagation();">⋮⋮</span>
             <span class="role-tag" style="background: var(--primary-600); color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px;">${orderNum}차시</span>
-            <span data-lesson-heading style="font-weight: 700; color: var(--text-main); font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(l.title)}</span>
+            <input type="text" id="edit-title-${l.id}" form="lesson-form-${l.id}" class="lesson-header-title" aria-label="${orderNum}차시 제목" title="차시 제목 수정" value="${this.escapeHtml(l.title)}" required onclick="event.stopPropagation()" onfocus="this.closest('.lesson-accordion-item').classList.add('expanded')">
           </div>
           <div class="lesson-accordion-actions" onclick="event.stopPropagation();">
             <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: var(--danger-text);" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="차시 삭제">
@@ -1111,13 +1111,7 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
         </div>
 
         <div class="lesson-accordion-body">
-          <form class="lesson-compact-form" data-draft-key="lesson-${l.id}" onsubmit="TeacherAdminModule.handleUpdateLesson(event, '${l.id}')">
-            <div class="lesson-meta-row">
-              <label class="lesson-inline-field lesson-title-field">
-                <span>차시 제목</span>
-                <input type="text" id="edit-title-${l.id}" class="form-input" value="${this.escapeHtml(l.title)}" required>
-              </label>
-            </div>
+          <form class="lesson-compact-form" id="lesson-form-${l.id}" data-draft-key="lesson-${l.id}" onsubmit="TeacherAdminModule.handleUpdateLesson(event, '${l.id}')">
 
             <label class="lesson-question-row">
               <span>핵심 질문</span>
@@ -1297,7 +1291,7 @@ window.TeacherAdminModule.toggleClassLessonThinkStage = function (lessonId) {
 window.TeacherAdminModule.toggleAccordion = function (lessonId) {
   const item = document.getElementById(`lesson-item-${lessonId}`);
   if (item) {
-    if (item.classList.contains('expanded') && !this.confirmDiscardLessonChanges(`lesson-${lessonId}`)) return;
+    // Collapsing preserves the form and its unsaved input.
     item.classList.toggle('expanded');
   }
 };
@@ -1305,7 +1299,7 @@ window.TeacherAdminModule.toggleAccordion = function (lessonId) {
 window.TeacherAdminModule.lessonDrafts = new Map();
 
 window.TeacherAdminModule.getLessonDraftValue = function (form) {
-  return JSON.stringify([...form.querySelectorAll('input, textarea, select')].map(field => ({
+  return JSON.stringify([...form.elements].filter(field => field.matches('input, textarea, select')).map(field => ({
     name: field.id || field.value,
     value: field.type === 'checkbox' ? field.checked : field.value
   })));
@@ -1324,10 +1318,10 @@ window.TeacherAdminModule.initializeLessonDraftTracking = function (container) {
       const draft = this.lessonDrafts.get(key);
       if (!draft) return;
       draft.dirty = this.getLessonDraftValue(form) !== draft.initialValue;
-      if (saveButton) saveButton.disabled = !draft.dirty;
+      if (saveButton) saveButton.disabled = !draft.dirty || form.dataset.saving === 'true';
       form.classList.toggle('has-unsaved-changes', draft.dirty);
     };
-    form.querySelectorAll('input, textarea, select').forEach(field => {
+    [...form.elements].filter(field => field.matches('input, textarea, select')).forEach(field => {
       field.addEventListener('input', updateDirtyState);
       field.addEventListener('change', updateDirtyState);
     });
@@ -1520,7 +1514,7 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
     if (error) throw error;
     Object.assign(lesson, { title, core_question: coreQuestion, ai_response_mode: aiResponseMode,
       ai_question_limit: aiLimit, think_stages: thinkStages });
-    form.closest('.lesson-accordion-item').querySelector('[data-lesson-heading]').textContent = title;
+
     draft.initialValue = submittedValue;
     await window.ModalService.alert({ title: '저장 완료', message: '차시 변경 사항을 저장했습니다.', tone: 'success' });
   } catch (error) {
