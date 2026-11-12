@@ -1007,25 +1007,42 @@ window.TeacherAdminModule.showProjectListSubView = function () {
   this.renderProjects();
 };
 
-window.TeacherAdminModule.renameProject = async function (project, button) {
-  button.disabled = true;
-  try {
-    const previous = project.title;
-    const input = await window.ModalService.prompt({
-      title: '프로젝트 이름 변경', label: '프로젝트명', initialValue: previous,
-      message: '새 프로젝트명을 입력해 주세요.', confirmLabel: '저장'
-    });
-    const title = input?.trim();
-    if (!title || title === previous) return;
-    const { data, error } = await window.SupabaseService.getClient().rpc('rename_teaching_project', {
-      p_id: project.id, p_previous: previous, p_title: title
-    });
-    if (error) throw error;
-    project.title = data;
-    if (this.activeProjectId === project.id) document.getElementById('projectDetailTitle').textContent = '🗂️ ' + data;
-  } catch (error) {
-    await window.ModalService.alert({ title: '이름 변경 실패', message: error.message, tone: 'danger' });
-  } finally { button.disabled = false; }
+window.TeacherAdminModule.bindProjectTitleEditor = function (project) {
+  const input = document.getElementById('projectDetailTitle');
+  const button = document.getElementById('projectTitleSave');
+  input.value = project.title;
+  input.readOnly = false;
+  const sync = () => {
+    const title = input.value.trim();
+    const changed = title !== project.title;
+    button.hidden = !changed;
+    button.disabled = !title || input.readOnly;
+    if (changed) this.lessonDrafts.set('project-title', { dirty: true });
+    else this.lessonDrafts.delete('project-title');
+  };
+  input.oninput = sync;
+  button.onclick = async () => {
+    const title = input.value.trim();
+    if (input.readOnly || !title || title === project.title) return;
+    input.readOnly = true;
+    sync();
+    try {
+      const { data, error } = await window.SupabaseService.getClient().rpc('rename_teaching_project', {
+        p_id: project.id, p_previous: project.title, p_title: title
+      });
+      if (error) throw error;
+      project.title = data;
+      if (this.activeProjectId === project.id) input.value = data;
+    } catch (error) {
+      await window.ModalService.alert({ title: '이름 변경 실패', message: error.message, tone: 'danger' });
+    } finally {
+      if (this.activeProjectId === project.id) {
+        input.readOnly = false;
+        sync();
+      }
+    }
+  };
+  sync();
 };
 
 window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) {
@@ -1043,24 +1060,12 @@ window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) 
   const versionId = version?.id || '';
   const lessons = version?.lesson_plans || [];
 
-  const titleEl = document.getElementById('projectDetailTitle');
-  if (titleEl) titleEl.innerText = `🗂️ ${project.title}`;
-  
-  const actionsEl = document.getElementById('projectDetailHeaderActions');
-  if (actionsEl) {
-    const renameButton = document.createElement('button');
-    renameButton.type = 'button';
-    renameButton.className = 'btn btn-secondary';
-    renameButton.textContent = '이름 변경';
-    renameButton.onclick = () => this.renameProject(project, renameButton);
-    actionsEl.replaceChildren(renameButton);
-  }
-
   const versionInput = document.getElementById('detailVersionId');
   if (versionInput) versionInput.value = versionId;
 
   // Render Accordion List
   this.renderLessonAccordionList(lessons);
+  this.bindProjectTitleEditor(project);
 
   // Switch Sub Views
   const listSub = document.getElementById('projectListSubView');

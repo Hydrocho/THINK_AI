@@ -2191,3 +2191,10 @@ body.modal-open { overflow: hidden; }
   border-color: var(--primary-500);
   background: white;
 }
+
+.project-title-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.project-title-content { flex: 1 1 20rem; min-width: 0; }
+.project-title-heading { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 1.35rem; }
+.project-title-input { flex: 1; min-width: 0; padding: 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text-main); font: inherit; font-weight: 700; text-overflow: ellipsis; }
+.project-title-input:hover, .project-title-input:focus { background: white; border-color: var(--primary-500); }
+#projectTitleSave[hidden] { display: none; }
