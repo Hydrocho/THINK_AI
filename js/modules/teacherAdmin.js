@@ -899,65 +899,71 @@ window.TeacherAdminModule = {
     container.replaceChildren(view);
     view.textContent = '담당 학급의 차시를 불러오는 중입니다…';
     try {
-      const session = await window.SupabaseService.getUserSession();
-      if (!session?.user?.id) throw new Error('다시 로그인해 주세요.');
-      const { data, error } = await window.SupabaseService.getClient().from('classes')
-        .select('id,subject_name,grade_number,class_number,active_lesson_plan_id,class_projects(title,source_version_id,projects(project_versions(id,lesson_plans(id,title,lesson_order,think_stages))))')
-        .eq('teacher_id', session.user.id).order('grade_number').order('class_number');
+      const { data, error } = await window.SupabaseService.getClient().rpc('teacher_class_progress');
       if (error) throw error;
-      const choices = [];
-      for (const classroom of data || []) {
-        for (const link of classroom.class_projects || []) {
-          const version = link.projects?.project_versions?.find(v => v.id === link.source_version_id);
-          for (const lesson of [...(version?.lesson_plans || [])].sort((a,b) => a.lesson_order - b.lesson_order)) {
-            choices.push({ classroom, lesson, projectTitle: link.title });
-          }
-        }
-      }
-      if (!choices.length) {
-        view.textContent = '조회할 차시가 없습니다. 수업 운영에서 학급에 프로젝트를 연결해 주세요.';
+      if (!data?.length) {
+        view.textContent = '등록된 담당 학급이 없습니다.';
         return;
       }
-      view.innerHTML = '<label>학급·차시 <select class="form-select"></select></label><label>THINK 단계 <select class="form-select"></select></label><p role="status"></p><button class="btn btn-secondary" type="button">현황 새로고침</button> <button class="btn btn-primary" type="button">학생별 기록 보기</button>';
-      const [lessons, stages] = view.querySelectorAll('select');
-      const [refresh, detail] = view.querySelectorAll('button');
-      const status = view.querySelector('[role="status"]');
-      for (const { classroom: c, lesson: l, projectTitle } of choices) {
-        lessons.add(new Option(c.subject_name + ' · ' + c.grade_number + '학년 ' + c.class_number + '반 · ' + projectTitle + ' · ' + l.lesson_order + '차시 ' + l.title));
+      const classes = new Map();
+      for (const row of data) {
+        if (!classes.has(row.class_id)) classes.set(row.class_id, []);
+        classes.get(row.class_id).push(row);
       }
-      lessons.selectedIndex = Math.max(0, choices.findIndex(({ classroom, lesson }) => classroom.active_lesson_plan_id === lesson.id));
-      let request = 0;
-      const load = async () => {
-        const current = ++request;
-        const { classroom, lesson } = choices[lessons.selectedIndex];
-        status.textContent = '학생 활동 기록을 불러오는 중입니다…';
-        try {
-          const result = await window.SupabaseService.fetchTeacherStageResponses(classroom.id, lesson.id, stages.value);
-          if (request !== current) return;
-          const students = result.students || [];
-          const submitted = students.filter(s => s.response?.submittedAt).length;
-          const writing = students.filter(s => !s.response?.submittedAt && s.response?.content?.trim()).length;
-          status.textContent = students.length
-            ? '전체 ' + students.length + '명 · 미작성 ' + (students.length - submitted - writing) + '명 · 작성 중 ' + writing + '명 · 제출 완료 ' + submitted + '명' + (submitted || writing ? '' : ' — 아직 이 단계에 기록된 학생 활동이 없습니다.')
-            : '이 학급에 등록된 학생이 없습니다.';
-        } catch (err) {
-          if (request === current) status.textContent = '활동 기록 조회 실패: ' + err.message;
+      view.innerHTML = '<p>각 반에서 열어 둔 차시와 학생 제출 진도를 비교합니다. 단계별 숫자는 제출한 학생 수입니다.</p><button type="button" class="btn btn-secondary">현황 새로고침</button><div style="overflow-x:auto;margin-top:16px"><table style="width:100%;text-align:left;border-collapse:collapse"><thead><tr><th>학급</th><th>진행 중인 차시</th><th>작성 가능 단계</th><th>제출이 있는 차시 · 단계</th><th>차시별 제출 인원</th></tr></thead><tbody></tbody></table></div>';
+      view.querySelector('button').onclick = () => this.renderEvalTable();
+      const body = view.querySelector('tbody');
+      for (const rows of classes.values()) {
+        const first = rows[0];
+        const lessons = rows.filter(row => row.lesson_id);
+        const active = lessons.find(row => row.active);
+        const tr = body.insertRow();
+        const label = row => row.lesson_order + '차시 · ' + row.lesson_title;
+        tr.insertCell().textContent = first.subject + ' · ' + first.grade + '학년 ' + first.room + '반 (' + first.roster + '명)';
+        tr.insertCell().textContent = active ? label(active) : '열린 차시 없음';
+        tr.insertCell().textContent = active?.writable?.join(' · ') || '없음';
+        const reached = tr.insertCell();
+        const byProject = new Map();
+        for (const lesson of lessons) {
+          const stage = (lesson.stages || []).filter(code => lesson.submissions[code] > 0).at(-1);
+          if (stage) byProject.set(lesson.project_title, {lesson,stage});
         }
-      };
-      lessons.onchange = () => {
-        stages.replaceChildren();
-        for (const stage of choices[lessons.selectedIndex].lesson.think_stages || ['T','H','I','N','K']) stages.add(new Option(stage, stage));
-        return load();
-      };
-      stages.onchange = refresh.onclick = load;
-      detail.onclick = async () => {
-        const { classroom, lesson } = choices[lessons.selectedIndex];
-        const stage = stages.value;
-        this.switchTab('operation');
-        await this.openClassDetailSubView(classroom.id);
-        await this.openTeacherStageResponses(classroom.id, lesson.id, stage);
-      };
-      await lessons.onchange();
+        for (const [project, {lesson,stage}] of byProject) {
+          const line = document.createElement('div');
+          line.textContent = project + ' · ' + lesson.lesson_order + '차시 ' + stage + ' (' + lesson.submissions[stage] + '명 제출)';
+          reached.append(line);
+        }
+        if (!byProject.size) reached.textContent = '아직 제출 없음';
+        const counts = tr.insertCell();
+        if (!lessons.length) { counts.textContent = '연결된 차시 없음'; continue; }
+        const select = document.createElement('select');
+        select.className = 'form-select';
+        select.setAttribute('aria-label', first.room + '반 제출 인원을 볼 차시');
+        for (const lesson of lessons) select.add(new Option(lesson.project_title + ' · ' + label(lesson)));
+        const latest = [...byProject.values()].at(-1)?.lesson;
+        select.selectedIndex = lessons.indexOf(active || latest || lessons[0]);
+        const links = document.createElement('div');
+        links.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:6px';
+        const showCounts = () => {
+          links.replaceChildren();
+          const lesson = lessons[select.selectedIndex];
+          for (const stage of lesson.stages || []) {
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'btn btn-secondary';
+            button.textContent = stage + ' ' + (lesson.submissions[stage] || 0) + '명';
+            button.title = stage + ' 단계 학생별 기록 보기';
+            button.onclick = async () => {
+              this.switchTab('operation');
+              await this.openClassDetailSubView(first.class_id);
+              await this.openTeacherStageResponses(first.class_id,lesson.lesson_id,stage);
+            };
+            links.append(button);
+          }
+        };
+        select.onchange = showCounts;
+        counts.append(select,links);
+        showCounts();
+      }
     } catch (error) {
       view.textContent = '수업 현황을 불러오지 못했습니다. ' + error.message;
     }
