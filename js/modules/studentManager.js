@@ -38,17 +38,17 @@ window.StudentManagerModule = {
 
     try {
       const client = window.SupabaseService.getClient();
-      const { data: classes } = await client.from('classes').select('*').order('class_code');
-
-      let optionsHtml = '<option value="ALL">🏫 전체 학급 보기</option>';
-      if (classes && classes.length > 0) {
-        optionsHtml += classes.map(c => `
-          <option value="${c.grade_number}${c.class_number < 10 ? '0' + c.class_number : c.class_number}" ${this.selectedClassFilter === `${c.grade_number}${c.class_number < 10 ? '0' + c.class_number : c.class_number}` ? 'selected' : ''}>
-            🏫 ${c.grade_number}학년 ${c.class_number}반
-          </option>
-        `).join('');
+      const { data: classes, error } = await client.from('classes')
+        .select('grade_number,class_number').order('grade_number').order('class_number');
+      if (error) throw error;
+      const options = new Map([['ALL', '전체 학급 보기']]);
+      for (const row of classes || []) {
+        const prefix = String(row.grade_number) + String(row.class_number).padStart(2, '0');
+        options.set(prefix, row.grade_number + '학년 ' + row.class_number + '반');
       }
-      select.innerHTML = optionsHtml;
+      if (!options.has(this.selectedClassFilter)) this.selectedClassFilter = 'ALL';
+      select.replaceChildren(...Array.from(options, ([value, label]) => new Option('🏫 ' + label, value)));
+      select.value = this.selectedClassFilter;
     } catch (err) {
       console.warn("Notice populating class filter:", err);
     }
