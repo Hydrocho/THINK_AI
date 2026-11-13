@@ -72,7 +72,9 @@ window.TeacherAdminModule = {
     if (tabOperation) tabOperation.className = tabName === 'operation' ? 'teacher-nav-item active' : 'teacher-nav-item';
     if (tabDesign) tabDesign.className = tabName === 'design' ? 'teacher-nav-item active' : 'teacher-nav-item';
 
-    if (tabName === 'students') {
+    if (tabName === 'eval') {
+      this.renderEvalTable();
+    } else if (tabName === 'students') {
       window.StudentManagerModule.renderStudentManager();
     } else if (tabName === 'master') {
       window.MasterAdminModule.renderMasterPanel();
@@ -892,55 +894,73 @@ window.TeacherAdminModule = {
   },
 
   renderEvalTable: async function () {
-    const body = document.getElementById('teacherStudentTableBody');
-    if (!body) return;
-
-    let studentRows = [];
-
-    if (window.SupabaseService && window.SupabaseService.isConnected()) {
-      const dbStudents = await window.SupabaseService.fetchTeacherStudents();
-      if (dbStudents && dbStudents.length > 0) {
-        studentRows = dbStudents.map(st => {
-          const subs = st.submissions || [];
-          const hasFinal = subs.some(s => s.submission_type === 'final_reflection');
-          const hasInitial = subs.some(s => s.submission_type === 'initial_thought');
-          const stepText = hasFinal ? 'K (제출 완료)' : (hasInitial ? 'I (AI 대화 중)' : 'T (대기 중)');
-          const assessment = (st.teacher_assessments && st.teacher_assessments[0]) ? st.teacher_assessments[0].assessment_level : '평가 대기 중';
-          
-          return {
-            num: st.student_number,
-            step: stepText,
-            count: '실시간 카운트',
-            rationale: '제출 사유 참조',
-            assessment: assessment
-          };
-        });
+    const container = document.getElementById('evalContent');
+    const view = document.createElement('div');
+    container.replaceChildren(view);
+    view.textContent = '담당 학급의 차시를 불러오는 중입니다…';
+    try {
+      const session = await window.SupabaseService.getUserSession();
+      if (!session?.user?.id) throw new Error('다시 로그인해 주세요.');
+      const { data, error } = await window.SupabaseService.getClient().from('classes')
+        .select('id,subject_name,grade_number,class_number,active_lesson_plan_id,class_projects(title,source_version_id,projects(project_versions(id,lesson_plans(id,title,lesson_order,think_stages))))')
+        .eq('teacher_id', session.user.id).order('grade_number').order('class_number');
+      if (error) throw error;
+      const choices = [];
+      for (const classroom of data || []) {
+        for (const link of classroom.class_projects || []) {
+          const version = link.projects?.project_versions?.find(v => v.id === link.source_version_id);
+          for (const lesson of [...(version?.lesson_plans || [])].sort((a,b) => a.lesson_order - b.lesson_order)) {
+            choices.push({ classroom, lesson, projectTitle: link.title });
+          }
+        }
       }
+      if (!choices.length) {
+        view.textContent = '조회할 차시가 없습니다. 수업 운영에서 학급에 프로젝트를 연결해 주세요.';
+        return;
+      }
+      view.innerHTML = '<label>학급·차시 <select class="form-select"></select></label><label>THINK 단계 <select class="form-select"></select></label><p role="status"></p><button class="btn btn-secondary" type="button">현황 새로고침</button> <button class="btn btn-primary" type="button">학생별 기록 보기</button>';
+      const [lessons, stages] = view.querySelectorAll('select');
+      const [refresh, detail] = view.querySelectorAll('button');
+      const status = view.querySelector('[role="status"]');
+      for (const { classroom: c, lesson: l, projectTitle } of choices) {
+        lessons.add(new Option(c.subject_name + ' · ' + c.grade_number + '학년 ' + c.class_number + '반 · ' + projectTitle + ' · ' + l.lesson_order + '차시 ' + l.title));
+      }
+      lessons.selectedIndex = Math.max(0, choices.findIndex(({ classroom, lesson }) => classroom.active_lesson_plan_id === lesson.id));
+      let request = 0;
+      const load = async () => {
+        const current = ++request;
+        const { classroom, lesson } = choices[lessons.selectedIndex];
+        status.textContent = '학생 활동 기록을 불러오는 중입니다…';
+        try {
+          const result = await window.SupabaseService.fetchTeacherStageResponses(classroom.id, lesson.id, stages.value);
+          if (request !== current) return;
+          const students = result.students || [];
+          const submitted = students.filter(s => s.response?.submittedAt).length;
+          const writing = students.filter(s => !s.response?.submittedAt && s.response?.content?.trim()).length;
+          status.textContent = students.length
+            ? '전체 ' + students.length + '명 · 미작성 ' + (students.length - submitted - writing) + '명 · 작성 중 ' + writing + '명 · 제출 완료 ' + submitted + '명' + (submitted || writing ? '' : ' — 아직 이 단계에 기록된 학생 활동이 없습니다.')
+            : '이 학급에 등록된 학생이 없습니다.';
+        } catch (err) {
+          if (request === current) status.textContent = '활동 기록 조회 실패: ' + err.message;
+        }
+      };
+      lessons.onchange = () => {
+        stages.replaceChildren();
+        for (const stage of choices[lessons.selectedIndex].lesson.think_stages || ['T','H','I','N','K']) stages.add(new Option(stage, stage));
+        return load();
+      };
+      stages.onchange = refresh.onclick = load;
+      detail.onclick = async () => {
+        const { classroom, lesson } = choices[lessons.selectedIndex];
+        const stage = stages.value;
+        this.switchTab('operation');
+        await this.openClassDetailSubView(classroom.id);
+        await this.openTeacherStageResponses(classroom.id, lesson.id, stage);
+      };
+      await lessons.onchange();
+    } catch (error) {
+      view.textContent = '수업 현황을 불러오지 못했습니다. ' + error.message;
     }
-
-    if (studentRows.length === 0) {
-      body.innerHTML = `
-        <tr>
-          <td colspan="6" style="padding: 32px; text-align: center; color: var(--text-subtle);">
-            아직 수강 등록된 학생 제출 내역이 없습니다. 학생이 접속하여 THINK 5단계를 진행하면 실시간으로 현황이 업데이트됩니다.
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    body.innerHTML = studentRows.map(st => `
-      <tr style="border-bottom: 1px solid var(--border-light);">
-        <td style="padding: 12px 16px; font-weight: 700;">${st.num}</td>
-        <td style="padding: 12px 16px;"><span class="role-tag" style="font-size: 0.75rem;">${st.step}</span></td>
-        <td style="padding: 12px 16px;">${st.count}</td>
-        <td style="padding: 12px 16px;">${st.rationale}</td>
-        <td style="padding: 12px 16px; font-weight: 700; color: var(--primary-700);">${st.assessment}</td>
-        <td style="padding: 12px 16px;">
-          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="alert('${st.num} 학생의 대화 내역 및 Gemini 발췌 근거 화면을 표시합니다.')">원문/근거 보기</button>
-        </td>
-      </tr>
-    `).join('');
   },
 
   handleCreateLesson: async function (e) {
