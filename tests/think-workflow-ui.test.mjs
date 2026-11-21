@@ -40,6 +40,23 @@ function fixture() {
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 
+test('criterion guidance updates without replacing the draft and survives read-only restoration',async()=>{
+  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  await f.window.ThinkWorkflow.navigate(4);
+  f.document.getElementById('thinkText').value='아직 작성 중인 판단';
+  f.window.ThinkWorkflow.input('아직 작성 중인 판단');
+  const field=f.document.getElementById('thinkText');
+  f.window.ThinkWorkflow.criteria('fairness');
+  assert.match(f.document.getElementById('thinkWritingGuide')?.textContent||'',/누구에게/);
+  assert.equal(f.document.getElementById('thinkText'),field);
+  assert.equal(field.value,'아직 작성 중인 판단');
+  await f.window.ThinkWorkflow.retrySave();
+  f.data.access.N='read_only';await f.polls[0]();await settle();await settle();
+  assert.equal(f.document.getElementById('thinkText').value,'아직 작성 중인 판단');
+  assert.equal(f.document.getElementById('thinkText').disabled,true);
+  assert.match(f.document.getElementById('thinkWritingGuide').textContent,/누구에게/);
+});
+
 test('UI restores first writing, saves submission, and renders actual anonymous opinions safely',async()=>{
   const f=fixture();f.data.records.push({stage:'T',content:'저장된 첫 생각',metadata:{},revision:2,lease:'lease-T'});
   f.data.peers=[{id:'peer1',text:'<img src=x onerror=alert(1)> 친구 의견'}];

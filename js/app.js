@@ -161,11 +161,11 @@
       const activeStages = lesson?.think_stages || lesson?.thinkStages || ['T', 'H', 'I', 'N', 'K'];
 
       const stageInfoMap = {
-        T: { code: 'T - STEP', title: '나의 처음 생각 (Think)', name: '나의 처음 생각' },
-        H: { code: 'H - STEP', title: '친구와 생각 나누기 (Human)', name: '친구와 생각 나누기' },
-        I: { code: 'I - STEP', title: '인공지능과 생각 넓히기 (Interaction)', name: '인공지능과 생각 넓히기' },
-        N: { code: 'N - STEP', title: '비판적으로 따져보기 (Navigation)', name: '비판적으로 따져보기' },
-        K: { code: 'K - STEP', title: '나의 최종 생각 (Knowledge)', name: '나의 최종 생각' }
+        T: { code: 'T · 단계', title: '나의 처음 생각', name: '나의 처음 생각' },
+        H: { code: 'H · 단계', title: '친구와 생각 나누기', name: '친구와 생각 나누기' },
+        I: { code: 'I · 단계', title: '인공지능과 생각 넓히기', name: '인공지능과 생각 넓히기' },
+        N: { code: 'N · 단계', title: '비판적으로 따져보기', name: '비판적으로 따져보기' },
+        K: { code: 'K · 단계', title: '나의 최종 생각', name: '나의 최종 생각' }
       };
 
       const listEl = document.getElementById('studentThinkStepsList') || document.querySelector('#studentAppSection .think-steps-list') || document.querySelector('.think-steps-list');

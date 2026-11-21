@@ -4,6 +4,27 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const stages = ['T','H','I','N','K'];
   const names = {T:'나의 처음 생각',H:'친구와 생각 나누기',I:'인공지능과 생각 넓히기',N:'비판적으로 따져보기',K:'나의 최종 생각'};
+  const writingGuides = {
+    T: {title:'나의 처음 생각 정리하기',label:'나의 생각과 이유',hint:'입장 → 이유 → 관련 경험이나 사례 순으로 자유롭게 써 보세요.',steps:[
+      '핵심 질문에 대한 나의 입장을 먼저 써 보세요. 조건이 필요하거나 아직 고민 중이어도 괜찮아요.',
+      '그렇게 생각하는 가장 중요한 이유를 설명해 보세요.',
+      '직접 겪은 일이나 알고 있는 사례가 있다면 덧붙여 보세요.']},
+    N: {title:'기준에 따라 의견 따져보기',label:'나의 판단과 이유',hint:'친구 의견의 어느 부분을 보고 그렇게 판단했는지 구체적으로 짚어 주세요.'},
+    K: {title:'처음 생각을 돌아보며 마무리하기',label:'나의 최종 생각',hint:'최종 주장 → 근거 → 처음 생각과 비교한 이유를 하나의 글로 정리해 보세요.',steps:[
+      '지금의 최종 주장과 가장 설득력 있는 근거를 써 보세요.',
+      '친구 의견이나 인공지능과의 대화에서 참고한 내용이 있다면 연결해 보세요.',
+      '처음 생각을 바꾸거나 유지한 이유를 설명해 보세요. 새로 덧붙인 조건이 있어도 좋아요.']}
+  };
+  const criteriaQuestions = {
+    validity:['주장을 뒷받침하는 사실이나 사례가 있나요?','근거의 출처를 믿을 수 있나요? 한 사례를 모두에게 적용하고 있지는 않나요?'],
+    fairness:['이 의견은 누구에게 도움이 되고, 누구에게 부담이 되나요?','고려하지 못한 사람이나 상황이 있나요?'],
+    feasibility:['실행에 필요한 준비나 방법이 제시되어 있나요?','비용, 시간, 담당자 등 빠진 조건은 무엇인가요?']
+  };
+  function writingGuide(stage,criteria) {
+    const guide=writingGuides[stage];
+    const steps=stage==='N'?[...(criteriaQuestions[criteria]||criteriaQuestions.validity),'이 기준에서 설득력 있는 점과 더 확인할 점을 이유와 함께 써 보세요.']:guide.steps;
+    return `<strong>${guide.title}</strong><ol>${steps.map(text=>`<li>${text}</li>`).join('')}</ol>`;
+  }
   let current = null, entering = false;
   const api = (ctx, action, stage='T', payload={}) => window.SupabaseService.invokeAccountFunction('think-workflow', {
     action, classId:ctx.classId, lessonId:ctx.lesson.id, stage, payload
@@ -127,10 +148,10 @@
     else if(['T','N','K'].includes(s)) {
       if(s==='N') {
         const selected=ctx.peers.find(p=>p.id===r.metadata.selectedPeerOpinion||p.id===record(ctx,'H').metadata.selectedPeerOpinion);
-        body+=`<p>선택한 친구 의견: ${escape(selected?.text||'H 단계에서 의견을 선택해 주세요.')}</p><label>판단 기준 <select id="thinkCriteria" class="form-select" ${disabled} onchange="ThinkWorkflow.criteria(this.value)">${[['validity','근거의 타당성'],['fairness','공정성'],['feasibility','실현 가능성']].map(([v,n])=>`<option value="${v}" ${r.metadata.criteria===v?'selected':''}>${n}</option>`).join('')}</select></label><p>이 기준으로 판단한 이유를 작성하세요.</p>`;
+        body+=`<div class="think-writing-reference"><strong>선택한 친구 의견</strong><p>${escape(selected?.text||'H 단계에서 의견을 선택해 주세요.')}</p></div><div class="form-group think-writing-criteria"><label class="form-label" for="thinkCriteria">판단 기준</label><select id="thinkCriteria" class="form-select" ${disabled} onchange="ThinkWorkflow.criteria(this.value)">${[['validity','근거의 타당성'],['fairness','공정성'],['feasibility','실현 가능성']].map(([v,n])=>`<option value="${v}" ${r.metadata.criteria===v?'selected':''}>${n}</option>`).join('')}</select></div>`;
       }
-      if(s==='K') body+=`<div class="question-card"><strong>나의 처음 생각</strong><p style="white-space:pre-wrap">${escape(record(ctx,'T').content||'아직 작성한 첫 생각이 없습니다.')}</p></div><p>최종 주장과 근거, 처음 생각을 바꾸거나 유지한 이유를 작성하세요.</p>`;
-      body+=`<textarea id="thinkText" class="form-textarea" rows="8" ${disabled} aria-label="${names[s]}" oninput="ThinkWorkflow.input(this.value)">${escape(r.content)}</textarea>`;
+      if(s==='K') body+=`<div class="think-writing-reference"><strong>나의 처음 생각</strong><p>${escape(record(ctx,'T').content||'아직 작성한 첫 생각이 없습니다.')}</p></div>`;
+      body+=`<div id="thinkWritingGuide" class="question-card think-writing-guide" data-stage="${s}" aria-live="polite">${writingGuide(s,r.metadata.criteria)}</div><div class="form-group"><label class="form-label" for="thinkText">${writingGuides[s].label}</label><p id="thinkWritingHint" class="think-writing-hint">${writingGuides[s].hint}</p><textarea id="thinkText" class="form-textarea" rows="8" ${disabled} aria-label="${names[s]}" aria-describedby="thinkWritingHint thinkWritingGuide" oninput="ThinkWorkflow.input(this.value)">${escape(r.content)}</textarea></div>`;
     } else if(s==='H') {
       body=`<p>같은 학급 친구의 제출 글을 익명으로 비교합니다. 현재 ${ctx.peers.length}개 의견이 배정되었습니다.</p>`;
       if(!ctx.peers.length) body+='<p>아직 배정된 의견이 없습니다. 선생님의 배정을 기다려 주세요.</p>';
@@ -139,7 +160,8 @@
       body=`<p>남은 질문: ${ctx.remaining}회 · 이름·전화번호 등 개인정보는 입력하지 마세요.</p><div class="chat-messages">${ctx.turns.map(t=>`<div class="chat-bubble user">${escape(t.question)}</div><div class="chat-bubble ai" style="white-space:pre-wrap">${escape(t.answer||t.error||'응답을 기다리는 중…')}</div>`).join('')}</div><div class="chat-composer"><textarea id="thinkChatInput" class="form-input" aria-label="AI에게 질문" ${disabled} ${ctx.chatBusy?'disabled':''}>${escape(ctx.chatDraft||'')}</textarea><button class="btn btn-primary" onclick="ThinkWorkflow.chat()" ${disabled} ${ctx.chatBusy||ctx.remaining<=0?'disabled':''}>${ctx.chatBusy?'응답 중…':'전송'}</button></div>`;
     }
     const recovery=ctx.recovery[s]?`<details><summary>다른 저장본과 겹친 미저장 글 보기</summary><pre style="white-space:pre-wrap">${escape(ctx.recovery[s])}</pre></details>`:'';
-    box.innerHTML=`<div class="question-card"><strong>[${s}] ${names[s]}</strong><p style="white-space:pre-wrap">${escape(ctx.lesson.coreQuestion||ctx.lesson.core_question||ctx.lesson.question)}</p></div>${mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;gap:12px;margin-top:16px">${retry}${mode!=='hidden'?`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled} ${ctx.chatBusy?'disabled':''}>${s==='K'?'최종 제출':'제출하고 다음 단계'}</button>`:''}</div>`;
+    const heading=writingGuides[s]?'':`<div class="question-card" data-stage="${s}"><strong>[${s}] ${names[s]}</strong><p style="white-space:pre-wrap">${escape(ctx.lesson.coreQuestion||ctx.lesson.core_question||ctx.lesson.question)}</p></div>`;
+    box.innerHTML=`${heading}${mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${retry}${mode!=='hidden'?`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled} ${ctx.chatBusy?'disabled':''}>제출하기</button>`:''}</div>`;
     if(s==='I') document.getElementById('thinkChatInput')?.addEventListener('input',e=>{ctx.chatDraft=e.target.value;});
   }
   async function enter(state,classId) {
@@ -168,7 +190,7 @@
   }
   const flow=window.ThinkWorkflow={
     input(value) {if(!current)return;const ctx=current,s=ctx.stage;record(ctx,s).content=value;ctx.dirty[s]=true;cache(ctx,s);status(ctx,s,'저장 대기 중…');clearTimeout(ctx.timer);ctx.timer=setTimeout(()=>save(ctx,s).catch(()=>{}),1200);},
-    criteria(value) {const ctx=current;record(ctx,'N').metadata={...record(ctx,'N').metadata,criteria:value,selectedPeerOpinion:record(ctx,'H').metadata.selectedPeerOpinion||null};ctx.dirty.N=true;cache(ctx,'N');save(ctx,'N').catch(()=>{});},
+    criteria(value) {const ctx=current;record(ctx,'N').metadata={...record(ctx,'N').metadata,criteria:value,selectedPeerOpinion:record(ctx,'H').metadata.selectedPeerOpinion||null};const guide=document.getElementById('thinkWritingGuide');if(ctx.stage==='N'&&guide)guide.innerHTML=writingGuide('N',value);ctx.dirty.N=true;cache(ctx,'N');save(ctx,'N').catch(()=>{});},
     async choose(id) {const ctx=current;record(ctx,'H').metadata={selectedPeerOpinion:id};record(ctx,'H').content=ctx.peers.find(p=>p.id===id)?.text||'';ctx.dirty.H=true;cache(ctx,'H');render();await save(ctx,'H').catch(()=>{});},
     async retrySave() {const ctx=current;capture(ctx);await save(ctx,ctx.stage,{final:!!ctx.closing[ctx.stage]}).then(render).catch(()=>{});},
     async submit() {

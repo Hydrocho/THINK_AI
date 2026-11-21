@@ -399,6 +399,15 @@ body {
 }
 
 /* Cards & Grid Containers */
+.think-writing-guide { margin-bottom: 22px; }
+.think-writing-guide ol { margin: 8px 0 0; padding-left: 22px; }
+.think-writing-guide li + li { margin-top: 5px; }
+.think-writing-reference { padding: 16px; margin-bottom: 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-sidebar); }
+.think-writing-reference strong { display: block; margin-bottom: 6px; font-size: 0.85rem; }
+.think-writing-reference p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.think-writing-criteria { margin-bottom: 18px; }
+.think-writing-hint { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
+
 .card-grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
