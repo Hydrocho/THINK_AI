@@ -49,7 +49,7 @@ serve(async req => {
 
   const { data: lessonRows, error: lessonError } = activeLessonIds.length
     ? await admin.from("lesson_plans")
-      .select("id,project_version_id,lesson_order,title,core_question,think_stages,ai_question_limit,ai_response_mode")
+      .select("id,project_version_id,lesson_order,title,core_question,background_description,think_stages,ai_question_limit,ai_response_mode")
       .in("id", activeLessonIds)
     : { data: [], error: null };
   if (lessonError) return json({ error: lessonError.message }, 400);
@@ -87,6 +87,7 @@ serve(async req => {
       number: lesson.lesson_order,
       title: lesson.title,
       coreQuestion: lesson.core_question,
+      backgroundDescription: lesson.background_description || '',
       thinkStages: lesson.think_stages,
       aiQuestionLimit: lesson.ai_question_limit,
       aiResponseMode: lesson.ai_response_mode,

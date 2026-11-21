@@ -1,5 +1,5 @@
 <!-- Main App Content (Student THINK View - Hidden until student enters lesson) -->
-<main id="studentAppSection" class="main-shell" style="display: none; grid-template-columns: 280px 1fr; gap: 24px;">
+<main id="studentAppSection" class="main-shell" style="display: none;">
 
   <!-- Sidebar Navigation: LMS Style Course Navigation -->
   <aside class="sidebar">
@@ -49,17 +49,22 @@
 
   <!-- Main Step View Panel -->
   <section class="content-area">
+    <div class="question-pin-anchor">
+      <div id="questionPin" class="question-pin" hidden>
+        <span class="question-pin-desktop"></span>
+        <details class="question-pin-mobile">
+          <summary><span class="question-pin-preview"></span></summary>
+        </details>
+      </div>
+    </div>
 
     <!-- Step Header -->
     <div class="step-header">
-      <div class="step-tag-row"
-        style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="role-tag" id="stepTagBadge">T · 단계 1/5</span>
-          <span style="font-size: 0.85rem; color: var(--text-subtle);" id="stepSubTitleBadge">1단계 · 개인 사고 형성</span>
-        </div>
-      </div>
       <h1 class="step-main-title" id="stepMainTitle">사람에게 나타나는 다양한 특징 중 부모에게서 물려받는 것은 어떤 것이 있을까?</h1>
+      <details id="thinkBackground" class="think-t-example think-background" hidden>
+        <summary>배경 설명 보기</summary>
+        <p id="thinkBackgroundText"></p>
+      </details>
     </div>
 
     <!-- Step Dynamic Body Container -->

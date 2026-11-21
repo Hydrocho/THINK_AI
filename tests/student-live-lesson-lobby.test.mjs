@@ -88,7 +88,8 @@ test('student THINK screen uses the active live lesson instead of sample lessons
   assert.match(app, /state\.activeLessonPlans && state\.activeLessonPlans\[state\.currentLessonIndex\]/);
   assert.doesNotMatch(thinkView, /id="lessonSelect"/);
   assert.match(thinkView, /id="currentLessonLabel"/);
-  assert.match(thinkView, /id="stepTagBadge"/);
+  assert.match(thinkView, /id="studentThinkStepsList"/);
+  assert.doesNotMatch(thinkView, /stepTagBadge|stepSubTitleBadge/);
   assert.match(thinkView, /id="stepMainTitle"/);
   assert.match(think, /getElementById\('stepContentContainer'\)/);
 });

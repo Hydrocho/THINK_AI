@@ -58,7 +58,7 @@ serve(async (req) => {
   const { data: classroom, error: classError } = await admin.from("classes").select("id").eq("id", body.classId).eq("teacher_id", teacherId).maybeSingle();
   if (classError) return json({ error: classError.message }, 400);
   if (!classroom) return json({ error: "학급을 찾을 수 없거나 열람 권한이 없습니다." }, 404);
-  const { data: lesson, error: lessonError } = await admin.from("lesson_plans").select("id,project_version_id,core_question").eq("id", body.lessonId).maybeSingle();
+  const { data: lesson, error: lessonError } = await admin.from("lesson_plans").select("id,project_version_id,core_question,background_description").eq("id", body.lessonId).maybeSingle();
   if (lessonError) return json({ error: lessonError.message }, 400);
   if (!lesson) return json({ error: "차시를 찾을 수 없습니다." }, 404);
   const { data: classProject, error: projectError } = await admin.from("class_projects").select("id").eq("class_id", body.classId).eq("source_version_id", lesson.project_version_id).limit(1).maybeSingle();
@@ -77,7 +77,7 @@ serve(async (req) => {
   const includedCount = excerpts.length;
   const excludedResponseCount = Math.max(0, (responseRows || []).length - includedCount);
   const geminiPayload = {
-    contents: [{ parts: [{ text: `당신은 교사의 수업 성찰을 돕는 조력자입니다. 아래에는 총 ${includedCount}개의 익명 학생 글이 있습니다. 학생별 등급·서열·점수·작성자 추정·인용은 하지 마세요. 학급 전체 경향만 한국어 JSON으로 답하세요. JSON 형식: {"overview":"...","perspectives":[{"label":"...","count":0}],"missingPerspectives":["..."],"nextQuestion":"..."}. 핵심 질문: ${lesson.core_question || ""}\n\n${excerpts.map((content, index) => `익명 응답 ${index + 1}: ${content}`).join("\n\n")}` }] }],
+    contents: [{ parts: [{ text: `당신은 교사의 수업 성찰을 돕는 조력자입니다. 아래에는 총 ${includedCount}개의 익명 학생 글이 있습니다. 학생별 등급·서열·점수·작성자 추정·인용은 하지 마세요. 학급 전체 경향만 한국어 JSON으로 답하세요. JSON 형식: {"overview":"...","perspectives":[{"label":"...","count":0}],"missingPerspectives":["..."],"nextQuestion":"..."}. 핵심 질문: ${lesson.core_question || ""}\n배경 설명: ${lesson.background_description || "없음"}\n\n${excerpts.map((content, index) => `익명 응답 ${index + 1}: ${content}`).join("\n\n")}` }] }],
     generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
   };
   const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(geminiPayload) });

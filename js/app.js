@@ -13,7 +13,7 @@
     activeLessonPlans: [],
     studentData: {
       studentNumber: '',
-      remainingQuestions: 12,
+      remainingQuestions: 20,
       initialThought: '',
       selectedPeerOpinion: null,
       peerCriteria: 'validity',
@@ -178,7 +178,7 @@
           const isCompleted = stepIndex < state.currentStep;
           const info = stageInfoMap[stageCode] || { name: stageCode, code: stageCode };
           return `
-            <li class="think-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" data-stage="${stageCode}" onclick="App.goToStep(${stepIndex})">
+            <li class="think-step-item ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" data-stage="${stageCode}" ${isActive ? 'aria-current="step"' : ''} onclick="App.goToStep(${stepIndex})">
               <span class="step-icon-badge">${stageCode}</span>
               <span>${info.name}</span>
             </li>
@@ -186,16 +186,6 @@
         }).join('');
       }
 
-      const currentStageCode = activeStages[state.currentStep - 1] || activeStages[0] || 'T';
-      const info = stageInfoMap[currentStageCode] || { code: currentStageCode, title: currentStageCode };
-
-      const badge = document.getElementById('stepTagBadge');
-      const title = document.getElementById('stepSubTitleBadge');
-      if (badge) {
-        badge.innerText = `${info.code} ${state.currentStep}/${activeStages.length}`;
-        badge.setAttribute('data-stage', currentStageCode);
-      }
-      if (title) title.innerText = info.title;
     },
 
     renderCurrentStep: function () {

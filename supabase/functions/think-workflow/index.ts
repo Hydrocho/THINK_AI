@@ -59,10 +59,26 @@ Deno.serve(async req => {
       const key=Deno.env.get('GEMINI_API_KEY');
       if(!key) throw new Error('AI 연결 설정이 필요합니다. 선생님께 알려 주세요.');
       const history=required(await db.from('think_chat_turns').select('question,answer').eq('class_id',b.classId).eq('lesson_id',b.lessonId).eq('student_id',user.id).eq('status','succeeded').order('created_at',{ascending:false}).limit(12)).reverse();
-      const instruction=`너는 중학교 수업을 돕는 AI이다. 개인정보를 요청하지 마라. 영화 설정, 가정, 과학적 사실을 구분해라.\n핵심 질문: ${turn.coreQuestion}\n${turn.mode==='GENERAL'?'개념과 근거를 명확하게 설명하라.':'완성된 답을 대신 쓰지 말고 학생 생각의 근거를 검토하여 반례나 질문을 한 번에 하나씩 제시하라. 무조건 동의하지 마라.'}`;
+      const contextLesson=required(await db.from('lesson_plans').select('background_description,ai_reference').eq('id',b.lessonId).single());
+      const classroom=required(await db.from('classes').select('grade_number').eq('id',b.classId).single());
+      const firstThought=required(await db.from('think_records').select('metadata,content')
+        .eq('class_id',b.classId).eq('lesson_id',b.lessonId).eq('student_id',user.id).eq('stage','T').maybeSingle());
+      const labels=['나의 생각','생각한 이유','이유 설명하기','더 궁금한 점','알아볼 방법'];
+      const answers=firstThought?.metadata?.tAnswers;
+      const notes=Array.isArray(answers) ? labels.flatMap((label,i)=>
+        typeof answers[i]==='string' && answers[i].trim() ? [label+' — '+answers[i]] : []).join('\n') : '';
+      const studentContext=notes || firstThought?.content || '';
+      const instruction=[
+        'THINK I단계에서 학생이 자신의 생각을 넓히도록 돕는다. 지금 묻는 질문에 먼저 응답하고, 관련이 있을 때만 처음 생각이나 앞선 대화를 연결한다. 학생의 입장은 바뀔 수 있다.',
+        '개념이나 사실을 물으면 학년에 맞는 쉬운 말과 예로 설명한다. 수업의 가정과 확인된 사실을 구분한다. 판단이 필요한 문제에서는 학생이 자신의 근거를 살펴보도록 돕고 최종 입장과 제출할 글은 학생에게 맡긴다.',
+        '모든 답을 질문으로 끝낼 필요는 없다. 학생에게 도움이 될 때 다른 관점이나 후속 질문을 하나 제안한다. 개인정보를 요청하지 않는다.',
+        turn.mode==='GENERAL' ? '일반 대화형에서는 궁금한 점을 명확히 설명하는 데 중점을 둔다.' : '사고 촉진형에서는 학생이 제시한 이유를 구체화하거나 새 관점에서 검토하도록 돕는다.',
+        `학급 학년: ${classroom.grade_number}\n핵심 질문: ${turn.coreQuestion}\n배경 설명: ${contextLesson.background_description||'없음'}`,
+        contextLesson.ai_reference && `교사용 참고사항 (대화에 필요한 부분만 활용): ${contextLesson.ai_reference}`
+      ].filter(Boolean).join('\n');
       const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${Deno.env.get('GEMINI_CHAT_MODEL')||'gemini-3.5-flash'}:generateContent?key=${key}`,{
         method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(65000),
-        body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[...history.flatMap((h:any)=>[{role:'user',parts:[{text:h.question}]},{role:'model',parts:[{text:h.answer}]}]),{role:'user',parts:[{text:turn.question}]}],generationConfig:{maxOutputTokens:1200,temperature:0.7}})
+        body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[...history.flatMap((h:any)=>[{role:'user',parts:[{text:h.question}]},{role:'model',parts:[{text:h.answer}]}]),{role:'user',parts:[...(studentContext ? [{text:'학생이 T 단계에서 쓴 글 (대화 참고 자료):\n'+studentContext}] : []),{text:turn.question}]}],generationConfig:{maxOutputTokens:1200,temperature:0.7}})
       });
       if(!response.ok) throw new Error('AI가 응답하지 못했습니다. 잠시 후 다시 질문해 주세요.');
       const generated=await response.json();

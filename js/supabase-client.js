@@ -336,9 +336,11 @@
         lessons: (payload.lessons || []).map((l, i) => ({
           title: l.title,
           coreQuestion: l.coreQuestion || l.core_question || "",
+          aiReference: l.aiReference ?? l.ai_reference ?? "",
+          backgroundDescription: l.backgroundDescription ?? l.background_description ?? "",
           studentGuidance: l.studentGuidance || l.student_guidance || "",
           thinkStages: l.thinkStages || l.think_stages || ["T", "H", "I", "N", "K"],
-          aiQuestionLimit: l.aiQuestionLimit || l.ai_question_limit || 12,
+          aiQuestionLimit: l.aiQuestionLimit || l.ai_question_limit || 20,
           aiResponseMode: l.aiResponseMode || l.ai_response_mode || "THOUGHT_PROVOKING"
         }))
       });

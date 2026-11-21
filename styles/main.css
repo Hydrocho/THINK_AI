@@ -330,11 +330,6 @@ body {
 .think-step-item[data-stage="K"].active { background: #faf5ff; border-color: #e9d5ff; border-left: 4px solid #9333ea; color: #6b21a8; }
 .think-step-item[data-stage="K"].active .step-icon-badge { background: #9333ea; color: #ffffff; border-color: #9333ea; }
 
-#stepTagBadge[data-stage="T"] { background: #fff7ed; border-color: #fed7aa; color: #ea580c; }
-#stepTagBadge[data-stage="H"] { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; }
-#stepTagBadge[data-stage="I"] { background: #f0f9ff; border-color: #bae6fd; color: #0284c7; }
-#stepTagBadge[data-stage="N"] { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
-#stepTagBadge[data-stage="K"] { background: #faf5ff; border-color: #e9d5ff; color: #9333ea; }
 
 .question-card[data-stage="T"] { background: #fff7ed; border-color: #fed7aa; border-left: 4px solid #ea580c; color: #9a3412; }
 .question-card[data-stage="H"] { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; color: #166534; }
@@ -365,11 +360,36 @@ body {
   border-bottom: 1px solid var(--border-light);
 }
 
-.step-tag-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.step-main-title { font-size: clamp(1.15rem, 2vw, 1.5rem); line-height: 1.5; overflow-wrap: anywhere; }
+.think-background p { white-space: pre-wrap; overflow-wrap: anywhere; }
+#studentAppSection { overflow: clip; }
+#studentAppSection > .content-area { overflow: visible; min-width: 0; }
+.question-pin-anchor { position: sticky; top: 0; z-index: 3; height: 0; margin-bottom: -24px; }
+.question-pin {
+  margin-inline: -16px;
+  background: var(--bg-card);
+  border: 1px solid var(--primary-600);
+  border-radius: var(--radius-sm);
+  padding: 7px 26px;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
+.question-pin-mobile { display: none; }
+@media (max-width: 768px) {
+  .question-pin-desktop { display: none; }
+  .question-pin-mobile { display: block; }
+  .question-pin-mobile summary { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+  .question-pin-mobile summary::-webkit-details-marker { display: none; }
+  .question-pin-mobile summary::after { content: ''; flex: none; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+  .question-pin-mobile[open] summary::after { transform: rotate(225deg); }
+  .question-pin-preview { flex: 1; min-width: 0; }
+  .question-pin-mobile:not([open]) .question-pin-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .question-pin-mobile[open] { max-height: 35vh; overflow-y: auto; }
+}
+.lesson-background-row { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+.lesson-background-row .form-textarea { min-height: 100px; }
 
 .step-code-badge {
   background: var(--primary-600);
@@ -407,6 +427,11 @@ body {
 .think-writing-reference p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .think-writing-criteria { margin-bottom: 18px; }
 .think-writing-hint { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
+.think-t-field { margin-bottom: 24px; }
+.think-t-example { padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-sidebar); font-size: 0.85rem; line-height: 1.6; overflow-wrap: anywhere; }
+.think-t-example summary { cursor: pointer; color: var(--primary-700); font-weight: 600; }
+.think-t-example summary:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 3px; }
+.think-t-example p { margin-top: 8px; }
 
 .card-grid-2 {
   display: grid;
@@ -1188,6 +1213,14 @@ body.modal-open { overflow: hidden; }
   gap: 8px;
 }
 
+.lesson-ai-activity { border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-card); font-size: 0.88rem; }
+.lesson-ai-activity > summary { padding: 12px 14px; cursor: pointer; font-weight: 700; color: var(--primary-700); }
+.lesson-ai-activity summary:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 2px; }
+.lesson-ai-activity summary span { font-weight: 400; font-size: 0.8rem; color: var(--text-muted); margin-left: 6px; }
+.lesson-ai-activity-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.lesson-ai-activity-status { color: var(--text-muted); font-size: 0.8rem; }
+.lesson-ai-activity textarea { min-height: 76px; }
+
 .lesson-meta-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1253,8 +1286,8 @@ body.modal-open { overflow: hidden; }
 }
 
 .lesson-question-row .form-textarea {
-  min-height: 7rem;
-  height: 7rem;
+  min-height: calc(1.4em + 14px);
+  height: calc(1.4em + 14px);
   line-height: 1.4;
   resize: vertical;
 }

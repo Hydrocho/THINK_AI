@@ -30,7 +30,7 @@ window.APP_CONFIG = {
       "K"
     ],
     "aiResponseMode": "THOUGHT_PROVOKING",
-    "aiQuestionLimit": 12
+    "aiQuestionLimit": 20
   },
   {
     "id": "lesson-2",
@@ -46,7 +46,7 @@ window.APP_CONFIG = {
       "K"
     ],
     "aiResponseMode": "THOUGHT_PROVOKING",
-    "aiQuestionLimit": 12
+    "aiQuestionLimit": 20
   },
   {
     "id": "lesson-3",
@@ -62,7 +62,7 @@ window.APP_CONFIG = {
       "K"
     ],
     "aiResponseMode": "THOUGHT_PROVOKING",
-    "aiQuestionLimit": 12
+    "aiQuestionLimit": 20
   }
 ]
 };

@@ -4,11 +4,25 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const stages = ['T','H','I','N','K'];
   const names = {T:'나의 처음 생각',H:'친구와 생각 나누기',I:'인공지능과 생각 넓히기',N:'비판적으로 따져보기',K:'나의 최종 생각'};
+  const tQuestions = [
+    {title:'① 나의 생각',question:'이 문제에 대해 지금 어떻게 생각하나요?',example:'수업에 필요한 활동을 할 때는 휴대전화 사용을 허용하면 좋겠어요.'},
+    {title:'② 생각한 이유',question:'무엇을 보거나, 배우거나, 경험해서 그렇게 생각했나요?',example:'수업에서 모르는 단어를 휴대전화로 찾아보고, 내용을 이해하는 데 도움을 받은 적이 있어요.'},
+    {title:'③ 이유 설명하기',question:'방금 쓴 내용이 내 생각을 어떻게 뒷받침하나요?',example:'모르는 내용을 바로 찾아볼 수 있으면 수업을 이해하는 데 도움이 되므로, 필요한 활동에서는 휴대전화를 사용할 수 있으면 좋겠어요.'},
+    {title:'④ 더 궁금한 점',question:'내 생각에서 다시 확인해 보고 싶은 부분은 무엇인가요? 질문으로 써도 좋아요.',example:'휴대전화가 공부에 도움이 되기도 하지만, 오히려 집중을 방해하지는 않을까요?'},
+    {title:'⑤ 알아볼 방법',question:'그것을 알아내려면 무엇을 해 보면 좋을까요?',example:'친구들에게 수업 중 휴대전화가 도움이 됐던 경험과 집중을 방해했던 경험을 물어보고 비교해 보면 좋겠어요.'}
+  ];
+  const tAnswers = row => tQuestions.map((_,i)=>String(Array.isArray(row.metadata.tAnswers)?row.metadata.tAnswers[i]||'':i===0?row.content:''));
+  function setTAnswers(ctx,answers) {
+    const row=record(ctx,'T');
+    row.metadata={...row.metadata,tAnswers:answers};
+    // Keep plain legacy writing intact; structured writing remains readable in
+    // peer snapshots, teacher summaries, and the K reference without API changes.
+    row.content=answers.slice(1).some(value=>value.trim())
+      ? answers.map((value,i)=>value.trim()?`${tQuestions[i].title}\n${value}`:'').filter(Boolean).join('\n\n')
+      : answers[0];
+  }
   const writingGuides = {
-    T: {title:'나의 처음 생각 정리하기',label:'나의 생각과 이유',hint:'입장 → 이유 → 관련 경험이나 사례 순으로 자유롭게 써 보세요.',steps:[
-      '핵심 질문에 대한 나의 입장을 먼저 써 보세요. 조건이 필요하거나 아직 고민 중이어도 괜찮아요.',
-      '그렇게 생각하는 가장 중요한 이유를 설명해 보세요.',
-      '직접 겪은 일이나 알고 있는 사례가 있다면 덧붙여 보세요.']},
+    T: {title:'나의 처음 생각 정리하기'},
     N: {title:'기준에 따라 의견 따져보기',label:'나의 판단과 이유',hint:'친구 의견의 어느 부분을 보고 그렇게 판단했는지 구체적으로 짚어 주세요.'},
     K: {title:'처음 생각을 돌아보며 마무리하기',label:'나의 최종 생각',hint:'최종 주장 → 근거 → 처음 생각과 비교한 이유를 하나의 글로 정리해 보세요.',steps:[
       '지금의 최종 주장과 가장 설득력 있는 근거를 써 보세요.',
@@ -42,6 +56,16 @@
   }
   function capture(ctx=current) {
     if(!ctx || current!==ctx) return;
+    if(ctx.stage==='T') {
+      const fields=[...document.querySelectorAll('[data-t-answer]')];
+      if(fields.length===5 && fields.every(field=>!field.disabled)) {
+        const before=payloadText(record(ctx,'T'));
+        const answers=fields.map(field=>field.value);
+        if(JSON.stringify(answers)!==JSON.stringify(tAnswers(record(ctx,'T'))))setTAnswers(ctx,answers);
+        if(before!==payloadText(record(ctx,'T'))) {ctx.dirty.T=true;cache(ctx,'T');}
+      }
+      return;
+    }
     const field=document.getElementById('thinkText');
     if(field && !field.disabled) record(ctx,ctx.stage).content=field.value;
   }
@@ -145,7 +169,15 @@
     const statusHtml=`<div role="status" id="thinkSaveStatus" style="margin:12px 0;white-space:pre-wrap">${escape(ctx.status[s]|| (r.submitted_at?'제출 완료':''))}</div>`;
     const retry=ctx.leases[s]?'<button class="btn btn-secondary" onclick="ThinkWorkflow.retrySave()">다시 저장</button>':'';
     if(mode==='hidden') body='<p>선생님이 아직 열지 않았거나 마감한 단계입니다.</p>';
-    else if(['T','N','K'].includes(s)) {
+    else if(s==='T') {
+      const answers=tAnswers(r);
+      body='<div class="question-card think-writing-guide" data-stage="T"><strong>나의 처음 생각 정리하기</strong><p>AI나 친구의 의견을 보기 전에 내 생각을 적어 보세요. 짧게 써도 괜찮아요. 아직 잘 모르거나 확신이 없는 부분은 그대로 적어 주세요.</p></div>';
+      body+=tQuestions.map((item,i)=>{
+        const id=i===0?'thinkText':`thinkTextT${i}`;
+        return `<div class="form-group think-t-field"><label class="form-label" for="${id}">${item.title}</label><p id="thinkTQuestion${i}" class="think-writing-hint">${item.question}</p><textarea id="${id}" data-t-answer="${i}" class="form-textarea" rows="3" ${disabled} aria-describedby="thinkTQuestion${i}" oninput="ThinkWorkflow.input(this.value,${i})">${escape(answers[i])}</textarea><details class="think-t-example"><summary>예시 보기</summary><p><strong>예시 주제: 수업 중 휴대전화 사용을 허용해야 할까?</strong></p><p>${item.example}</p><p>찬성하거나 반대해도 좋고, 특정한 조건에서만 허용해야 한다고 생각해도 괜찮아요. 예시를 따라 쓰지 않고 현재 수업의 질문에 대한 내 생각을 써 주세요.</p></details></div>`;
+      }).join('');
+    }
+    else if(['N','K'].includes(s)) {
       if(s==='N') {
         const selected=ctx.peers.find(p=>p.id===r.metadata.selectedPeerOpinion||p.id===record(ctx,'H').metadata.selectedPeerOpinion);
         body+=`<div class="think-writing-reference"><strong>선택한 친구 의견</strong><p>${escape(selected?.text||'H 단계에서 의견을 선택해 주세요.')}</p></div><div class="form-group think-writing-criteria"><label class="form-label" for="thinkCriteria">판단 기준</label><select id="thinkCriteria" class="form-select" ${disabled} onchange="ThinkWorkflow.criteria(this.value)">${[['validity','근거의 타당성'],['fairness','공정성'],['feasibility','실현 가능성']].map(([v,n])=>`<option value="${v}" ${r.metadata.criteria===v?'selected':''}>${n}</option>`).join('')}</select></div>`;
@@ -164,6 +196,26 @@
     box.innerHTML=`${heading}${mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${retry}${mode!=='hidden'?`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled} ${ctx.chatBusy?'disabled':''}>제출하기</button>`:''}</div>`;
     if(s==='I') document.getElementById('thinkChatInput')?.addEventListener('input',e=>{ctx.chatDraft=e.target.value;});
   }
+  function observeQuestion(ctx,title) {
+    const pin=document.getElementById('questionPin');
+    if(!pin)return;
+    const disclosure=pin.querySelector('details');
+    pin.hidden=true;
+    disclosure.open=false;
+    for(const text of pin.querySelectorAll('span'))text.textContent=title.textContent;
+    const update=()=>{
+      if(current!==ctx)return;
+      pin.hidden=!title.textContent || title.getBoundingClientRect().bottom>0;
+      if(pin.hidden)disclosure.open=false;
+    };
+    window.addEventListener('scroll',update,{passive:true});
+    window.addEventListener('resize',update);
+    update();
+    ctx.stopQuestionTracking=()=>{
+      window.removeEventListener('scroll',update);
+      window.removeEventListener('resize',update);
+    };
+  }
   async function enter(state,classId) {
     if(entering) return;entering=true;
     try {
@@ -171,7 +223,7 @@
       const old=current;
       const subject=state.subjectClasses?.find(c=>c.classId===classId);
       if(!subject?.activeLesson) return;
-      if(old) {clearInterval(old.poll);clearTimeout(old.timer);}
+      if(old) {clearInterval(old.poll);clearTimeout(old.timer);old.stopQuestionTracking?.();}
       const ctx={classId,lesson:subject.activeLesson,student:state.studentData.studentNumber,stage:(subject.activeLesson.thinkStages||stages)[0],
         access:{},records:{},leases:{},saved:{},dirty:{},retry:{},queues:{},status:{},closing:{},recovery:{},peers:[],turns:[],remaining:0};
       current=ctx;
@@ -182,6 +234,12 @@
       document.getElementById('currentLessonLabel').textContent=`${ctx.lesson.number}차시 활동 진행 중`;
       document.getElementById('currentProjectTitle').textContent=ctx.lesson.projectTitle||'';
       document.getElementById('stepMainTitle').textContent=ctx.lesson.coreQuestion||'';
+      observeQuestion(ctx,document.getElementById('stepMainTitle'));
+      const background=document.getElementById('thinkBackground');
+      const description=String(ctx.lesson.backgroundDescription||ctx.lesson.background_description||'').trim();
+      background.querySelector('p').textContent=description;
+      background.removeAttribute('open');
+      background.hidden=!description;
       document.getElementById('stepContentContainer').textContent='수업 기록을 불러오는 중…';
       await refresh(ctx,true);
       ctx.poll=setInterval(()=>refresh(ctx).catch(e=>status(ctx,ctx.stage,`연결 확인 실패: ${e.message}`)),4000);
@@ -189,7 +247,7 @@
     finally {entering=false;}
   }
   const flow=window.ThinkWorkflow={
-    input(value) {if(!current)return;const ctx=current,s=ctx.stage;record(ctx,s).content=value;ctx.dirty[s]=true;cache(ctx,s);status(ctx,s,'저장 대기 중…');clearTimeout(ctx.timer);ctx.timer=setTimeout(()=>save(ctx,s).catch(()=>{}),1200);},
+    input(value,index=0) {if(!current)return;const ctx=current,s=ctx.stage;if(s==='T'){const answers=tAnswers(record(ctx,s));answers[index]=value;setTAnswers(ctx,answers);}else record(ctx,s).content=value;ctx.dirty[s]=true;cache(ctx,s);status(ctx,s,'저장 대기 중…');clearTimeout(ctx.timer);ctx.timer=setTimeout(()=>save(ctx,s).catch(()=>{}),1200);},
     criteria(value) {const ctx=current;record(ctx,'N').metadata={...record(ctx,'N').metadata,criteria:value,selectedPeerOpinion:record(ctx,'H').metadata.selectedPeerOpinion||null};const guide=document.getElementById('thinkWritingGuide');if(ctx.stage==='N'&&guide)guide.innerHTML=writingGuide('N',value);ctx.dirty.N=true;cache(ctx,'N');save(ctx,'N').catch(()=>{});},
     async choose(id) {const ctx=current;record(ctx,'H').metadata={selectedPeerOpinion:id};record(ctx,'H').content=ctx.peers.find(p=>p.id===id)?.text||'';ctx.dirty.H=true;cache(ctx,'H');render();await save(ctx,'H').catch(()=>{});},
     async retrySave() {const ctx=current;capture(ctx);await save(ctx,ctx.stage,{final:!!ctx.closing[ctx.stage]}).then(render).catch(()=>{});},
@@ -213,7 +271,7 @@
       finally{ctx.chatBusy=false;if(current===ctx){await refresh(ctx).catch(()=>{});render();}}
     },
     async assign(classId,lessonId) {try {await api({classId,lesson:{id:lessonId}},'assign');alert('제출된 첫 생각으로 의견을 배정했습니다. 기존 배정은 유지됩니다.');}catch(e){alert(e.message);}},
-    async stop() {await flush(current);if(current){clearInterval(current.poll);clearTimeout(current.timer);}current=null;}
+    async stop() {await flush(current);if(current){clearInterval(current.poll);clearTimeout(current.timer);current.stopQuestionTracking?.();}current=null;}
   };
   // Replace legacy nonpersistent handlers before ComponentLoader initializes App.
   window.App.installThinkDraftAutosave=function(){

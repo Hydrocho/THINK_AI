@@ -6,7 +6,7 @@ import { webcrypto } from 'node:crypto';
 import { parseHTML } from 'linkedom';
 
 function fixture() {
-  const {document}=parseHTML('<html><body>'+['studentLobbySection','studentAppSection','currentLessonLabel','currentProjectTitle','stepMainTitle','stepContentContainer'].map(id=>`<div id="${id}"></div>`).join('')+'</body></html>');
+  const {document}=parseHTML('<html><body>'+fs.readFileSync(new URL('../views/studentThinkView.html',import.meta.url),'utf8').match(/<details id="thinkBackground"[\s\S]*?<\/details>/)[0]+['studentLobbySection','studentAppSection','currentLessonLabel','currentProjectTitle','stepMainTitle','stepContentContainer'].map(id=>`<div id="${id}"></div>`).join('')+'</body></html>');
   const data={records:[],peers:[],turns:[],access:{T:'writable',H:'writable',I:'writable',N:'writable',K:'writable'},remaining:12,active:true};
   const requests=[],alerts=[],polls=[];const store=new Map();let intercept=null;
   const service={async invokeAccountFunction(name,b) {
@@ -39,6 +39,57 @@ function fixture() {
   return {window,document,state,data,requests,alerts,polls,intercept:f=>intercept=f};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('background is available in all stages without entering the question or draft',async()=>{
+  const f=fixture();
+  f.state.subjectClasses[0].activeLesson.backgroundDescription='상황 설명\n<img src=x onerror=alert(1)>';
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  assert.equal(f.document.getElementById('stepMainTitle').textContent,'첫 질문');
+  assert.equal(f.document.getElementById('thinkBackground').hidden,false);
+  const panel=f.document.getElementById('thinkBackground');
+  assert.equal(panel.hasAttribute('open'),false);
+  assert.ok(panel.querySelector('summary'));
+  panel.setAttribute('open','');
+  assert.equal(panel.querySelector('img'),null);
+  assert.equal(panel.querySelector('p').textContent,f.state.subjectClasses[0].activeLesson.backgroundDescription);
+  assert.equal(f.document.getElementById('thinkText').value,'');
+  await f.window.ThinkWorkflow.navigate(5);
+  assert.equal(f.document.getElementById('thinkBackground').hidden,false);
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class2');
+  assert.equal(f.document.getElementById('thinkBackground').hidden,true);
+  assert.equal(panel.hasAttribute('open'),false);
+  assert.equal(panel.querySelector('p').textContent,'');
+});
+
+test('five T answers survive submission, re-entry and read-only display',async()=>{
+  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  const fields=[...f.document.querySelectorAll('[data-t-answer]')];
+  assert.equal(fields.length,5);
+  assert.equal(f.document.querySelectorAll('details.think-t-example[open]').length,0);
+  const answers=['조건부 허용','단어를 찾아봤다','이해에 도움이 된다','집중을 방해할까?','친구들에게 물어본다'];
+  fields.forEach((field,i)=>{field.value=answers[i];f.window.ThinkWorkflow.input(answers[i],i);});
+  await f.window.ThinkWorkflow.submit();
+  assert.deepEqual(f.data.records[0].metadata.tAnswers,answers);
+  for(const answer of answers)assert.ok(f.data.records[0].content.includes(answer));
+  await f.window.ThinkWorkflow.stop();
+  f.data.access.T='read_only';
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  const restored=[...f.document.querySelectorAll('[data-t-answer]')];
+  assert.deepEqual(restored.map(field=>field.value),answers);
+  assert.ok(restored.every(field=>field.disabled));
+  await f.window.ThinkWorkflow.navigate(5);
+  for(const answer of answers)assert.ok(f.document.querySelector('.think-writing-reference').textContent.includes(answer));
+});
+
+test('T captures unsignalled edits in all fields when closing',async()=>{
+  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  const fields=[...f.document.querySelectorAll('[data-t-answer]')];
+  assert.equal(fields.length,5);
+  fields[4].value='마지막 확인 방법';
+  f.data.access.T='read_only';await f.polls[0]();await settle();await settle();
+  assert.equal(f.data.records[0].metadata.tAnswers[4],'마지막 확인 방법');
+  assert.ok(f.data.records[0].final_saved);
+});
 
 test('criterion guidance updates without replacing the draft and survives read-only restoration',async()=>{
   const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');

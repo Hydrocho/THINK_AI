@@ -1149,21 +1149,27 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
               <textarea id="edit-question-${l.id}" class="form-textarea" rows="1" required>${this.escapeHtml(l.core_question || '')}</textarea>
             </label>
 
+            <label class="lesson-background-row">
+              <span>배경 설명 (선택)</span>
+              <textarea id="edit-background-${l.id}" class="form-textarea" rows="3" placeholder="질문을 이해하는 데 필요한 상황·조건·사례를 입력하세요. 학생은 ‘배경 설명 보기’에서 확인합니다.">${this.escapeHtml(l.background_description || '')}</textarea>
+            </label>
+
             <div class="lesson-ai-settings-row">
               <label class="lesson-inline-field lesson-mode-field">
                 <span>AI 응답 모드</span>
                 <select id="edit-ai-mode-${l.id}" class="form-select">
-                  <option value="THOUGHT_PROVOKING" ${(l.ai_response_mode || 'THOUGHT_PROVOKING') === 'THOUGHT_PROVOKING' ? 'selected' : ''}>사고 촉진형 (답 대신 질문/반례 제시)</option>
+                  <option value="THOUGHT_PROVOKING" ${(l.ai_response_mode || 'THOUGHT_PROVOKING') === 'THOUGHT_PROVOKING' ? 'selected' : ''}>사고 촉진형 (학생의 근거와 관점 확장)</option>
                   <option value="GENERAL" ${l.ai_response_mode === 'GENERAL' ? 'selected' : ''}>일반 대화형 (개념 직접 설명)</option>
                 </select>
               </label>
               <label class="lesson-inline-field lesson-limit-field">
                 <span>AI 질문</span>
-                <input type="number" id="edit-limit-${l.id}" class="form-input" min="1" max="30" value="${l.ai_question_limit || 12}" required>
+                <input type="number" id="edit-limit-${l.id}" class="form-input" min="1" max="30" value="${l.ai_question_limit || 20}" required>
                 <em>회</em>
               </label>
             </div>
 
+            ${this.renderAiActivitySettings("edit-" + l.id, l.ai_reference)}
             <div class="lesson-think-row">
               <div class="lesson-think-options">
                 ${['T','H','I','N','K'].map(st => {
@@ -1406,20 +1412,25 @@ window.TeacherAdminModule.showAddLessonForm = function () {
           <span>핵심 질문</span>
           <textarea id="detailCoreQuestion" class="form-textarea" rows="1" placeholder="학생들이 탐구할 핵심 질문을 입력하세요." required></textarea>
         </label>
+        <label class="lesson-background-row">
+          <span>배경 설명 (선택)</span>
+          <textarea id="detailBackgroundDescription" class="form-textarea" rows="3" placeholder="질문을 이해하는 데 필요한 상황·조건·사례를 입력하세요. 학생은 ‘배경 설명 보기’에서 확인합니다."></textarea>
+        </label>
         <div class="lesson-ai-settings-row">
           <label class="lesson-inline-field lesson-mode-field">
             <span>AI 응답 모드</span>
             <select id="detailAiMode" class="form-select">
-              <option value="THOUGHT_PROVOKING">사고 촉진형 (답 대신 질문/반례 제시)</option>
+              <option value="THOUGHT_PROVOKING">사고 촉진형 (학생의 근거와 관점 확장)</option>
               <option value="GENERAL">일반 대화형 (개념 직접 설명)</option>
             </select>
           </label>
           <label class="lesson-inline-field lesson-limit-field">
             <span>AI 질문</span>
-            <input type="number" id="detailAiLimit" class="form-input" min="1" max="30" value="12" required>
+            <input type="number" id="detailAiLimit" class="form-input" min="1" max="30" value="20" required>
             <em>회</em>
           </label>
         </div>
+        ${this.renderAiActivitySettings("new-lesson")}
         <div class="lesson-think-row">
           <div class="lesson-think-options">
             <label><input type="checkbox" class="chk-add-think-stage" value="T" checked> T - 나의 처음 생각</label>
@@ -1451,8 +1462,9 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
   e.preventDefault();
   const title = document.getElementById('detailLessonTitle').value.trim();
   const coreQuestion = document.getElementById('detailCoreQuestion').value.trim();
+  const backgroundDescription = document.getElementById('detailBackgroundDescription').value.trim();
   const aiResponseMode = document.getElementById('detailAiMode').value;
-  const aiLimit = parseInt(document.getElementById('detailAiLimit').value) || 12;
+  const aiLimit = parseInt(document.getElementById('detailAiLimit').value) || 20;
 
   const selectedStages = [...document.querySelectorAll('.chk-add-think-stage:checked')].map(cb => cb.value);
   const thinkStages = selectedStages.length > 0 ? selectedStages : ['T', 'H', 'I', 'N', 'K'];
@@ -1468,6 +1480,8 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
     ...existingLessons.map(l => ({
       title: l.title,
       coreQuestion: l.core_question,
+      backgroundDescription: l.background_description || '',
+      aiReference: l.ai_reference || '',
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
       aiQuestionLimit: l.ai_question_limit,
       aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
@@ -1475,6 +1489,8 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
     {
       title,
       coreQuestion,
+      backgroundDescription,
+      aiReference: document.getElementById('new-lesson-ai-reference').value.trim(),
       thinkStages,
       aiQuestionLimit: aiLimit,
       aiResponseMode
@@ -1505,6 +1521,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
       this.hideAddLessonForm();
       document.getElementById('detailLessonTitle').value = '';
       document.getElementById('detailCoreQuestion').value = '';
+      document.getElementById('detailBackgroundDescription').value = '';
     }
   } catch (err) {
     console.error('Error adding lesson:', err);
@@ -1518,8 +1535,10 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   e.preventDefault();
   const title = document.getElementById(`edit-title-${lessonId}`).value.trim();
   const coreQuestion = document.getElementById(`edit-question-${lessonId}`).value.trim();
+  const aiReference = document.getElementById(`edit-${lessonId}-ai-reference`).value.trim();
+  const backgroundDescription = document.getElementById(`edit-background-${lessonId}`).value.trim();
   const aiResponseMode = document.getElementById(`edit-ai-mode-${lessonId}`).value;
-  const aiLimit = parseInt(document.getElementById(`edit-limit-${lessonId}`).value) || 12;
+  const aiLimit = parseInt(document.getElementById(`edit-limit-${lessonId}`).value) || 20;
 
   const selectedStages = [...document.querySelectorAll(`.chk-edit-think-stage-${lessonId}:checked`)].map(cb => cb.value);
   const thinkStages = selectedStages.length > 0 ? selectedStages : ['T', 'H', 'I', 'N', 'K'];
@@ -1540,10 +1559,10 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   try {
     const { error } = await window.SupabaseService.getClient().rpc('edit_teaching_lesson', {
       p_id: lessonId, p_title: title, p_question: coreQuestion, p_mode: aiResponseMode,
-      p_limit: aiLimit, p_stages: thinkStages
+      p_limit: aiLimit, p_stages: thinkStages, p_background: backgroundDescription, p_ai_reference: aiReference
     });
     if (error) throw error;
-    Object.assign(lesson, { title, core_question: coreQuestion, ai_response_mode: aiResponseMode,
+    Object.assign(lesson, { title, core_question: coreQuestion, background_description: backgroundDescription, ai_reference: aiReference, ai_response_mode: aiResponseMode,
       ai_question_limit: aiLimit, think_stages: thinkStages });
 
     draft.initialValue = submittedValue;
@@ -1571,6 +1590,8 @@ window.TeacherAdminModule.handleDeleteLesson = async function (lessonId) {
     .map(l => ({
       title: l.title,
       coreQuestion: l.core_question,
+      backgroundDescription: l.background_description || '',
+      aiReference: l.ai_reference || '',
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
       aiQuestionLimit: l.ai_question_limit,
       aiResponseMode: l.ai_response_mode || 'THOUGHT_PROVOKING'
@@ -1628,8 +1649,10 @@ window.TeacherAdminModule.attachDragAndDropHandlers = function (container) {
         return {
           title: found ? found.title : '',
           coreQuestion: found ? found.core_question : '',
+          backgroundDescription: found ? (found.background_description || '') : '',
+          aiReference: found?.ai_reference || '',
           thinkStages: found ? (found.think_stages || found.thinkStages || ['T', 'H', 'I', 'N', 'K']) : ['T', 'H', 'I', 'N', 'K'],
-          aiQuestionLimit: found ? found.ai_question_limit : 12,
+          aiQuestionLimit: found ? found.ai_question_limit : 20,
           aiResponseMode: found ? (found.ai_response_mode || 'THOUGHT_PROVOKING') : 'THOUGHT_PROVOKING'
         };
       }).filter(l => l.title);
@@ -1779,4 +1802,18 @@ window.TeacherAdminModule.runSeedGeneticsDummyData = async function () {
   } catch (error) {
     alert(`더미 데이터 생성 실패: ${error.message}`);
   }
+};
+
+
+window.TeacherAdminModule.renderAiActivitySettings = function (prefix, reference = '') {
+  const id = this.escapeHtml(prefix);
+  return `
+    <details class="lesson-ai-activity">
+      <summary>I 단계 AI 참고사항 <span>${reference ? '저장됨' : '선택'}</span></summary>
+      <div class="lesson-ai-activity-body">
+        <label for="${id}-ai-reference">학생 학년과 AI가 답할 때 중점을 둘 점</label>
+        <span class="think-writing-hint" id="${id}-ai-example">예) 중학교 3학년이니, 학생이 자기 주장을 말하면 왜 그렇게 생각했는지 물어봐 주세요.</span>
+        <textarea id="${id}-ai-reference" aria-describedby="${id}-ai-example" class="form-textarea" rows="2">${this.escapeHtml(reference || '')}</textarea>
+      </div>
+    </details>`;
 };
