@@ -32,11 +32,65 @@ async function fixture() {
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122040000_review_reading.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122050000_stage_snapshot.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122060000_shared_peer_texts.sql',import.meta.url),'utf8'));
+  await db.exec(`create function auth.uid() returns uuid language sql as 'select null::uuid';
+    alter table class_lesson_stage_access add column updated_at timestamptz default now();
+    alter table class_lesson_stage_access add unique(class_id,lesson_plan_id,stage_code);`);
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122070000_class_live_teaching.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122080000_close_live_stage.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122090000_teacher_h_rankings.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122100000_teacher_h_reaction_categories.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122110000_class_peer_review_option.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122120000_teacher_n_rankings.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122130000_teacher_n_ranking_questions.sql',import.meta.url),'utf8'));
+  await db.exec("alter table student_accounts add column student_name text; update student_accounts set student_name='작성 학생' where student_number='30101';");
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122140000_teacher_ranking_author_names.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
 }
 const saveData=(row,content,n,extra={})=>({lease:row.lease,revision:row.revision,content,requestId:id(n),...extra});
+
+test('class plan disables peer reading while preserving own N submission and other classes',async()=>{
+  const {db,rpc}=await fixture();
+  try {
+    await db.query('update classes set active_lesson_plan_id=null where id=$1',[id(10)]);
+    const plan=actor=>db.query("select manage_live_teaching($1,$2,$3,'plan',$4)",[actor,id(10),id(20),JSON.stringify({enabled:true,stages:['N'],peerReviewEnabled:false})]);
+    await assert.rejects(plan(id(4)),/권한/);await plan(id(1));
+    assert.equal((await rpc('snapshot')).peerReviewEnabled,false);
+    assert.equal((await rpc('snapshot','N',{},id(4),id(11),id(21))).peerReviewEnabled,true);
+    await db.query('update classes set active_lesson_plan_id=$1 where id=$2',[id(20),id(10)]);
+    const row=await rpc('open','N');
+    assert.ok((await rpc('save','N',saveData(row,'내 검토',999,{metadata:{criteria:'validity'},submit:true}))).submitted_at);
+    for(const action of ['review_list','review_feedback'])await assert.rejects(db.query('select think_review_reading($1,$2,$3,$4,$5)',[id(2),id(10),id(20),action,'{}']),/사용하지 않습니다/);
+    const snapshot=(await db.query('select think_stage_snapshot($1,$2,$3,$4) value',[id(2),id(10),id(20),'N'])).rows[0].value;
+    assert.equal(snapshot.peerReviewEnabled,false);
+  } finally {await db.close();}
+});
+
+test('H rankings count saved reactions against shared texts and enforce teacher ownership',async()=>{
+  const {db}=await fixture();
+  try {
+    await db.query("insert into think_peer_texts values($1,$2,'text1','첫 번째 글'),($1,$2,'text2','두 번째 글')",[id(10),id(20)]);
+    for(const student of [id(2),id(3)]) {
+      await db.query('insert into think_peer_sets(class_id,lesson_id,student_id,opinions,source_ids) values($1,$2,$3,$4,$5) on conflict(class_id,lesson_id,student_id) do update set opinions=excluded.opinions,source_ids=excluded.source_ids',
+        [id(10),id(20),student,JSON.stringify([{id:'p1',ref:'text1'},{id:'p2',ref:'text2'}]),[id(40),id(41)]]);
+      await db.query("insert into think_records(class_id,lesson_id,student_id,stage,metadata) values($1,$2,$3,'H',$4)",
+        [id(10),id(20),student,JSON.stringify({feedback:{p1:{recommended:true,reaction:student===id(2)?'similar':'newView'},p2:{reaction:'curious'},unassigned:{recommended:true}}})]);
+    }
+    await db.query("insert into student_accounts values($1,'30103','김학생')",[id(40)]);
+    const query=(actor=id(1))=>db.query('select teacher_h_rankings($1,$2,$3) value',[actor,id(10),id(20)]);
+    const rows=(await query()).rows[0].value;
+    assert.equal(rows.length,2);
+    const first=rows.find(r=>r.content==='첫 번째 글');
+    assert.equal(first.studentName,'김학생');assert.equal(rows.find(r=>r.content==='두 번째 글').studentName,null);
+    assert.equal(first.stars,2);assert.equal(first.likes,2);
+    assert.equal(first.similar,1);assert.equal(first.newView,1);assert.equal(first.curious,0);
+    assert.equal(rows.find(r=>r.content==='두 번째 글').curious,2);
+    assert.equal(rows.find(r=>r.content==='두 번째 글').stars,0);
+    assert.equal(JSON.stringify(rows).includes('student_id'),false);
+    await assert.rejects(query(id(4)),/권한/);
+  } finally {await db.close();}
+});
 
 test('chat completion records provider usage once, including truncated replies',async()=>{
   const {db,rpc}=await fixture();
@@ -50,7 +104,7 @@ test('chat completion records provider usage once, including truncated replies',
     await finish(turn.attempt);
     await finish(turn.attempt);
     const snapshot=async(stage,turnId=null)=>(await db.query('select think_stage_snapshot($1,$2,$3,$4,$5) data',[id(2),id(10),id(20),stage,turnId])).rows[0].data;
-    assert.deepEqual(Object.keys(await snapshot('T')),['access']);
+    assert.deepEqual(Object.keys(await snapshot('T')).sort(),['access','peerReviewEnabled']);
     assert.ok(Array.isArray((await snapshot('K')).peers));
     assert.deepEqual((await snapshot('I',id(999))).turns,[]);
     const delta=await snapshot('I',turn.id);
@@ -219,4 +273,70 @@ test('N readers see submitted anonymous reviews in a stable order distinct from 
     await db.exec("update class_lesson_stage_access set access_mode='read_only' where stage_code='N'");
     await assert.rejects(read('review_feedback',{id:peers[0].id,recommended:false}),/마감/);
   }finally{await db.close();}
+});
+
+
+test('closing a live stage blocks entry, preserves existing submission and allows reopening',async()=>{
+  const {db,rpc}=await fixture();
+  const live=(action,stage='T',actor=id(1))=>db.query('select manage_live_teaching($1,$2,$3,$4,$5)',[actor,id(10),id(20),action,JSON.stringify({stage})]);
+  try {
+    await live('stage');
+    const row=await rpc('open');
+    await assert.rejects(live('close_stage','T',id(4)),/권한/);
+    await live('close_stage');
+    assert.equal((await rpc('snapshot')).access.T,'hidden');
+    assert.equal((await rpc('snapshot')).access.H,'writable');
+    await assert.rejects(rpc('open','T',{},id(3)),/작성할 수 없는/);
+    await assert.rejects(rpc('open'),/작성할 수 없는/);
+    const saved=await rpc('save','T',saveData(row,'입장 후 마무리',920,{submit:true,final:true}));
+    assert.ok(saved.submitted_at);
+    assert.equal(saved.final_saved,true);
+    await live('stage');
+    assert.ok((await rpc('open','T',{},id(3))).lease);
+    await live('end');
+    await assert.rejects(live('close_stage'),/먼저/);
+  } finally {await db.close();}
+});
+
+test('live planning is independent, stage opening is cumulative, and existing writing survives end',async()=>{
+  const {db,rpc}=await fixture();
+  const live=async(action,payload={},actor=id(1),lesson=id(20))=>(await db.query(
+    'select manage_live_teaching($1,$2,$3,$4,$5) value',[actor,id(10),lesson,action,JSON.stringify(payload)])).rows[0].value;
+  try {
+    await live('end');
+    await db.exec("update class_lesson_stage_access set access_mode='hidden'");
+    await live('plan',{enabled:true,stages:['T','H']});
+    assert.equal((await rpc('snapshot')).active,false);
+    assert.equal((await rpc('snapshot')).access.T,'hidden');
+    await assert.rejects(live('start',{},id(4)),/권限|권한/);
+    await live('start');
+    await assert.rejects(rpc('open'),/작성할 수 없는/);
+    await assert.rejects(live('stage',{stage:'I'}),/포함되지 않은/);
+    await live('stage',{stage:'T'});
+    const row=await rpc('open');
+    await live('stage',{stage:'H'});
+    assert.equal((await rpc('snapshot')).access.T,'writable');
+    assert.equal((await rpc('snapshot')).access.H,'writable');
+    await assert.rejects(live('plan',{enabled:true,stages:['T']}),/종료 후/);
+    assert.equal((await db.query('select current_think_stage from classes where id=$1',[id(11)])).rows[0].current_think_stage,null);
+    await live('end');
+    await assert.rejects(rpc('open','H'),/작성할 수 없는/);
+    const saved=await rpc('save','T',saveData(row,'종료 후 마무리한 답안',910,{submit:true,final:true}));
+    assert.equal(saved.content,'종료 후 마무리한 답안');
+    assert.ok(saved.submitted_at);
+  } finally {await db.close();}
+});
+
+test('N teacher rankings aggregate reactions only for submitted reviews and enforce ownership',async()=>{
+ const {db}=await fixture();
+ try {
+  await db.query("insert into think_records(class_id,lesson_id,student_id,stage,content,submitted_at) values($1,$2,$3,'N','검토 내용',now()),($1,$2,$4,'N','읽은 학생',now())",[id(10),id(20),id(2),id(3)]);
+  await db.query("insert into think_review_readings(class_id,lesson_id,reader,author,position,reaction,recommended) values($1,$2,$3,$4,1,'newView',true)",[id(10),id(20),id(3),id(2)]);
+  const query=actor=>db.query('select teacher_n_rankings($1,$2,$3) value',[actor,id(10),id(20)]);
+  const rows=(await query(id(1))).rows[0].value;
+  assert.deepEqual(rows,[{studentName:'작성 학생',content:'검토 내용',review:null,stars:1,likes:1,similar:0,newView:1,curious:0}]);
+  await assert.rejects(query(id(2)),/권한/);
+  await db.query('update think_records set submitted_at=null where student_id=$1',[id(2)]);
+  assert.deepEqual((await query(id(1))).rows[0].value,[]);
+ } finally {await db.close();}
 });

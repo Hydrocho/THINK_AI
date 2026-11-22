@@ -4,8 +4,9 @@
 
 window.TeacherAdminModule = {
   navigation: {
-    operation: { breadcrumb: '내 수업 › 수업 운영', title: '수업 운영', description: '학급별 프로젝트와 차시별 실시간 수업을 운영합니다.' },
-    design: { breadcrumb: '내 수업 › 수업 설계', title: '수업 설계', description: '프로젝트 및 차시별 활동 계획을 작성하고 관리합니다.' },
+    operation: { breadcrumb: '내 수업 › 학급 계획', title: '학급 계획', description: '학급별 수업 주제와 함께 진행할 THINK 단계를 계획합니다.' },
+    live: { breadcrumb: '내 수업 › 실시간 수업', title: '실시간 수업', description: '학생과 같은 활동 화면으로 수업을 진행합니다.' },
+    design: { breadcrumb: '내 수업 › 수업 설계', title: '수업 설계', description: '프로젝트 및 주제별 활동 계획을 작성하고 관리합니다.' },
     eval: { breadcrumb: '내 수업 › 수업 현황', title: '수업 현황', description: '학생들의 THINK 5단계 진행과 AI 대화 내역 및 근거를 평가합니다.' },
     students: { breadcrumb: '계정 관리 › 학생 관리', title: '학생 관리', description: '전체 학생 계정을 관리합니다.' },
     master: { breadcrumb: '계정 관리 › 교사 관리', title: '교사 관리', description: '교사 가입 요청을 승인하거나 거절합니다.' }
@@ -39,6 +40,7 @@ window.TeacherAdminModule = {
 
   switchTab: function (tabName) {
     if (tabName !== 'design' && !this.confirmDiscardLessonChanges()) return;
+    document.getElementById('teacherAppSection')?.classList.remove('teacher-live-focused');
     const nav = this.navigation[tabName];
     if (nav) {
       const bc = document.getElementById('teacherBreadcrumb');
@@ -48,6 +50,10 @@ window.TeacherAdminModule = {
       const descEl = document.getElementById('teacherPageDescription');
       if (descEl) descEl.innerText = nav.description;
     }
+    const livePanel = document.getElementById('panelTeacherLive');
+    if (livePanel) livePanel.style.display = tabName === 'live' ? 'block' : 'none';
+    document.getElementById('tabTeacherLive')?.classList.toggle('active', tabName === 'live');
+    if (tabName === 'live') window.TeacherLiveModule.showClasses();
     const tabEval = document.getElementById('tabTeacherEval');
     const tabStudents = document.getElementById('tabTeacherStudents');
     const tabMaster = document.getElementById('tabTeacherMaster');
@@ -113,7 +119,7 @@ window.TeacherAdminModule = {
           <div class="project-empty-state">
             <div class="project-empty-icon">📂</div>
             <div class="project-empty-title">등록된 프로젝트가 없습니다</div>
-            <div class="project-empty-desc">새 프로젝트를 생성하여 수업 및 차시 계획을 확장해 보세요.</div>
+            <div class="project-empty-desc">새 프로젝트를 생성하여 수업 및 주제 계획을 확장해 보세요.</div>
             <button class="btn btn-primary" onclick="TeacherAdminModule.createProjectPrompt()">＋ 첫 프로젝트 만들기</button>
           </div>
         `;
@@ -123,25 +129,25 @@ window.TeacherAdminModule = {
       el.innerHTML = `
         <div class="project-card-grid">
           ${projects.map(p => {
-            const lessons = p.project_versions?.[0]?.lesson_plans || [];
-            const lessonCount = lessons.length;
-            const lessonSummary = [...lessons]
-              .sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0))
-              .slice(0, 3)
-              .map((lesson, index) => `<span class="project-lesson-chip">${index + 1}차시 ${this.escapeHtml(lesson.title)}</span>`)
-              .join('');
-            const remainingLessons = Math.max(lessonCount - 3, 0);
+        const lessons = p.project_versions?.[0]?.lesson_plans || [];
+        const lessonCount = lessons.length;
+        const lessonSummary = [...lessons]
+          .sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0))
+          .slice(0, 3)
+          .map((lesson, index) => `<span class="project-lesson-chip">${this.escapeHtml(window.topicTitle(lesson.title, index + 1))}</span>`)
+          .join('');
+        const remainingLessons = Math.max(lessonCount - 3, 0);
 
-            return `
+        return `
               <div class="project-list-row">
-              <div class="project-card" data-project-id="${p.id}" style="cursor: pointer;" onclick="TeacherAdminModule.openProjectDetailSubView('${p.id}')" title="클릭하여 차시별 활동 및 질문 상세 설계">
+              <div class="project-card" data-project-id="${p.id}" style="cursor: pointer;" onclick="TeacherAdminModule.openProjectDetailSubView('${p.id}')" title="클릭하여 주제별 활동 및 질문 상세 설계">
                 <div class="project-card-header">
                     <h4 class="project-card-title">${this.escapeHtml(p.title)}</h4>
-                    ${lessonCount ? `<div class="project-lesson-summary">${lessonSummary}${remainingLessons ? `<span class="project-lesson-more">+ ${remainingLessons}개 차시</span>` : ''}</div>` : '<span class="project-lesson-empty">차시를 추가해 주세요.</span>'}
+                    ${lessonCount ? `<div class="project-lesson-summary">${lessonSummary}${remainingLessons ? `<span class="project-lesson-more">+ ${remainingLessons}개 주제</span>` : ''}</div>` : '<span class="project-lesson-empty">주제를 추가해 주세요.</span>'}
                 </div>
                 <div class="project-card-details">
                   <div class="project-card-meta">
-                    <span class="project-card-meta-item">📖 ${lessonCount}개 차시</span>
+                    <span class="project-card-meta-item">📖 ${lessonCount}개 주제</span>
                   </div>
                 </div>
                 <div class="project-link-control" onclick="event.stopPropagation()"><span class="project-link-status">${p.is_published ? '학급 연결 가능' : '학급 연결 안 함'}</span><button type="button" class="project-link-switch ${p.is_published ? 'is-enabled' : ''}" aria-pressed="${p.is_published ? 'true' : 'false'}" aria-label="${p.is_published ? '학급 연결 가능 끄기' : '학급 연결 가능 켜기'}" onclick="TeacherAdminModule.setProjectPublished('${p.id}', ${!p.is_published})"></button></div>
@@ -153,7 +159,7 @@ window.TeacherAdminModule = {
               </div>
               </div>
             `;
-          }).join('')}
+      }).join('')}
         </div>
       `;
     } catch (err) {
@@ -229,7 +235,7 @@ window.TeacherAdminModule = {
     if (listSubView) listSubView.style.display = 'none';
     if (detailSubView) detailSubView.style.display = 'block';
     if (responsesSubView) responsesSubView.style.display = 'none';
-    if (container) container.innerHTML = '<div style="padding: 32px; text-align: center; color: var(--text-subtle);">학급 상세 수업 운영 정보를 불러오는 중입니다...</div>';
+    if (container) container.innerHTML = '<div style="padding: 32px; text-align: center; color: var(--text-subtle);">학급 계획 상세 정보를 불러오는 중입니다...</div>';
 
 
     try {
@@ -248,7 +254,7 @@ window.TeacherAdminModule = {
         .eq('class_id', classId)
         .order('attached_at', { ascending: false });
 
-      const classProjects = (rawClassProjects || []).filter(cp => 
+      const classProjects = (rawClassProjects || []).filter(cp =>
         !detachedIds.includes(cp.id) &&
         !deletedProjects.includes(cp.source_project_id) &&
         !deletedProjects.includes(cp.projects?.id) &&
@@ -256,10 +262,8 @@ window.TeacherAdminModule = {
         !deletedProjects.includes(cp.projects?.title)
       );
 
-      const { data: stageAccesses } = await client
-        .from('class_lesson_stage_access')
-        .select('lesson_plan_id,stage_code,access_mode')
-        .eq('class_id', classId);
+      const { data: lessonPlans, error: planError } = await client.from('class_lesson_plans').select('*').eq('class_id', classId);
+      if (planError) throw planError;
 
       const activeProjects = (classProjects || []).flatMap(classProject => classProject.projects ? [{
         ...classProject.projects,
@@ -285,170 +289,21 @@ window.TeacherAdminModule = {
           <div class="project-empty-state" style="margin-top: 20px;">
             <div class="project-empty-icon">🗂️</div>
             <div class="project-empty-title">연결된 프로젝트가 없습니다</div>
-            <div class="project-empty-desc">학급 연결 가능 프로젝트를 이 학급에 연결하면 차시와 단계 공개 상태를 학급별로 운영할 수 있습니다.</div>
+            <div class="project-empty-desc">학급 연결 가능 프로젝트를 이 학급에 연결하면 사용할 주제와 THINK 단계를 학급별로 계획할 수 있습니다.</div>
             <button class="btn btn-primary" onclick="TeacherAdminModule.attachProjectToActiveClassPrompt()">프로젝트 연결하기</button>
           </div>
         `;
         return;
       }
 
-      const stageLabels = { T: '🟢 T (나의 처음 생각)', H: '🔵 H (친구와 생각 나누기)', I: '🟣 I (인공지능과 생각 넓히기)', N: '🟠 N (비판적으로 따져보기)', K: '🔴 K (나의 최종 생각)' };
-
-      container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 24px;">
-          ${activeProjects.map(project => {
-            const projectVersion = project.project_versions?.find(version => version.id === project.sourceVersionId);
-            const lessons = [...(projectVersion?.lesson_plans || [])].sort((a, b) => (a.lesson_order || 0) - (b.lesson_order || 0));
-
-            return `
-              <section class="class-project-card-group" style="background: var(--bg-card); border: 2px solid var(--border-light); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm);">
-                <div class="class-project-lesson-section-title" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-left: 5px solid var(--primary-500); background: var(--primary-50); border-radius: var(--radius-md); color: var(--primary-800); font-weight: 800; margin-bottom: 16px;">
-                  <div style="display: flex; align-items: center; gap: 8px; font-size: 1.05rem;">
-                    <span>🗂️ ${this.escapeHtml(project.title)}</span>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 12px;">
-                    <small style="font-size: 0.85rem; font-weight: 700; color: var(--text-subtle);">📖 ${lessons.length}개 차시</small>
-                    <button type="button" class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.82rem; border-color: var(--border-light); background: #ffffff; color: var(--danger-text); font-weight: 700;" onclick="TeacherAdminModule.detachProjectFromClass('${project.classProjectId}')" title="이 학급에서 프로젝트 연결 해제">
-                      🔗 연결 해제
-                    </button>
-                  </div>
-                </div>
-
-                ${lessons.length === 0 ? `
-                  <div style="padding: 20px; text-align: center; color: var(--text-subtle); font-size: 0.9rem;">등록된 차시 계획이 없습니다.</div>
-                ` : `
-                  <div style="display: flex; flex-direction: column; gap: 14px;">
-                    ${lessons.map((l, i) => {
-                      const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
-                      const earliestStage = (stages && stages.length > 0) ? stages[0] : 'T';
-                      const stageState = Object.fromEntries((stageAccesses || []).filter(item => item.lesson_plan_id === l.id).map(item => [item.stage_code, item.access_mode]));
-                      const isExpanded = !!(this.expandedClassLessonIds && this.expandedClassLessonIds.has(l.id));
-                      const isActiveLesson = cls?.active_lesson_plan_id === l.id;
-
-                      const miniBadgesHtml = stages.map(st => {
-                        const currentMode = stageState[st] || 'hidden';
-                        const modeKey = (currentMode === 'writable') ? 'writable' : 'read_only';
-                        const modeMeta = {
-                          writable: { label: `${st} ✍️`, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
-                          read_only: { label: `${st} 🔒`, bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' }
-                        }[modeKey];
-
-                        return `<span data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-summary style="padding: 2px 7px; border-radius: 12px; font-size: 0.76rem; font-weight: 700; background: ${modeMeta.bg}; color: ${modeMeta.color}; border: 1px solid ${modeMeta.border}; white-space: nowrap;">${modeMeta.label}</span>`;
-                      }).join('');
-
-                      return `
-                        <div class="class-lesson-card ${isActiveLesson ? 'is-active-card' : ''}">
-                          <!-- 1행: 차시 번호 + 차시 제목 (좌측) & 수업 활성화 / 학생 작성 글 보기 버튼 (우측 상단 고정) -->
-                          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                            <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
-                              <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sidebar); color: var(--text-main); font-weight: 800; font-size: 0.9rem; flex-shrink: 0;">
-                                ${l.lesson_order || i + 1}
-                              </span>
-                              <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">
-                                ${this.escapeHtml(l.title)}
-                              </div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                              <button type="button"
-                                      class="class-lesson-active-toggle ${isActiveLesson ? 'is-active' : ''}"
-                                      data-active-class-lesson-id="${l.id}"
-                                      aria-pressed="${isActiveLesson}"
-                                      onclick="TeacherAdminModule.setActiveClassLesson('${classId}','${l.id}')">
-                                <span class="class-lesson-active-toggle-track" aria-hidden="true"><span class="class-lesson-active-toggle-thumb"></span></span>
-                                <span>수업 활성화</span>
-                              </button>
-                              <button type="button"
-                                      class="stage-response-view-button"
-                                      onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${earliestStage}', 'writing')">
-                                학생 작성 글 보기
-                              </button>
-                            </div>
-                          </div>
-
-                          <!-- 2행: 핵심 질문 영역 (독립 배치로 길이에 영향 받지 않고 일관된 레이아웃 유지) -->
-                          <div style="font-size: 0.88rem; color: var(--text-subtle); margin-top: 10px; padding: 10px 14px; background: rgba(0, 0, 0, 0.02); border-radius: var(--radius-md); border-left: 3px solid var(--primary-400); line-height: 1.55;">
-                            💡 <strong style="color: var(--text-main);">핵심 질문:</strong> "${this.escapeHtml(l.core_question || '질문 미입력')}"
-                          </div>
-
-
-                          <!-- THINK Stage Toggle Header -->
-                          <div id="think-stage-toggle-${l.id}"
-                               class="think-stage-toggle-header"
-                               onclick="TeacherAdminModule.toggleClassLessonThinkStage('${l.id}')"
-                               style="margin-top: 14px; padding: 10px 14px; background: var(--bg-sidebar); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; transition: all 0.2s ease; user-select: none;">
-                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 0;">
-                              <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main); display: inline-flex; align-items: center; gap: 4px;">
-                                ⚡ THINK 5단계 공개 설정
-                              </span>
-                              <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                                ${miniBadgesHtml}
-                              </div>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: var(--primary-700); white-space: nowrap; flex-shrink: 0;">
-                              <span id="think-stage-label-${l.id}">${isExpanded ? '접기' : '상세 설정 펼치기'}</span>
-                              <span id="think-stage-chevron-${l.id}" style="font-size: 0.75rem; transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}; transition: transform 0.2s ease; display: inline-block;">▼</span>
-                            </div>
-                          </div>
-
-                          <!-- Structured THINK Stage Access Table (Collapsible Container) -->
-                          <div id="think-stage-container-${l.id}" style="display: ${isExpanded ? 'block' : 'none'}; margin-top: 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; background: #ffffff;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: left;">
-                              <thead>
-                                <tr style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-light); color: var(--text-subtle); font-weight: 700; font-size: 0.82rem;">
-                                  <th style="padding: 10px 14px; white-space: nowrap; width: 220px;">구분</th>
-                                  <th style="padding: 10px 14px;">핵심 목적</th>
-                                  <th style="padding: 10px 14px; text-align: right; width: 440px;">상태 설정</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                ${stages.map(st => {
-                                  const stageInfoMap = {
-                                    T: { label: 'T (나의 처음 생각)', color: '#ea580c', desc: '외부 의견을 접하기 전에 자신의 초기 생각과 근거 형성' },
-                                    H: { label: 'H (친구와 생각 나누기)', color: '#16a34a', desc: '동료와의 설명·질문·비교를 통해 자신의 생각을 구체화' },
-                                    I: { label: 'I (인공지능과 생각 넓히기)', color: '#0284c7', desc: 'AI를 활용하여 대안과 관점 확장하고 중간 해결안 구성' },
-                                    N: { label: 'N (비판적으로 따져보기)', color: '#dc2626', desc: 'AI 답변과 여러 해결 방안을 비판적으로 검토하고 재구성' },
-                                    K: { label: 'K (나의 최종 생각)', color: '#9333ea', desc: '전체 활동을 바탕으로 자신의 최종 생각을 재구성하고 표현' }
-                                  };
-                                  const info = stageInfoMap[st] || { label: `${st} (단계)`, color: 'var(--primary-600)', desc: '' };
-                                  const currentMode = stageState[st] || 'hidden';
-
-                                  return `
-                                    <tr style="border-bottom: 1px solid var(--border-light);">
-                                      <td style="padding: 11px 14px; font-weight: 700; color: ${info.color}; white-space: nowrap;">
-                                        ${info.label}
-                                      </td>
-                                      <td style="padding: 11px 14px; color: var(--text-subtle); font-size: 0.84rem;">
-                                        ${info.desc}
-                                      </td>
-                                      <td style="padding: 9px 14px; text-align: right;">
-                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
-                                        <div class="stage-access-pill-group">
-                                          <button type="button" class="pill-btn ${(currentMode === 'read_only' || currentMode === 'hidden') ? 'active-readonly' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="read_only" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','read_only')">
-                                            🔒 작성 잠금
-                                          </button>
-                                          <button type="button" class="pill-btn ${currentMode === 'writable' ? 'active-writable' : ''}" data-stage-access-lesson-id="${l.id}" data-stage-access-stage-code="${st}" data-stage-access-mode="writable" onclick="TeacherAdminModule.setClassStageAccess('${classId}','${l.id}','${st}','writable')">
-                                            ✍️ 작성 가능
-                                          </button>
-                                        </div>
-                                        <button type="button" class="stage-response-view-button" onclick="TeacherAdminModule.openTeacherStageResponses('${classId}', '${l.id}', '${st}')">학생 작성 글 보기</button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  `;
-                                }).join('')}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      `;
-                    }).join('')}
-                  </div>
-                `}
-              </section>
-            `;
+      container.innerHTML = `<p>수업에 사용할 주제와 단계를 체크하면 자동 저장됩니다. 활동은 실시간 수업에서 열 수 있습니다.</p>
+        ${activeProjects.map(project => `<section class="class-project-card-group class-project-lesson-section" style="margin:20px 0;padding:20px;border:1px solid var(--border-light);border-radius:16px">
+          <h3>${this.escapeHtml(project.title)}</h3>
+          ${sortedLessons.filter(l => l.projectId === project.classProjectId).map(l => {
+            const plan = (lessonPlans || []).find(p => p.lesson_plan_id === l.id);
+            return window.TeacherLiveModule.planCard(classId, l, plan, cls?.active_lesson_plan_id === l.id);
           }).join('')}
-        </div>
-      `;
+        </section>`).join('')}`;
     } catch (err) {
       console.error('Failed to render class detail subview:', err);
       if (container) container.innerHTML = `<div style="color: var(--danger-text); padding: 16px;">학급 상세 정보를 불러오는 중 오류가 발생했습니다: ${err.message}</div>`;
@@ -493,7 +348,7 @@ window.TeacherAdminModule = {
         .from('class_projects')
         .select('*,projects(*,project_versions(*,lesson_plans(*)))')
         .order('attached_at', { ascending: false });
-      const classProjects = (rawClassProjects || []).filter(cp => 
+      const classProjects = (rawClassProjects || []).filter(cp =>
         !detachedIds.includes(cp.id) &&
         !deletedProjects.includes(cp.source_project_id) &&
         !deletedProjects.includes(cp.projects?.id) &&
@@ -504,12 +359,12 @@ window.TeacherAdminModule = {
       el.innerHTML = `
         <div class="project-card-grid">
           ${classes.map(c => {
-            const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
-            const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
-            const className = `${c.grade_number}학년 ${c.class_number}반`;
-            const subjectName = this.escapeHtml(c.subject_name || '미지정');
+        const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
+        const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
+        const className = `${c.grade_number}학년 ${c.class_number}반`;
+        const subjectName = this.escapeHtml(c.subject_name || '미지정');
 
-            return `
+        return `
               <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer;">
                   <div class="project-card-header">
@@ -518,19 +373,19 @@ window.TeacherAdminModule = {
 
                   <div class="project-card-body" style="margin-top: 10px; padding-left: 24px; display: flex; flex-direction: column; gap: 8px;">
                     ${attachedTitles.length > 0
-                      ? attachedTitles.map(title => `
+            ? attachedTitles.map(title => `
                         <div style="font-size: 0.96rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
                           <span>🗂️</span> ${title}
                         </div>
                       `).join('')
-                      : '<div style="font-size: 0.88rem; font-weight: 600; color: var(--text-subtle);">연결된 프로젝트가 없습니다</div>'
-                    }
+            : '<div style="font-size: 0.88rem; font-weight: 600; color: var(--text-subtle);">연결된 프로젝트가 없습니다</div>'
+          }
                   </div>
                 </div>
 
                 <div>
                   <div class="project-card-actions" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-light); padding-top: 12px;">
-                    <span class="project-card-meta-item" onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer; color: var(--primary-700); font-weight: 700;">세부 운영 관리 →</span>
+                    <span class="project-card-meta-item" onclick="TeacherAdminModule.openClassDetailSubView('${c.id}')" style="cursor: pointer; color: var(--primary-700); font-weight: 700;">수업 계획 설정 →</span>
                     <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem; color: var(--danger-text);" onclick="event.stopPropagation(); TeacherAdminModule.deleteClassPrompt('${c.id}', '${className}')" title="학급 및 제출자료 정제 삭제">
                       🗑️ 학급 삭제
                     </button>
@@ -538,7 +393,7 @@ window.TeacherAdminModule = {
                 </div>
               </div>
             `;
-          }).join('')}
+      }).join('')}
         </div>
       `;
     } catch (err) {
@@ -634,7 +489,7 @@ window.TeacherAdminModule = {
     if (window.SupabaseService && window.SupabaseService.detachProjectFromClass) {
       try {
         await window.SupabaseService.detachProjectFromClass(classProjectId);
-      } catch (err) {}
+      } catch (err) { }
     }
 
     if (this.currentActiveClassId) {
@@ -728,7 +583,7 @@ window.TeacherAdminModule = {
       const detachedIds = JSON.parse(localStorage.getItem('think_detached_class_projects') || '[]');
       const deletedProjects = JSON.parse(localStorage.getItem('think_deleted_projects') || '[]');
       const { data: rawClassProjects } = await client.from('class_projects').select('*,projects(*)');
-      const classProjects = (rawClassProjects || []).filter(cp => 
+      const classProjects = (rawClassProjects || []).filter(cp =>
         !detachedIds.includes(cp.id) &&
         !deletedProjects.includes(cp.source_project_id) &&
         !deletedProjects.includes(cp.projects?.id) &&
@@ -753,13 +608,13 @@ window.TeacherAdminModule = {
       el.innerHTML = `
         <div class="project-card-grid">
           ${classes.map(c => {
-            const prefix = `${c.grade_number}${c.class_number < 10 ? '0' + c.class_number : c.class_number}`;
-            const studentCount = (students || []).filter(st => (st.student_number || '').startsWith(prefix)).length;
-            const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
-            const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
-            const subjectName = this.escapeHtml(c.subject_name || '미지정');
+        const prefix = `${c.grade_number}${c.class_number < 10 ? '0' + c.class_number : c.class_number}`;
+        const studentCount = (students || []).filter(st => (st.student_number || '').startsWith(prefix)).length;
+        const classCPs = (classProjects || []).filter(cp => cp.class_id === c.id);
+        const attachedTitles = classCPs.map(cp => this.escapeHtml(cp.title || cp.projects?.title)).filter(Boolean);
+        const subjectName = this.escapeHtml(c.subject_name || '미지정');
 
-            return `
+        return `
               <div class="project-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                   <div class="project-card-header">
@@ -782,7 +637,7 @@ window.TeacherAdminModule = {
                 <div>
                   <div class="project-card-actions" style="margin-top: 18px; display: flex; gap: 8px;">
                     <button class="btn btn-primary" style="flex: 1; padding: 7px 12px; font-size: 0.85rem;" onclick="TeacherAdminModule.switchTab('operation'); TeacherAdminModule.openClassDetailSubView('${c.id}');">
-                      수업 운영으로 이동 →
+                      학급 계획으로 이동 →
                     </button>
                     <button class="btn btn-secondary" style="padding: 7px 10px; font-size: 0.85rem; color: var(--danger-text);" onclick="TeacherAdminModule.deleteClass('${c.id}', '${c.grade_number}학년 ${c.class_number}반')" title="학급 삭제">
                       🗑️
@@ -791,7 +646,7 @@ window.TeacherAdminModule = {
                 </div>
               </div>
             `;
-          }).join('')}
+      }).join('')}
         </div>
       `;
     } catch (err) {
@@ -851,7 +706,7 @@ window.TeacherAdminModule = {
         return {
           value: project.id,
           title: project.title,
-          badge: `📖 ${lessons.length}개 차시`,
+          badge: `📖 ${lessons.length}개 주제`,
           lessons: sortedLessons.slice(0, 3).map(l => l.title),
           totalLessons: lessons.length
         };
@@ -880,7 +735,7 @@ window.TeacherAdminModule = {
         if (window.SupabaseService && window.SupabaseService.detachProjectFromClass) {
           try {
             await window.SupabaseService.detachProjectFromClass(cp.id);
-          } catch (e) {}
+          } catch (e) { }
         }
       }
     }
@@ -897,7 +752,7 @@ window.TeacherAdminModule = {
     const container = document.getElementById('evalContent');
     const view = document.createElement('div');
     container.replaceChildren(view);
-    view.textContent = '담당 학급의 차시를 불러오는 중입니다…';
+    view.textContent = '담당 학급의 주제를 불러오는 중입니다…';
     try {
       const { data, error } = await window.SupabaseService.getClient().rpc('teacher_class_progress');
       if (error) throw error;
@@ -910,7 +765,7 @@ window.TeacherAdminModule = {
         if (!classes.has(row.class_id)) classes.set(row.class_id, []);
         classes.get(row.class_id).push(row);
       }
-      view.innerHTML = '<p>각 반에서 열어 둔 차시와 학생 제출 진도를 비교합니다. 단계별 숫자는 제출한 학생 수입니다.</p><button type="button" class="btn btn-secondary">현황 새로고침</button><div style="overflow-x:auto;margin-top:16px"><table style="width:100%;text-align:left;border-collapse:collapse"><thead><tr><th>학급</th><th>진행 중인 차시</th><th>작성 가능 단계</th><th>제출이 있는 차시 · 단계</th><th>차시별 제출 인원</th></tr></thead><tbody></tbody></table></div>';
+      view.innerHTML = '<p>각 반에서 열어 둔 주제와 학생 제출 진도를 비교합니다. 단계별 숫자는 제출한 학생 수입니다.</p><button type="button" class="btn btn-secondary">현황 새로고침</button><div style="overflow-x:auto;margin-top:16px"><table style="width:100%;text-align:left;border-collapse:collapse"><thead><tr><th>학급</th><th>진행 중인 주제</th><th>작성 가능 단계</th><th>제출이 있는 주제 · 단계</th><th>주제별 제출 인원</th></tr></thead><tbody></tbody></table></div>';
       view.querySelector('button').onclick = () => this.renderEvalTable();
       const body = view.querySelector('tbody');
       for (const rows of classes.values()) {
@@ -918,27 +773,27 @@ window.TeacherAdminModule = {
         const lessons = rows.filter(row => row.lesson_id);
         const active = lessons.find(row => row.active);
         const tr = body.insertRow();
-        const label = row => row.lesson_order + '차시 · ' + row.lesson_title;
+        const label = row => window.topicTitle(row.lesson_title, row.lesson_order);
         tr.insertCell().textContent = first.subject + ' · ' + first.grade + '학년 ' + first.room + '반 (' + first.roster + '명)';
-        tr.insertCell().textContent = active ? label(active) : '열린 차시 없음';
+        tr.insertCell().textContent = active ? label(active) : '열린 주제 없음';
         tr.insertCell().textContent = active?.writable?.join(' · ') || '없음';
         const reached = tr.insertCell();
         const byProject = new Map();
         for (const lesson of lessons) {
           const stage = (lesson.stages || []).filter(code => lesson.submissions[code] > 0).at(-1);
-          if (stage) byProject.set(lesson.project_title, {lesson,stage});
+          if (stage) byProject.set(lesson.project_title, { lesson, stage });
         }
-        for (const [project, {lesson,stage}] of byProject) {
+        for (const [project, { lesson, stage }] of byProject) {
           const line = document.createElement('div');
-          line.textContent = project + ' · ' + lesson.lesson_order + '차시 ' + stage + ' (' + lesson.submissions[stage] + '명 제출)';
+          line.textContent = project + ' · ' + lesson.lesson_order + '주제 ' + stage + ' (' + lesson.submissions[stage] + '명 제출)';
           reached.append(line);
         }
         if (!byProject.size) reached.textContent = '아직 제출 없음';
         const counts = tr.insertCell();
-        if (!lessons.length) { counts.textContent = '연결된 차시 없음'; continue; }
+        if (!lessons.length) { counts.textContent = '연결된 주제 없음'; continue; }
         const select = document.createElement('select');
         select.className = 'form-select';
-        select.setAttribute('aria-label', first.room + '반 제출 인원을 볼 차시');
+        select.setAttribute('aria-label', first.room + '반 제출 인원을 볼 주제');
         for (const lesson of lessons) select.add(new Option(lesson.project_title + ' · ' + label(lesson)));
         const latest = [...byProject.values()].at(-1)?.lesson;
         select.selectedIndex = lessons.indexOf(active || latest || lessons[0]);
@@ -955,13 +810,13 @@ window.TeacherAdminModule = {
             button.onclick = async () => {
               this.switchTab('operation');
               await this.openClassDetailSubView(first.class_id);
-              await this.openTeacherStageResponses(first.class_id,lesson.lesson_id,stage);
+              await this.openTeacherStageResponses(first.class_id, lesson.lesson_id, stage);
             };
             links.append(button);
           }
         };
         select.onchange = showCounts;
-        counts.append(select,links);
+        counts.append(select, links);
         showCounts();
       }
     } catch (error) {
@@ -981,7 +836,7 @@ window.TeacherAdminModule = {
     const newLesson = {
       id: `custom-lesson-${Date.now()}`,
       number: lessonNum,
-      title: `${lessonNum}차시 · ${lessonTitle}`,
+      title: `${lessonNum}주제 · ${lessonTitle}`,
       question: lessonQuestion,
       mode: aiMode,
       description: `T: 개인 작성 / H: 익명 비교 / I: Gemini 대화 (${maxQ}회 제한)`
@@ -999,7 +854,7 @@ window.TeacherAdminModule = {
 
     // Add to global config
     window.APP_CONFIG.LESSONS.push(newLesson);
-    
+
     // Update dropdown options
     const select = document.getElementById('lessonSelect');
     if (select) {
@@ -1011,8 +866,8 @@ window.TeacherAdminModule = {
 
     // Close Modal and alert
     window.App.closeActivityModal();
-    alert(`🎉 새로운 차시가 Supabase DB에 등록되었습니다!\n- 프로젝트: ${projTitle}\n- 차시: ${newLesson.title}\n수업 진입 PIN 번호: 782901`);
-    
+    alert(`🎉 새로운 주제가 Supabase DB에 등록되었습니다!\n- 프로젝트: ${projTitle}\n- 주제: ${newLesson.title}\n수업 진입 PIN 번호: 782901`);
+
     this.renderDashboard();
   }
 };
@@ -1073,7 +928,7 @@ window.TeacherAdminModule.bindProjectTitleEditor = function (project) {
 
 window.TeacherAdminModule.openProjectDetailSubView = async function (projectId) {
   let project = (this.cachedProjects || []).find(p => p.id === projectId);
-  
+
   if (!project) {
     const res = await window.SupabaseService.listProjects();
     this.cachedProjects = res.projects || [];
@@ -1111,9 +966,9 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
     container.innerHTML = `
       <div class="project-empty-state" style="margin-top: 0; padding: 36px 20px;">
         <div class="project-empty-icon">📝</div>
-        <div class="project-empty-title">등록된 차시가 없습니다</div>
-        <div class="project-empty-desc">상단의 '＋ 새 차시 추가' 버튼을 눌러 첫 차시 활동과 핵심 발문 질문을 등록하세요.</div>
-        <button class="btn btn-primary" onclick="TeacherAdminModule.showAddLessonForm()">＋ 첫 차시 추가하기</button>
+        <div class="project-empty-title">등록된 주제가 없습니다</div>
+        <div class="project-empty-desc">상단의 '＋ 새 주제 추가' 버튼을 눌러 첫 주제 활동과 핵심 발문 질문을 등록하세요.</div>
+        <button class="btn btn-primary" onclick="TeacherAdminModule.showAddLessonForm()">＋ 첫 주제 추가하기</button>
       </div>
     `;
     return;
@@ -1123,19 +978,19 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
 
   container.innerHTML = sorted.map((l, i) => {
     const orderNum = l.lesson_order || (i + 1);
-    const stages = l.think_stages || l.thinkStages || ['T','H','I','N','K'];
+    const stages = l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'];
 
     return `
       <div class="lesson-accordion-item expanded" id="lesson-item-${l.id}" data-id="${l.id}" data-order="${orderNum}">
         <div class="lesson-accordion-header" onclick="TeacherAdminModule.toggleAccordion('${l.id}')">
           <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
             <span class="drag-handle" draggable="true" title="드래그하여 위아래 순서 변경" onclick="event.stopPropagation();">⋮⋮</span>
-            <span class="role-tag" style="background: var(--primary-600); color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px;">${orderNum}차시</span>
-            <input type="text" id="edit-title-${l.id}" form="lesson-form-${l.id}" class="lesson-header-title" aria-label="${orderNum}차시 제목" title="차시 제목 수정" value="${this.escapeHtml(l.title)}" required onclick="event.stopPropagation()" onfocus="this.closest('.lesson-accordion-item').classList.add('expanded')">
+            <span class="role-tag" style="background: var(--primary-600); color: #ffffff; font-weight: 800; font-size: 0.8rem; padding: 3px 10px; border-radius: 6px;">${orderNum}주제</span>
+            <input type="text" id="edit-title-${l.id}" form="lesson-form-${l.id}" class="lesson-header-title" aria-label="${orderNum}주제 제목" title="주제 제목 수정" value="${this.escapeHtml(window.topicTitle(l.title))}" required onclick="event.stopPropagation()" onfocus="this.closest('.lesson-accordion-item').classList.add('expanded')">
           </div>
           <div class="lesson-accordion-actions" onclick="event.stopPropagation();">
-            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: var(--danger-text);" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="차시 삭제">
-              🗑️ 차시 삭제
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; color: var(--danger-text);" onclick="TeacherAdminModule.handleDeleteLesson('${l.id}')" title="주제 삭제">
+              🗑️ 주제 삭제
             </button>
             <span class="accordion-chevron" style="font-size: 0.75rem; color: var(--text-subtle); padding: 4px;">▼</span>
           </div>
@@ -1170,23 +1025,24 @@ window.TeacherAdminModule.renderLessonAccordionList = function (lessons) {
             </div>
 
             ${this.renderAiActivitySettings("edit-" + l.id, l.ai_reference)}
+            ${this.renderReviewResource("edit-"+l.id,l.review_resource)}
             <div class="lesson-think-row">
               <div class="lesson-think-options">
-                ${['T','H','I','N','K'].map(st => {
-                  const isChecked = stages.includes(st);
-                  const labels = {
-                    T: 'T - 나의 처음 생각',
-                    H: 'H - 친구와 생각 나누기',
-                    I: 'I - 인공지능과 생각 넓히기',
-                    N: 'N - 비판적으로 따져보기',
-                    K: 'K - 나의 최종 생각'
-                  };
-                  return `
+                ${['T', 'H', 'I', 'N', 'K'].map(st => {
+      const isChecked = stages.includes(st);
+      const labels = {
+        T: 'T - 나의 처음 생각',
+        H: 'H - 친구와 생각 나누기',
+        I: 'I - 인공지능과 생각 넓히기',
+        N: 'N - 비판적으로 따져보기',
+        K: 'K - 나의 최종 생각'
+      };
+      return `
                     <label title="${labels[st]}">
                       <input type="checkbox" class="chk-edit-think-stage-${l.id}" value="${st}" ${isChecked ? 'checked' : ''}> ${labels[st]}
                     </label>
                   `;
-                }).join('')}
+    }).join('')}
               </div>
               <button type="submit" class="btn btn-primary lesson-save-button" disabled>💾 저장</button>
             </div>
@@ -1208,7 +1064,7 @@ window.TeacherAdminModule.renderThinkStageAccessControls = function (container, 
     const access = { T: 'hidden', H: 'hidden', I: 'hidden', N: 'hidden', K: 'hidden', ...(lesson.think_stage_access || {}) };
     const panel = document.createElement('div');
     panel.className = 'think-stage-access-panel';
-    panel.innerHTML = ['T','H','I','N','K'].map(stage => `<span class="think-stage-access"><b>${stage}</b>${[['hidden','비공개'],['read_only','읽기 전용'],['writable','작성 가능']].map(([mode,label]) => `<button type="button" class="${access[stage] === mode ? 'active' : ''}" data-stage="${stage}" data-mode="${mode}">${label}</button>`).join('')}</span>`).join('');
+    panel.innerHTML = ['T', 'H', 'I', 'N', 'K'].map(stage => `<span class="think-stage-access"><b>${stage}</b>${[['hidden', '비공개'], ['read_only', '읽기 전용'], ['writable', '작성 가능']].map(([mode, label]) => `<button type="button" class="${access[stage] === mode ? 'active' : ''}" data-stage="${stage}" data-mode="${mode}">${label}</button>`).join('')}</span>`).join('');
     panel.addEventListener('click', async event => {
       const button = event.target.closest('button[data-stage]');
       if (!button) return;
@@ -1262,7 +1118,7 @@ window.TeacherAdminModule.openTeacherStageResponses = function (classId, lessonI
 
   if (breadcrumb) {
     const stageNameMap = { T: 'T (나의 처음 생각)', H: 'H (친구와 생각 나누기)', I: 'I (인공지능과 생각 넓히기)', N: 'N (비판적으로 따져보기)', K: 'K (나의 최종 생각)' };
-    breadcrumb.innerText = `내 수업 › 수업 운영 › 학생 작성 글 보기 (${stageNameMap[stageCode] || stageCode})`;
+    breadcrumb.innerText = `내 수업 › 학급 계획 › 학생 작성 글 보기 (${stageNameMap[stageCode] || stageCode})`;
   }
 
   if (container && window.TeacherStageResponsesModule?.renderInPageContainer) {
@@ -1397,14 +1253,14 @@ window.TeacherAdminModule.showAddLessonForm = function () {
     box.className = 'new-lesson-compact-card';
     box.innerHTML = `
       <div class="new-lesson-compact-header">
-        <span class="role-tag">${nextOrder}차시</span>
-        <strong>새 차시</strong>
+        <span class="role-tag">${nextOrder}주제</span>
+        <strong>새 주제</strong>
       </div>
       <form class="lesson-compact-form" data-draft-key="new-lesson" onsubmit="TeacherAdminModule.handleAddLessonToProject(event)">
         <input type="hidden" id="detailVersionId" value="">
         <div class="lesson-meta-row">
           <label class="lesson-inline-field lesson-title-field">
-            <span>차시 제목</span>
+            <span>주제 제목</span>
             <input type="text" id="detailLessonTitle" class="form-input" placeholder="예: 유전과 형질" required>
           </label>
         </div>
@@ -1431,6 +1287,7 @@ window.TeacherAdminModule.showAddLessonForm = function () {
           </label>
         </div>
         ${this.renderAiActivitySettings("new-lesson")}
+        ${this.renderReviewResource("new-lesson")}
         <div class="lesson-think-row">
           <div class="lesson-think-options">
             <label><input type="checkbox" class="chk-add-think-stage" value="T" checked> T - 나의 처음 생각</label>
@@ -1481,6 +1338,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
       title: l.title,
       coreQuestion: l.core_question,
       backgroundDescription: l.background_description || '',
+      reviewResource: l.review_resource || '',
       aiReference: l.ai_reference || '',
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
       aiQuestionLimit: l.ai_question_limit,
@@ -1490,6 +1348,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
       title,
       coreQuestion,
       backgroundDescription,
+      reviewResource: document.getElementById('new-lesson-review-resource').value.trim(),
       aiReference: document.getElementById('new-lesson-ai-reference').value.trim(),
       thinkStages,
       aiQuestionLimit: aiLimit,
@@ -1509,7 +1368,7 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
     });
 
     if (res && res.error) {
-      alert(`차시 저장 실패: ${res.error}`);
+      alert(`주제 저장 실패: ${res.error}`);
     } else {
       const listRes = await window.SupabaseService.listProjects();
       this.cachedProjects = listRes.projects || [];
@@ -1525,9 +1384,9 @@ window.TeacherAdminModule.handleAddLessonToProject = async function (e) {
     }
   } catch (err) {
     console.error('Error adding lesson:', err);
-    alert(`차시 저장 중 오류가 발생했습니다: ${err.message}`);
+    alert(`주제 저장 중 오류가 발생했습니다: ${err.message}`);
   } finally {
-    if (btn) { btn.disabled = false; btn.innerText = '＋ 차시 저장 및 추가'; }
+    if (btn) { btn.disabled = false; btn.innerText = '＋ 주제 저장 및 추가'; }
   }
 };
 
@@ -1535,6 +1394,7 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   e.preventDefault();
   const title = document.getElementById(`edit-title-${lessonId}`).value.trim();
   const coreQuestion = document.getElementById(`edit-question-${lessonId}`).value.trim();
+  const reviewResource = document.getElementById(`edit-${lessonId}-review-resource`).value.trim();
   const aiReference = document.getElementById(`edit-${lessonId}-ai-reference`).value.trim();
   const backgroundDescription = document.getElementById(`edit-background-${lessonId}`).value.trim();
   const aiResponseMode = document.getElementById(`edit-ai-mode-${lessonId}`).value;
@@ -1550,7 +1410,7 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   if (!lesson) return;
   const form = e.currentTarget;
   const button = form.querySelector('.lesson-save-button');
-  if (!title || !coreQuestion) { alert('차시 제목과 핵심 질문을 입력해 주세요.'); return; }
+  if (!title || !coreQuestion) { alert('주제 제목과 핵심 질문을 입력해 주세요.'); return; }
   if (form.dataset.saving === 'true') return;
   const draft = this.lessonDrafts.get(form.dataset.draftKey);
   const submittedValue = this.getLessonDraftValue(form);
@@ -1559,16 +1419,19 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
   try {
     const { error } = await window.SupabaseService.getClient().rpc('edit_teaching_lesson', {
       p_id: lessonId, p_title: title, p_question: coreQuestion, p_mode: aiResponseMode,
-      p_limit: aiLimit, p_stages: thinkStages, p_background: backgroundDescription, p_ai_reference: aiReference
+      p_limit: aiLimit, p_stages: thinkStages, p_background: backgroundDescription, p_ai_reference: aiReference,
+      ...(reviewResource !== (lesson.review_resource || '') ? { p_review_resource: reviewResource } : {})
     });
     if (error) throw error;
-    Object.assign(lesson, { title, core_question: coreQuestion, background_description: backgroundDescription, ai_reference: aiReference, ai_response_mode: aiResponseMode,
-      ai_question_limit: aiLimit, think_stages: thinkStages });
+    Object.assign(lesson, {
+      title, core_question: coreQuestion, background_description: backgroundDescription, ai_reference: aiReference, review_resource: reviewResource, ai_response_mode: aiResponseMode,
+      ai_question_limit: aiLimit, think_stages: thinkStages
+    });
 
     draft.initialValue = submittedValue;
-    await window.ModalService.alert({ title: '저장 완료', message: '차시 변경 사항을 저장했습니다.', tone: 'success' });
+    await window.ModalService.alert({ title: '저장 완료', message: '주제 변경 사항을 저장했습니다.', tone: 'success' });
   } catch (error) {
-    await window.ModalService.alert({ title: '차시 저장 실패', message: error.message, tone: 'danger' });
+    await window.ModalService.alert({ title: '주제 저장 실패', message: error.message, tone: 'danger' });
   } finally {
     delete form.dataset.saving;
     draft.dirty = this.getLessonDraftValue(form) !== draft.initialValue;
@@ -1578,7 +1441,7 @@ window.TeacherAdminModule.handleUpdateLesson = async function (e, lessonId) {
 };
 
 window.TeacherAdminModule.handleDeleteLesson = async function (lessonId) {
-  const confirmDelete = confirm('이 차시를 삭제하시겠습니까?');
+  const confirmDelete = confirm('이 주제를 삭제하시겠습니까?');
   if (!confirmDelete) return;
 
   const project = (this.cachedProjects || []).find(p => p.id === this.activeProjectId);
@@ -1591,6 +1454,7 @@ window.TeacherAdminModule.handleDeleteLesson = async function (lessonId) {
       title: l.title,
       coreQuestion: l.core_question,
       backgroundDescription: l.background_description || '',
+      reviewResource: l.review_resource || '',
       aiReference: l.ai_reference || '',
       thinkStages: l.think_stages || l.thinkStages || ['T', 'H', 'I', 'N', 'K'],
       aiQuestionLimit: l.ai_question_limit,
@@ -1617,7 +1481,7 @@ window.TeacherAdminModule.handleDeleteLesson = async function (lessonId) {
     }
   } catch (err) {
     console.error('Error deleting lesson:', err);
-    alert(`차시 삭제 중 오류가 발생했습니다: ${err.message}`);
+    alert(`주제 삭제 중 오류가 발생했습니다: ${err.message}`);
   }
 };
 
@@ -1650,6 +1514,7 @@ window.TeacherAdminModule.attachDragAndDropHandlers = function (container) {
           title: found ? found.title : '',
           coreQuestion: found ? found.core_question : '',
           backgroundDescription: found ? (found.background_description || '') : '',
+          reviewResource: found?.review_resource || '',
           aiReference: found?.ai_reference || '',
           thinkStages: found ? (found.think_stages || found.thinkStages || ['T', 'H', 'I', 'N', 'K']) : ['T', 'H', 'I', 'N', 'K'],
           aiQuestionLimit: found ? found.ai_question_limit : 20,
@@ -1787,21 +1652,345 @@ window.TeacherAdminModule.deleteProject = async function (projectId, projectTitl
   }
 };
 
-window.TeacherAdminModule.runSeedGeneticsDummyData = async function () {
+window.TeacherAdminModule.removeDuplicateDummyClass = async function () {
   try {
-    const res = await window.SupabaseService.seedGeneticsDummyData();
-    if (res && res.error) {
-      alert(`더미 데이터 생성 실패: ${res.error}`);
+    const client = window.SupabaseService.getClient();
+    const { data: classes } = await client.from('classes').select('id,grade_number,class_number,subject_name,active_lesson_plan_id').eq('grade_number', 3).eq('class_number', 1);
+    if (!classes || classes.length <= 1) {
+      alert("중복된 학급이 없습니다. 현재 3학년 1반 학급이 1개만 존재합니다.");
       return;
     }
-    alert("3학년 1반 (30명) '유전자 조작 기술' 1차시 더미 데이터가 성공적으로 서버 DB에 생성 및 입력되었습니다!");
-    await this.renderOperationOverview();
-    if (res.classId) {
-      await this.openClassDetailSubView(res.classId);
+    let targetId = "899a0eaa-09f8-4a74-93b9-93bb52f2fc16";
+    const foundDummy = classes.find(c => c.id === targetId);
+    if (!foundDummy) {
+      for (const c of classes) {
+        if (c.active_lesson_plan_id === 'cdc3c645-30f8-4320-99e6-0f269936afe8') {
+          targetId = c.id;
+          break;
+        }
+      }
     }
-  } catch (error) {
-    alert(`더미 데이터 생성 실패: ${error.message}`);
+    const confirmed = confirm("오른쪽에 새로 생겼던 '사람에게 나타나는 특징' 중복 학급을 삭제하고 정리하시겠습니까?\n(왼쪽 '유전자 검사' 수업은 안전하게 유지됩니다)");
+    if (!confirmed) return;
+
+    await window.SupabaseService.deleteClass(targetId);
+    alert("✨ 중복 학급이 깔끔하게 삭제되었습니다!\n학생 화면을 새로고침하면 왼쪽 수업 카드만 정상적으로 표시됩니다.");
+    await this.renderOperationOverview();
+    await this.renderClassOperations();
+  } catch (err) {
+    alert(`중복 학급 삭제 실패: ${err.message}`);
   }
+};
+
+window.TeacherAdminModule.seedGeneticsLesson1TAnswers = async function () {
+  try {
+    const client = window.SupabaseService.getClient();
+    const { data: lessons } = await client.from('lesson_plans').select('id,title,core_question').or('id.eq.f59c1755-7c64-4820-bdc1-81cfd02f3da9,core_question.ilike.%유전자 검사%').limit(1);
+    const targetLesson = lessons?.[0];
+    if (!targetLesson) {
+      alert("유전자 검사 맞춤 설계 1주제 계획을 찾을 수 없습니다.");
+      return;
+    }
+    const lessonId = targetLesson.id;
+    const tLabels = ["① 나의 생각", "② 생각한 이유", "③ 이유 설명하기", "④ 더 궁금한 점", "⑤ 알아볼 방법"];
+    const dummy30 = [
+      {
+        num: "01", name: "강민준", t: [
+          "어릴 때 유전자 검사로 적성을 파악해 집중적으로 교육하는 것에 찬성한다.",
+          "운동선수나 음악가처럼 특정 신체적·선천적 재능이 중요한 분야는 어릴 때 일찍 발견해 훈련할수록 성공 확률이 높아지기 때문이다.",
+          "모든 것을 다 잘하려고 애쓰기보다 자신이 타고난 강점에 집중하면 시간과 노력을 아끼고 전문성을 극대화할 수 있다.",
+          "유전자 검사에서 음악적 재능이 낮게 나왔지만 열정이 넘치는 아이의 경우, 교육 기회를 아예 박탈당하지 않을까?",
+          "유전자 결과와 실제 훈련 성과를 장기간 추적 조사한 스포츠 과학 연구 사례를 찾아본다."
+        ]
+      },
+      {
+        num: "02", name: "김서연", t: [
+          "초등학생 때 유전자 검사 결과만으로 학습 분야를 미리 정하는 것에 반대한다.",
+          "유전자는 발현될 가능성일 뿐이고 사람의 뇌는 후천적인 경험과 끈기에 따라 끊임없이 변화하는데, 어릴 때 한계를 그어버릴 수 있기 때문이다.",
+          "초등학생 시기는 다양한 경험을 통해 자신이 진짜 좋아하는 것을 발견할 자유가 보장되어야 한다.",
+          "어릴 때 부모가 유전자 결과만 믿고 아이의 다른 관심사를 차단했을 때 아이의 정서에 미치는 부작용은 무엇일까?",
+          "뇌의 가소성과 후천적 학습 효과를 다룬 교육심리학 서적과 뇌과학 논문을 읽어본다."
+        ]
+      },
+      {
+        num: "03", name: "박도윤", t: [
+          "절대적인 기준으로 삼는 것은 반대하지만, 아이가 무엇을 배울지 고민할 때 보조적인 참고 자료로 활용하는 것에는 찬성한다.",
+          "무작정 여러 학원을 돌며 스트레스를 받는 것보다, 아이의 신체적·생리적 특성을 이해하고 시작하면 도움이 될 수 있기 때문이다.",
+          "단, 결정은 아이의 흥미가 우선이어야 하며 언제든지 다른 분야로 바꿀 수 있는 자유가 전제되어야 한다.",
+          "학부모들이 유전자 검사 결과를 맹신하여 아이에게 강요하지 않도록 제도적으로 보호할 장치가 있을까?",
+          "해외에서 유전자 검사를 진로 교육에 활용할 때 적용하는 윤리 가이드라인을 검색해 본다."
+        ]
+      },
+      {
+        num: "04", name: "이지아", t: [
+          "아무리 과학적 기술이라도 아이가 꿈꿀 권리와 스스로 선택할 행복을 대신 결정할 수는 없으므로 반대한다.",
+          "초등학교 때는 그림도 그리고 악기도 다루고 운동도 해보며 스스로 부딪혀보는 과정 자체가 성장의 중요한 즐거움이기 때문이다.",
+          "성공과 효율성만 따져 어릴 때부터 진로를 고정하면 아이는 부모와 유전자의 아바타처럼 살게 되어 불행해진다.",
+          "유전자 결과대로 자란 아이들이 성인이 되었을 때 자신의 삶에 대해 만족하는지 연구된 통계가 있을까?",
+          "조기 영재 교육을 받았던 사람들의 성인기 삶의 만족도와 자아실현에 대한 다큐멘터리를 찾아본다."
+        ]
+      },
+      {
+        num: "05", name: "정시우", t: [
+          "자신에게 맞지 않는 분야에서 겪는 불필요한 좌절을 줄일 수 있으므로 찬성한다.",
+          "수학적 사고력이 부족한 아이에게 무리하게 고난도 수학 과외를 시키는 것보다, 뛰어난 언어 유전자를 살리는 것이 훨씬 효율적이기 때문이다.",
+          "자신이 잘하는 영역에서 성취감을 빠르게 맛보면 공부에 대한 자신감과 자존감도 함께 높아질 수 있다.",
+          "초등학교 시기의 유전자 검사 결과가 사춘기를 지나 성인이 될 때까지 얼마나 높은 정확도를 유지할까?",
+          "유전자 분석 기관들의 신뢰도 평가 보고서와 유전율(Heritability) 통계 자료를 분석해 본다."
+        ]
+      },
+      {
+        num: "06", name: "최하은", t: [
+          "비싼 유전자 검사와 맞춤형 사교육을 받을 수 있는 부유층만 혜택을 보아 교육 불평등이 심해질 것이므로 반대한다.",
+          "태어날 때부터 '우수한 유전자'와 '평범한 유전자'로 아이들을 조기에 서열화하고 낙인찍는 부작용이 크기 때문이다.",
+          "학교 현장에서 유전자 검사 결과에 따라 반을 나누거나 아이들을 차별하는 잔인한 문화가 생겨날 수 있다.",
+          "유전자 정보가 학교 생활기록부나 사교육 시장에 유출되었을 때 발생할 개인정보 침해 문제는 어떻게 막을까?",
+          "유전자 차별 금지법(GINA 등)이 교육 분야에 어떻게 적용되고 있는지 법률 사례를 조사해 본다."
+        ]
+      },
+      {
+        num: "07", name: "조하준", t: [
+          "모든 학생에게 똑같은 주입식 교육을 강요하는 현행 시스템의 한계를 극복하기 위해 유전자 맞춤 교육이 필요하다.",
+          "아이마다 스트레스 저항력, 기억력, 체력 특성이 다 다른데, 이를 과학적으로 파악해 알맞은 학습 속도를 맞춰줄 수 있기 때문이다.",
+          "진로를 좁히는 용도가 아니라, 아이의 체질에 맞는 학습 환경(공부 시간, 휴식 주기)을 설계해 주는 용도라면 큰 도움이 된다.",
+          "공부 분야뿐만 아니라 수면 패턴이나 집중력 유지 시간 같은 신체적 리듬도 유전자로 정확히 알 수 있을까?",
+          "행동유전학에서 밝혀낸 유전자와 수면 패턴, 집중력 사이의 상관관계 논문을 읽어본다."
+        ]
+      },
+      {
+        num: "08", name: "윤서윤", t: [
+          "유전자가 사람의 미래를 결정한다는 잘못된 믿음(유전자 결정론)에 빠질 수 있으므로 반대한다.",
+          "아인슈타인이나 에디슨 같은 위인들도 어릴 때는 문제아 취급을 받았는데, 유전자 검사로 재단했다면 위대한 발견은 없었을 것이다.",
+          "'너는 공부 유전자가 없으니 기술이나 배워라'는 식의 체념을 아이에게 심어주어 스스로 노력을 포기하게 만들 위험이 크다.",
+          "부모나 교사의 기대와 믿음이 학생의 성적을 올린다는 '피그말리온 효과'와 유전자 낙인 효과를 비교하면 어떨까?",
+          "교육학에서 라벨링(낙인) 효과가 학생의 학업 성취도에 미치는 악영향을 다룬 실험을 찾아본다."
+        ]
+      },
+      {
+        num: "09", name: "장지호", t: [
+          "일반적인 진로 선택에는 반대하지만, 난독증이나 ADHD 같은 신경 발달적 어려움을 조기에 발견해 치료하는 목적이라면 찬성한다.",
+          "학습 부진의 원인이 게으름이 아니라 유전적 뇌 기능 특성 때문임을 일찍 알면 아이를 다그치지 않고 적절한 치료를 도울 수 있기 때문이다.",
+          "조기 진단을 통해 초등학교 입학 전부터 맞춤형 치료 교육을 제공하면 학습 격차를 줄일 수 있다.",
+          "치료 목적의 검사와 재능 발굴 목적의 상업적 검사를 정부가 법적으로 명확히 분리하여 규제할 수 있을까?",
+          "보건복지부의 DTC 유전자 검사 허용 항목 기준과 소아 청소년 검사 제한 규정을 찾아본다."
+        ]
+      },
+      {
+        num: "10", name: "임지유", t: [
+          "초등학생 때의 관심사는 1년에도 몇 번씩 바뀌는데, 유전자라는 이름으로 진로를 조기에 묶어두는 것은 부당하다.",
+          "초등학생 때 과학을 잘한다고 정해놓았는데 중고등학교 때 문학이나 예술에 눈을 뜬다면 이전의 맞춤 교육은 오히려 족쇄가 되기 때문이다.",
+          "유전자 결과에 갇혀 다른 분야를 시도조차 해보지 못하게 만드는 것은 아이의 잠재력을 축소시키는 일이다.",
+          "어릴 때 정해진 진로를 성인이 되어 바꿀 때 겪는 심리적 저항감과 사회적 비용은 얼마나 클까?",
+          "청소년기 진로 변경 경험을 가진 사람들의 인터뷰와 진로 발달 단계 이론을 조사해 본다."
+        ]
+      },
+      {
+        num: "11", name: "한유준", t: [
+          "인공지능과 첨단 과학이 발전하는 시대에 개인의 유전체 빅데이터를 교육에 활용하지 않는 것은 손해라고 생각해 찬성한다.",
+          "개인 맞춤 의학이 발전하듯 개인 맞춤 교육도 당연한 흐름이며, 아이가 가장 재능 있는 곳에 자원을 집중할 수 있기 때문이다.",
+          "국가 차원에서도 인재의 강점을 조기에 파악해 세계적인 경쟁력을 갖추도록 지원할 수 있다.",
+          "유전자 검사 기술의 오류 확률이나 위양성(False Positive) 판정 위험은 얼마나 될까?",
+          "유전자 분석 알고리즘의 통계적 오차율과 교차 검증 절차에 관한 기술 보고서를 확인한다."
+        ]
+      },
+      {
+        num: "12", name: "오아린", t: [
+          "아동 발달 단계상 초등학교는 다양한 감각과 정서를 골고루 키워야 하는 전인 교육 시기이므로 반대한다.",
+          "한 분야에만 치우친 조기 교육은 뇌의 균형 잡힌 발달을 저해하고 사회성과 공감 능력을 떨어뜨리기 때문이다.",
+          "지능이나 특정 재능보다 더 중요한 것은 다른 사람과 협력하고 살아가는 인성 교육이다.",
+          "조기 편중 교육을 받은 영재들이 겪는 사회 부적응이나 우울증 비율이 일반 학생보다 높은가?",
+          "발달심리학에서 강조하는 아동기 전인 발달의 중요성과 놀이 교육 이론을 검토한다."
+        ]
+      },
+      {
+        num: "13", name: "서준우", t: [
+          "가난한 가정의 아이라도 유전자 검사를 통해 숨겨진 재능을 발견하면 장학금을 받고 날개를 펼칠 수 있으므로 찬성한다.",
+          "부모의 배경이나 인맥이 없어도 순수한 유전적 잠재력만으로 공정하게 기회를 얻는 사다리가 될 수 있기 때문이다.",
+          "흙수저 출신이라도 천재적인 재능이 입증되면 사회적 지원을 집중시켜 계층 이동이 가능해진다.",
+          "국가가 취약계층 아동에게 공공 유전자 검사와 무상 영재 교육을 지원하는 복지 제도가 생길 수 있을까?",
+          "공공 교육 복지 정책으로서의 유전자 검사 지원 가능성에 관한 정책 토론 논문을 찾아본다."
+        ]
+      },
+      {
+        num: "14", name: "신수아", t: [
+          "재능이 없는 것으로 나온 분야에서는 아이가 조금만 실수해도 '너는 유전자가 안 좋아서 그래'라며 주변에서 쉽게 포기하게 만들 것이므로 반대한다.",
+          "실패를 딛고 일어서는 회복탄력성이 삶에서 가장 중요한데, 유전자가 핑계가 되어 도전 의식을 꺾기 때문이다.",
+          "노력해서 극복할 수 있는 영역까지 유전자 탓으로 돌리는 무기력증이 사회 전체에 퍼질 수 있다.",
+          "실패를 극복하는 '그릿(Grit, 투지)'과 유전자 검사 결과 중 실제 성공에 더 큰 영향을 미치는 요인은 무엇일까?",
+          "앤절라 더크워스의 '그릿' 연구와 성공한 인물들의 노력-유전자 상관관계 데이터를 찾아본다."
+        ]
+      },
+      {
+        num: "15", name: "권예준", t: [
+          "취미 활동을 정할 때 유전자 검사를 가볍게 참고하는 수준이라면 아이의 흥미 유발에 긍정적이므로 찬성한다.",
+          "아이가 스스로 '나는 어떤 유전적 장점이 있을까?' 호기심을 갖고 자기 이해의 도구로 삼으면 학습 동기가 생기기 때문이다.",
+          "결과를 강요하지 않고 재미있는 탐색 과정의 하나로 받아들인다면 유익한 계기가 된다.",
+          "아이들이 자신의 유전자 결과를 게임 캐릭터 스탯처럼 유쾌하게 받아들이고 학습할 수 있는 교육용 앱이 있을까?",
+          "유전체 데이터를 활용한 청소년 진로 탐색 게임이나 게이미피케이션 교육 프로그램을 알아본다."
+        ]
+      },
+      {
+        num: "16", name: "황채원", t: [
+          "부모의 대리 만족을 위해 아이를 유전자 맞춤형 틀에 가두고 학대하는 '학습 아동학대'가 늘어날 것이므로 반대한다.",
+          "학벌과 성공에 집착하는 사회 분위기 속에서 유전자 결과는 부모의 사교육 강요를 정당화하는 무서운 도구가 되기 때문이다.",
+          "아이가 원치 않는 피아노나 코딩을 유전자 핑계로 하루 10시간씩 억지로 시키는 비극이 벌어질 수 있다.",
+          "유전자 기반 사교육 강요를 아동 학대로 보고 처벌할 수 있는 법적 기준이 마련되어 있는가?",
+          "아동 인권 단체들의 조기 사교육 반대 성명서와 교육권 보호 관련 헌법 재판소 판례를 조사한다."
+        ]
+      },
+      {
+        num: "17", name: "안건우", t: [
+          "직업의 세계가 급변하고 새로운 직업이 쏟아져 나오는데, 현재 존재하는 직업군에 맞춰 유전자를 설계하는 것은 무의미하므로 반대한다.",
+          "지금 초등학생이 어른이 되었을 때는 현재 직업의 절반이 사라질 텐데 과거의 기준(수학, 어학, 음악)으로 재능을 좁히는 것은 어리석기 때문이다.",
+          "미래 사회에 필요한 것은 특정 지식이 아니라 융합적 사고력과 문제 해결력이다.",
+          "미래 사회의 신직업들이 요구하는 역량과 유전자 검사 항목 사이에 어떤 연관성이 있을까?",
+          "세계경제포럼(WEF)의 '미래 일자리 보고서'를 읽고 필요한 핵심 역량을 조사한다."
+        ]
+      },
+      {
+        num: "18", name: "송지아", t: [
+          "유전자 검사 결과는 아이의 스트레스 취약성이나 감정 조절 능력을 배려하는 '정서 맞춤 지도'에 유용하므로 찬성한다.",
+          "시험 불안이 높은 유전적 특성을 가진 아이에게는 압박 대신 칭찬 중심의 학습법을 적용해 마음의 상처를 줄일 수 있기 때문이다.",
+          "학습 성과뿐만 아니라 아이의 마음 건강을 지키는 맞춤 상담에 매우 효과적이다.",
+          "스트레스 민감도 관련 세로토닌 수용체 유전자(5-HTTLPR)가 실제 학습 지도에 어떻게 응용될 수 있을까?",
+          "신경과학과 상담심리학이 결합된 맞춤형 정서 코칭 사례 연구를 검색해 본다."
+        ]
+      },
+      {
+        num: "19", name: "류민재", t: [
+          "인간의 유전자는 2만 개가 넘고 이들이 서로 복잡하게 상호작용하는데, 몇 개 유전자만 보고 재능을 판정하는 것은 과학적 사기에 가깝다고 생각해 반대한다.",
+          "현재 상업적 유전자 검사는 과장 광고가 많고 수학이나 지능 같은 복합 형질을 단 몇 개 마커로 설명할 수 없기 때문이다.",
+          "부정확한 과학에 아이의 소중한 미래를 거는 것은 너무나 무책임하고 위험한 도박이다.",
+          "현재 시중에서 판매되는 학습 관련 유전자 검사의 과학적 근거 수준(Evidence Level)은 객관적으로 어느 정도일까?",
+          "한국유전체학회와 생명윤리학회에서 발표한 상업적 DTC 유전자 검사의 한계 보고서를 찾아본다."
+        ]
+      },
+      {
+        num: "20", name: "전다은", t: [
+          "유전자 맞춤 교육을 도입하더라도 반드시 정기적인 '진로 재평가'와 '체험형 교차 교육'을 의무화해야 한다는 조건으로 찬성한다.",
+          "6개월마다 아이의 실제 성취도와 만족도를 재조사해 방향을 수정할 수 있다면 부작용을 줄이면서 장점만 취할 수 있기 때문이다.",
+          "유전자와 현실의 피드백을 계속 주고받으며 발전시키는 유연한 교육 시스템을 구축해야 한다.",
+          "학교 현장에서 학생 맞춤형 교육과정을 매 학기 유연하게 변경할 수 있는 학점제 제도가 초등학교에도 가능할까?",
+          "고교학점제와 덴마크의 자유학교 시스템처럼 유연한 교육과정 운영 모델을 비교 조사한다."
+        ]
+      },
+      {
+        num: "21", name: "홍진우", t: [
+          "유전자 검사를 도입하면 '열등한 유전자' 판정을 받은 아이들이 친구들 사이에서 놀림감이 되는 학교폭력 문제가 생길 것이므로 반대한다.",
+          "'너는 유전자 등급이 낮아서 공부 못하잖아'라며 새로운 형태의 사이버 불링과 따돌림이 발생할 것이 뻔하기 때문이다.",
+          "아이들의 자존감을 무너뜨리고 학급 공동체의 연대감을 깨뜨리는 결과를 초래한다.",
+          "학생 개인의 유전체 정보를 비밀로 보장하더라도 아이들 사이에서 소문이 퍼지는 것을 어떻게 통제할 수 있을까?",
+          "학교 내 유전자 정보 유출 방지 시스템과 청소년 인권 침해 사례 연구를 확인한다."
+        ]
+      },
+      {
+        num: "22", name: "고은서", t: [
+          "자신이 어떤 유전적 재능을 가졌는지 알고 시작하면 공부를 할 때 '나도 해낼 수 있다'는 내적 확신이 생기므로 찬성한다.",
+          "많은 학생이 자신이 무엇을 잘하는지 몰라 방황하는데, 과학적 나침반이 있다면 열등감을 극복하고 몰입할 수 있기 때문이다.",
+          "자기 효능감을 북돋워 주는 긍정적인 트리거로 작용할 수 있다.",
+          "유전자 결과 피드백을 받은 학생들이 실제로 학업 몰입도와 성취 동기가 상승했는지 실험한 결과가 있을까?",
+          "심리학에서 긍정적 피드백과 과학적 근거 제시가 학생의 동기 부여에 미치는 효과를 연구한 논문을 읽는다."
+        ]
+      },
+      {
+        num: "23", name: "문지후", t: [
+          "선생님들이 유전자 검사 결과를 보고 학생을 편견을 가지고 대하는 '교사의 선입견' 문제가 발생할 것이므로 반대한다.",
+          "선생님이 '이 아이는 과학 유전자가 없으니 질문해도 깊게 안 가르쳐야지' 하고 무의식적으로 기대를 접을 수 있기 때문이다.",
+          "교육은 모든 가능성을 열어두고 믿어주는 것인데 교사가 먼저 학생을 포기하게 만드는 부작용이 있다.",
+          "교사들에게 학생의 유전자 정보를 완전히 블라인드 처리하고 오직 본인과 학부모만 열람하게 하는 규정이 지켜질 수 있을까?",
+          "교육 현장에서 교사의 블라인드 평가 제도가 편견 해소에 미치는 효과를 다룬 논문을 찾아본다."
+        ]
+      },
+      {
+        num: "24", name: "양하윤", t: [
+          "체육, 음악, 미술, 외국어처럼 조기 감각 형성이 절대적인 예체능 및 언어 분야에 한해서만 선별적으로 적용하는 것에 찬성한다.",
+          "일반 교과목은 후천적 노력이 크지만, 절대음감이나 근육 섬유 비율(단거리/장거리)은 유전적 영향이 매우 크기 때문이다.",
+          "분야별 특성에 따라 차등 적용하면 예체능 지망생들의 시행착오를 획기적으로 줄여줄 수 있다.",
+          "예체능 분야 중 유전적 기여도(Heritability)가 가장 높게 입증된 구체적인 신체 형질은 무엇일까?",
+          "ACTN3 유전자(스프린터 유전자)와 심폐 지구력 유전자 연구 논문을 비교 검토한다."
+        ]
+      },
+      {
+        num: "25", name: "손현우", t: [
+          "어릴 때 유전자 맞춤 교육으로 성공하더라도, 평생 자신이 진정으로 원했던 길인지 회의감에 빠지는 '정체성 위기'를 겪을 수 있어 반대한다.",
+          "내 의지로 선택한 길이 아니라 유전자가 시켜서 만들어진 로봇 같은 성공은 진정한 자아실현이 아니기 때문이다.",
+          "스스로 방황하고 실패하면서 선택한 길이라야 어른이 되어서도 후회가 없다.",
+          "자신이 스스로 선택하지 않은 진로에서 성공한 사람들의 심리적 공허함과 정체성 혼란 사례를 연구해 볼 필요가 있다.",
+          "심리학자 에릭슨의 청소년 자아정체성 형성 이론과 실존주의 심리학 서적을 읽어본다."
+        ]
+      },
+      {
+        num: "26", name: "배소율", t: [
+          "유전자 검사를 진로 교육이 아니라 '학습 스타일(시각적/청각적/체험적)'을 파악해 공부 방법을 최적화하는 데만 써야 한다고 생각해 조건부 찬성한다.",
+          "진로 분야를 정하는 것은 위험하지만, 시각 자료로 공부할 때 기억력이 좋은지, 들으면서 공부할 때 집중이 잘되는지 파악하는 것은 유익하기 때문이다.",
+          "목표는 그대로 두되, 그 목표로 가는 길(공부법)을 편안하게 돕는 용도라면 찬성한다.",
+          "학습 감각 스타일과 유전자 마커 사이의 상관관계를 입증한 공신력 있는 뇌과학 연구가 존재하는가?",
+          "VARK 학습 양식 모델과 최신 신경생물학 연구의 연결 가능성을 조사한다."
+        ]
+      },
+      {
+        num: "27", name: "조우진", t: [
+          "다양한 분야를 두루 경험해 보며 다방면의 능력을 연결하는 '융합형 인재'가 필요한 시대에 맞지 않는 편협한 발상이므로 반대한다.",
+          "어릴 때 한 우물만 파게 만들면 다른 분야 사람들과 소통하지 못하는 외골수가 되기 십상이기 때문이다.",
+          "스티브 잡스처럼 인문학과 기술을 넘나드는 창의성은 좁은 맞춤 교육에서 나올 수 없다.",
+          "한 분야의 전문가보다 여러 분야의 지식을 연결하는 '제너럴리스트(Generalist)'의 생존력을 강조한 도서 '레인지(Range)'를 읽어본다.",
+          "데이비드 엡스타인의 '늦깎이 천재들의 비밀(Range)'에 나오는 조기 전문화의 실패 사례들을 정리한다."
+        ]
+      },
+      {
+        num: "28", name: "백예린", t: [
+          "아이가 스스로 자신의 유전자 검사 결과를 열람하고 교육 적용 여부를 결정할 수 있는 '만 14세 이후'로 시기를 늦춰야 한다고 생각해 초등학생 맞춤 교육은 반대한다.",
+          "초등학생은 부모의 강요에 저항할 능력이 없으므로 자기결정권이 생기는 중학교 이후에 본인의 동의하에만 실시해야 하기 때문이다.",
+          "아이의 인권과 자율적 의사결정권이 최우선으로 보호되어야 한다.",
+          "국제 아동인권협약에서 규정한 아동의 자기결정권과 의료·유전자 정보 열람 연령 기준은 어떻게 되어 있을까?",
+          "유엔 아동권리협약 제12조(의견 존중권)와 국내 유전체 검사 동의 연령 가이드라인을 확인한다."
+        ]
+      },
+      {
+        num: "29", name: "허재윤", t: [
+          "가정마다 아이의 성향을 파악하느라 드는 수많은 사교육 상담비와 적성 검사 비용을 줄여주는 경제적 이점이 있으므로 찬성한다.",
+          "비과학적인 혈액형이나 MBTI 상담에 돈을 쓰는 것보다 정확한 유전자 검사 한 번이 가계 경제에 훨씬 합리적이기 때문이다.",
+          "정확한 방향성을 잡고 교육비를 효율적으로 지출할 수 있다.",
+          "상업용 유전자 검사 비용과 기존 사교육 진로 컨설팅 비용의 경제적 비용-편익을 비교 분석해 본다.",
+          "소비자경제학 관점에서 유전자 진로 검사의 가계 교육비 절감 효과 보고서를 찾아본다."
+        ]
+      },
+      {
+        num: "30", name: "유시아", t: [
+          "유전자 검사는 한 인간이 가진 무수한 가능성 중 극히 일부일 뿐인데, 그것을 아이의 '전부'인 양 믿어버리는 어른들의 착각이 가장 무서우므로 반대한다.",
+          "사랑과 관심, 좋은 선생님과의 만남, 감명 깊게 읽은 책 한 권이 한 아이의 인생을 완전히 바꿀 수 있다는 사실을 과학이 증명할 수 없기 때문이다.",
+          "인간은 유전자 이상의 존재이며, 기적과 같은 변화를 만들어내는 존재다.",
+          "유전적 한계를 극복하고 세계적인 업적을 이뤄낸 역사적 인물들의 감동적인 전기를 찾아본다.",
+          "헬렌 켈러, 스티븐 호킹 등 신체적·유전적 역경을 이겨낸 인물들의 삶과 후천적 의지의 힘을 탐구한다."
+        ]
+      }
+    ];
+
+    const now = new Date().toISOString();
+    let successCount = 0;
+    for (const item of dummy30) {
+      const sNum = `301${item.num}`;
+      const fullContent = item.t.map((ans, idx) => `${tLabels[idx]}\n${ans}`).join('\n\n');
+      const { error } = await client.from('think_stage_responses').upsert({
+        lesson_plan_id: lessonId,
+        student_number: sNum,
+        stage_code: 'T',
+        content: fullContent,
+        updated_at: now,
+        submitted_at: now
+      }, { onConflict: 'lesson_plan_id,student_number,stage_code' });
+      if (!error) successCount++;
+    }
+
+    alert(`🎉 3학년 1반 30명 전원의 T단계 글이 성공적으로 서버 DB에 저장되었습니다!\n\n- 대상 주제: ${window.topicTitle(targetLesson.title, 1)}\n- 성공: ${successCount} / 30명\n- 내용: 찬성/반대/조건부/행복권 등 다채로운 5문답 완비\n- 이제 H단계(친구 생각 나누기)에서 학생들에게 풍성한 의견이 배정됩니다.`);
+    await this.renderOperationOverview();
+  } catch (err) {
+    alert(`T단계 데이터 생성 실패: ${err.message}`);
+  }
+};
+
+window.TeacherAdminModule.runSeedGeneticsDummyData = async function () {
+  await this.seedGeneticsLesson1TAnswers();
 };
 
 
@@ -1811,9 +2000,15 @@ window.TeacherAdminModule.renderAiActivitySettings = function (prefix, reference
     <details class="lesson-ai-activity">
       <summary>I 단계 AI 참고사항 <span>${reference ? '저장됨' : '선택'}</span></summary>
       <div class="lesson-ai-activity-body">
-        <label for="${id}-ai-reference">학생 학년과 AI가 답할 때 중점을 둘 점</label>
-        <span class="think-writing-hint" id="${id}-ai-example">예) 중학교 3학년이니, 학생이 자기 주장을 말하면 왜 그렇게 생각했는지 물어봐 주세요.</span>
+        <label for="${id}-ai-reference">AI 대화 추가 참고사항 (선택)</label>
+        <span class="think-writing-hint" id="${id}-ai-example">비워두셔도 좋습니다. 꼭 짚고 싶은 오개념이 있을 때만 입력하세요.<br>예) 유전적 소인(확률)과 실제 발현·노력의 차이를 구분해 주세요.</span>
         <textarea id="${id}-ai-reference" aria-describedby="${id}-ai-example" class="form-textarea" rows="2">${this.escapeHtml(reference || '')}</textarea>
       </div>
     </details>`;
+};
+
+window.TeacherAdminModule.renderReviewResource = function(prefix,value='') {
+  return `<details class="lesson-ai-activity"><summary>N단계 확인 자료 <span>선택</span></summary>
+    <label class="lesson-ai-activity-body">교과서 쪽수, 자료 내용 또는 링크
+    <textarea id="${this.escapeHtml(prefix)}-review-resource" class="form-textarea" rows="2">${this.escapeHtml(value||'')}</textarea></label></details>`;
 };

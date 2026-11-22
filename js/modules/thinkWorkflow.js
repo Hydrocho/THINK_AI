@@ -51,7 +51,7 @@
       if(s==='N') contents=reviewReference(row.metadata.review);
       contents=contents||'<p>아직 참고할 글이 없습니다.</p>';
       if(s==='N') {
-        const recommended=row.submitted_at
+        const recommended=row.submitted_at && ctx.peerReviewEnabled!==false
           ? '<details class="think-recommended-reviews" ontoggle="ThinkWorkflow.showRecommendedReviews(this)"><summary><span aria-hidden="true">☆ </span>내가 추천한 친구의 검토</summary><div role="status"></div></details>'
           : '';
         return `<div data-k-reference="N" ${i?'hidden':''}><section class="think-writing-reference think-own-review"><h4>나의 검토</h4>${contents}</section>${recommended}</div>`;
@@ -328,16 +328,19 @@
     capture(ctx);
     for(const stage of stages)if(ctx.dirty[stage])cache(ctx,stage);
   }
-  async function refresh(ctx,initial=false,turnId=null) {
+  async function refresh(ctx,initial=false,turnId=null,suppliedSnapshot=null) {
     if(ctx.refreshing) return;
     ctx.refreshing=true;
     try {
-      const snapshot=await api(ctx,initial?'snapshot':'stage_snapshot',turnId?'I':ctx.stage,turnId?{turnId}:{});
+      const snapshot=suppliedSnapshot || await api(ctx,initial?'snapshot':'stage_snapshot',turnId?'I':ctx.stage,turnId?{turnId}:{});
       if(current!==ctx) return;
       capture(ctx);
       const previous=ctx.access;
+      const reviewOptionChanged=ctx.peerReviewEnabled!==(snapshot.peerReviewEnabled!==false);
+      ctx.peerReviewEnabled=snapshot.peerReviewEnabled!==false;
+      if(!ctx.peerReviewEnabled){ctx.readingReviews=false;ctx.reviewPosts=[];}
       const next=Object.fromEntries(stages.map(s=>[s,snapshot.access[s]||'hidden']));
-      const changed=JSON.stringify(previous)!==JSON.stringify(next);
+      const changed=reviewOptionChanged||JSON.stringify(previous)!==JSON.stringify(next);
       ctx.access=next;
       const peerChanged=snapshot.peers && JSON.stringify(ctx.peers)!==JSON.stringify(snapshot.peers);
       const chatChanged=!!snapshot.turns;
@@ -361,17 +364,17 @@
       if(initial||changed||peerChanged||(chatChanged&&ctx.stage==='I')) render();
     } finally {ctx.refreshing=false;}
   }
-  function render() {
-    const ctx=current, box=document.getElementById('stepContentContainer');
+  function render(preview=null, target=null) {
+    const ctx=preview || current, box=target || document.getElementById('stepContentContainer');
     if(!ctx||!box) return;
     const s=ctx.stage,r=record(ctx,s),mode=ctx.access[s]||'hidden';
     const finishing=mode!=='writable' && ctx.renderedStage===s && writingOpen(ctx,s) && !ctx.closing[s];
     const writable=(mode==='writable'||finishing)&&!!ctx.leases[s]&&!ctx.closing[s];
     const disabled=writable?'':'disabled';
-    const state=window.AppState;
+    const state=preview ? {} : window.AppState;
     state.currentStep=(ctx.lesson.thinkStages||stages).indexOf(s)+1;
-    window.App.updateStepNav();
-    document.querySelectorAll('.think-step-item[data-stage]').forEach(item => {
+    if(!preview) window.App.updateStepNav();
+    if(!preview) document.querySelectorAll('.think-step-item[data-stage]').forEach(item => {
       item.classList.toggle('completed', !!ctx.records[item.dataset.stage]?.submitted_at);
     });
     ctx.renderedStage=s;
@@ -418,10 +421,8 @@
         <textarea id="thinkText" class="form-textarea" rows="8" ${disabled} aria-describedby="thinkWritingHint" oninput="ThinkWorkflow.input(this.value)">${escape(r.content)}</textarea></div>`;
     } else if(s==='H') {
       const cards=ctx.peers.map((p,i)=>peerCard(p,i,r.metadata.feedback?.[p.id]||{},disabled));
-      const extra=cards.slice(ctx.firstCount);
       body=cards.length ? `<p><strong>친구 글마다 내 반응을 하나씩 고르세요. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</strong></p>`+
-        cards.slice(0,ctx.firstCount).join('') : '<p>친구가 T단계 글을 제출하면 여기에 표시됩니다.</p>';
-      if(extra.length) body+=`<details class="think-t-example" ${ctx.morePeersOpen?'open':''} ontoggle="ThinkWorkflow.showMorePeers(this.open)"><summary>다른 친구 글 더 보기 (${extra.length}편)</summary>${extra.join('')}</details>`;
+        cards.join('') : '<p>친구가 T단계 글을 제출하면 여기에 표시됩니다.</p>';
     } else if(reflecting) {
       const answers=reflectionAnswers(r);
       const picker=writable && ctx.turns.length ? `<select class="form-select" aria-label="내가 보낸 질문 가져오기" onchange="ThinkWorkflow.importReflectionQuestion(this)">
@@ -453,18 +454,46 @@
       } else if(s!=='I' || writable) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled}>${s==='N'?'검토 완료':s==='K'?'최종 글 제출':'제출하기'}</button>`;
     }
     const backToChat=reflecting && mode==='writable' ? '<button type="button" class="btn btn-secondary" onclick="ThinkWorkflow.reflectionView(false,true)">대화로 돌아가기</button>' : '';
-    const reviewTabs=s==='N', secondTab=reviewTabs?!!(ctx.readingReviews && r.submitted_at):reflecting;
+    const reviewTabs=s==='N'&&ctx.peerReviewEnabled!==false, secondTab=reviewTabs?!!(ctx.readingReviews && (preview || r.submitted_at)):reflecting;
     if((reviewTabs||s==='I') && (mode!=='hidden'||finishing)) {
       const titles=reviewTabs?['내 생각 검토하기','친구의 검토 읽기']:['AI와 대화하기','대화 후 내 생각 정리하기'];
       const tabs=titles.map((title,i)=>{
         const selected=Number(secondTab)===i;
-        const locked=reviewTabs?(i===1&&!r.submitted_at):(!selected&&(ctx.chatBusy||finishing));
+        const locked=reviewTabs?(i===1&&!preview&&!r.submitted_at):(!selected&&(ctx.chatBusy||finishing));
         return `<button type="button" role="tab" id="think${s}Tab${i}" aria-selected="${selected}" aria-controls="think${s}Panel" tabindex="${selected?0:-1}" ${locked?'disabled':''} onclick="ThinkWorkflow.${reviewTabs?'reviewTab':'reflectionView'}(${i===1})">${title}</button>`;
       }).join('');
-      const hint=reviewTabs&&!r.submitted_at?'<p class="think-writing-hint">내 검토를 완료하면 친구들의 글을 읽을 수 있어요.</p>':'';
+      const hint=reviewTabs&&!preview&&!r.submitted_at?'<p class="think-writing-hint">내 검토를 완료하면 친구들의 글을 읽을 수 있어요.</p>':'';
+      if(preview && reviewTabs && secondTab){body='<div data-teacher-review-rankings></div>';primary='';}
       body=`<div class="think-i-tabs" data-stage="${s}" role="tablist" aria-label="${s}단계 활동">${tabs}</div>${hint}<div id="think${s}Panel" role="tabpanel" aria-labelledby="think${s}Tab${Number(secondTab)}">${body}</div>`;
     }
     box.innerHTML=`${finishing?'<p>단계가 마감되었습니다. 작성 중인 글을 마무리하고 제출할 수 있어요.</p>':mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${backToChat}${primary}</div>`;
+    if(preview) {
+      const ids=new Set([...box.querySelectorAll('[id]')].map(element=>element.id));
+      box.querySelectorAll('*').forEach(element => {
+        const view=(s==='I'||reviewTabs) && element.getAttribute('onclick')?.match(/^ThinkWorkflow\.(?:reflectionView|reviewTab)\((true|false)/);
+        for(const attribute of [...element.attributes]) if(attribute.name.startsWith('on')) element.removeAttribute(attribute.name);
+        if(element.id) element.id='teacherPreview-'+element.id;
+        for(const attr of ['for','aria-controls','aria-labelledby','aria-describedby']) {
+          if(element.hasAttribute(attr))element.setAttribute(attr,element.getAttribute(attr).split(/\s+/).map(id=>ids.has(id)?'teacherPreview-'+id:id).join(' '));
+        }
+        if(element.matches('textarea,input,select,button')) element.disabled=true;
+        if(view) {
+          element.disabled=false;
+          element.dataset.previewView=view[1];
+          element.addEventListener('click',()=>{if(reviewTabs && ctx.readingReviews===(view[1]==='true'))return;if(reviewTabs)ctx.readingReviews=view[1]==='true';else ctx.reflecting=view[1]==='true';render(ctx,box);});
+        }
+      });
+      box.querySelector('.think-i-tabs')?.addEventListener('keydown',event=>{
+        if(s!=='I'&&!reviewTabs)return;
+        const keys={ArrowLeft:!secondTab,ArrowRight:!secondTab,Home:false,End:true};
+        if(!Object.hasOwn(keys,event.key))return;
+        event.preventDefault();if(reviewTabs)ctx.readingReviews=keys[event.key];else ctx.reflecting=keys[event.key];render(ctx,box);
+        box.querySelector('[role="tab"][aria-selected="true"]')?.focus();
+      });
+      const rankings=box.querySelector('[data-teacher-review-rankings]');
+      if(rankings)ctx.onReviewRankings?.(rankings);
+      return;
+    }
     box.querySelector('.think-i-tabs')?.addEventListener('keydown',event=>{
       const keys={ArrowLeft:!secondTab,ArrowRight:!secondTab,Home:false,End:true};
       if(!Object.hasOwn(keys,event.key))return;
@@ -544,12 +573,20 @@
     finally {entering=false;}
   }
   const flow=window.ThinkWorkflow={
+    renderTeacherPreview(lesson,stage,box,reflectionView=false,onReviewRankings=null) {
+      const ctx={lesson,stage,access:Object.fromEntries(stages.map(s=>[s,'writable'])),records:{},leases:{},
+        saved:{},dirty:{},status:{},closing:{},recovery:{},peers:[],turns:[],remaining:lesson.aiQuestionLimit||20,
+        onReviewRankings,reflecting:reflectionView,firstCount:0,peerReviewEnabled:lesson.peerReviewEnabled!==false};
+      ctx.leases[stage]='preview';
+      render(ctx,box);
+    },
     showKReference(stage) {
       document.querySelectorAll('[data-k-choice]').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.kChoice===stage));});
       document.querySelectorAll('[data-k-reference]').forEach(panel=>{panel.hidden=panel.dataset.kReference!==stage;});
     },
     async showRecommendedReviews(details) {
       const ctx=current;
+      if(ctx?.peerReviewEnabled===false)return;
       if(!details.open || ctx?.stage!=='K')return;
       const panel=details.querySelector('[role="status"]');
       panel.textContent='불러오는 중…';
@@ -617,9 +654,9 @@
       const ctx=current;capture(ctx);
       scheduleWritingSave(ctx,'N');
     },
-    showMorePeers(open) {if(current?.stage==='H')current.morePeersOpen=open;},
     async reviewTab(show) {
       const ctx=current;
+      if(ctx?.peerReviewEnabled===false)return;
       if(ctx?.stage!=='N')return;
       if(show && ctx.readingReviews && ctx.reviewPosts?.some(p=>p.saving))return;
       if(show && !ctx.readingReviews) {
@@ -707,11 +744,15 @@
       ctx.navigating=true;
       try {
         const previous=ctx.stage;
+        const snapshot=await api(ctx,'stage_snapshot',next);
+        if(!snapshot.access[next] || snapshot.access[next]==='hidden') {
+          alert('선생님이 활동을 시작하면 참여할 수 있습니다.');return;
+        }
         if(next!==previous && !await allowLeavingWriting(ctx))return;
         await flush(ctx,next!==previous);
         if(next!==previous){delete ctx.leases[previous];ctx.readingReviews=false;}
         ctx.stage=next;
-        await refresh(ctx);
+        await refresh(ctx,false,null,snapshot);
         await open(ctx,next);
         if(next!==previous)await restoreDraft(ctx,next);
         render();

@@ -37,7 +37,7 @@ serve(async req => {
     .eq("id", body.lessonPlanId)
     .maybeSingle();
   if (lessonError) return json({ error: lessonError.message }, 400);
-  if (!lesson) return json({ error: "현재 학급에 연결된 차시에서만 작성할 수 있습니다." }, 403);
+  if (!lesson) return json({ error: "현재 학급에 연결된 주제에서만 작성할 수 있습니다." }, 403);
 
   const { data: classProjects, error: classProjectError } = await admin.from("class_projects")
     .select("id,class_id,source_version_id,classes!inner(id,grade_number,class_number,active_lesson_plan_id)")
@@ -47,7 +47,7 @@ serve(async req => {
     .eq("classes.active_lesson_plan_id", body.lessonPlanId)
     .limit(2);
   if (classProjectError) return json({ error: classProjectError.message }, 400);
-  if (classProjects?.length !== 1) return json({ error: "현재 활성화된 학급 차시에서만 작성할 수 있습니다." }, 403);
+  if (classProjects?.length !== 1) return json({ error: "현재 활성화된 학급 주제에서만 작성할 수 있습니다." }, 403);
   const classProject = classProjects[0];
   const classId = classProject.class_id;
 

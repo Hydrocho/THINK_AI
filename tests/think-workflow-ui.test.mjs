@@ -14,7 +14,7 @@ function fixture(timers={}) {
     if(intercept)await intercept(b);
     if(b.action==='review_list')return structuredClone(data.reviewPosts||[]);
     if(b.action==='review_feedback')return {ok:true};
-    if(b.action==='stage_snapshot')return structuredClone({access:data.access,...(['H','K'].includes(b.stage)?{peers:data.peers,firstCount:data.firstCount}:{}),...(b.stage==='I'?{turns:data.turns.filter(t=>!b.payload.turnId||t.id===b.payload.turnId),remaining:data.remaining}:{})});
+    if(b.action==='stage_snapshot')return structuredClone({peerReviewEnabled:data.peerReviewEnabled,access:data.access,...(['H','K'].includes(b.stage)?{peers:data.peers,firstCount:data.firstCount}:{}),...(b.stage==='I'?{turns:data.turns.filter(t=>!b.payload.turnId||t.id===b.payload.turnId),remaining:data.remaining}:{})});
     if(b.action==='snapshot')return structuredClone(data);
     if(b.action==='open'){
       let row=data.records.find(r=>r.stage===b.stage);
@@ -299,16 +299,18 @@ test('six peer responses autosave independently and allow every recommendation',
   assert.equal(f.document.querySelectorAll('#thinkPeer0 [data-reaction][aria-pressed="true"]').length,0);
 });
 
-test('extra posts are expandable and their reactions do not change first-read progress',async()=>{
+test('H shows every peer in the assigned order without collapsing extra posts',async()=>{
   const f=fixture();
   f.data.firstCount=2;
   f.data.peers=['a','b','c'].map(id=>({id,text:'글 '+id}));
   await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   const flow=f.window.ThinkWorkflow;
   await flow.navigate(2);
-  const extra=f.document.querySelector('#stepContentContainer details');
-  assert.match(extra.querySelector('summary').textContent,/다른 친구 글 더 보기/);
-  assert.equal(extra.querySelectorAll('article').length,1);
+  const cards=[...f.document.querySelectorAll('#stepContentContainer article')];
+  assert.equal(cards.length,3);
+  assert.deepEqual(cards.map(card=>card.id),['thinkPeer0','thinkPeer1','thinkPeer2']);
+  cards.forEach((card,i)=>{assert.match(card.textContent,new RegExp('글 '+['a','b','c'][i]));assert.equal(card.closest('details'),null);});
+  const extra=cards[2];
   await flow.peerAction(2,'newView');
   assert.equal(f.data.records.find(r=>r.stage==='H').metadata.feedback.c.reaction,'newView');
   assert.equal(extra.querySelector('[data-reaction="newView"]').getAttribute('aria-pressed'),'true');
@@ -421,4 +423,77 @@ test('writing stays local through navigation and reload until explicit submissio
   await flow.submit();
   assert.equal(f.data.records.find(r=>r.stage==='T').content,'기기에 보관한 글');
   assert.equal(f.store.size,0);
+});
+
+
+test('teacher preview reuses all activity forms without requests or student state changes',()=>{
+  const f=fixture(),before=structuredClone(f.state);
+  for(const stage of ['T','H','I','N','K']) {
+    const box=f.document.createElement('div');
+    f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['T','H','I','N','K']},stage,box);
+    assert.ok(box.textContent.length>10);
+    for(const el of box.querySelectorAll('textarea,input,button,select')) {
+      if(['I','N'].includes(stage) && el.hasAttribute('data-preview-view'))assert.equal(el.disabled,false);
+      else assert.ok(el.disabled);
+    }
+    for(const el of box.querySelectorAll('*'))assert.ok([...el.attributes].every(a=>!a.name.startsWith('on')));
+    if(stage==='T')assert.equal(box.querySelectorAll('textarea').length,5);
+    if(stage==='N')assert.ok(box.querySelectorAll('textarea').length>=2);
+  }
+  assert.deepEqual(f.state,before);
+  assert.equal(f.requests.length,0);
+});
+
+test('teacher I preview uses the shared tabs without saving or changing student state',()=>{
+  const f=fixture(),before=structuredClone(f.state),box=f.document.createElement('div');
+  f.document.body.appendChild(box);
+  f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['T','H','I','N','K']},'I',box);
+  assert.equal(box.querySelectorAll('[role="tablist"]').length,1);
+  box.querySelectorAll('[role="tab"]')[1].click();
+  assert.equal(box.querySelectorAll('[data-i-answer]').length,3);
+  assert.equal(box.querySelectorAll('[role="tab"]')[1].getAttribute('aria-selected'),'true');
+  const panel=box.querySelector('[role="tabpanel"]');
+  assert.equal(box.querySelector('[aria-selected="true"]').getAttribute('aria-controls'),panel.id);
+  for(const label of box.querySelectorAll('label[for]'))assert.ok(f.document.getElementById(label.getAttribute('for')));
+  box.querySelectorAll('[role="tab"]')[0].click();
+  assert.ok(box.querySelector('.chat-composer'));
+  assert.equal(box.querySelector('.chat-composer button').disabled,true);
+  assert.deepEqual(f.state,before);assert.equal(f.requests.length,0);
+});
+
+test('attempting an unopened stage keeps current writing and checks again on the next click',async()=>{
+  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  f.data.access.H='hidden';
+  const input=f.document.getElementById('thinkText');input.value='작성 중인 답안';f.window.ThinkWorkflow.input(input.value);
+  await f.window.ThinkWorkflow.navigate(2);
+  assert.equal(f.document.getElementById('thinkText').value,'작성 중인 답안');
+  assert.equal(f.state.currentStep,1);
+  f.data.access.H='writable';await f.window.ThinkWorkflow.navigate(2);
+  assert.equal(f.state.currentStep,2);
+  assert.equal(f.polls.length,0);
+});
+
+test('disabled N peer reading hides tab and makes no peer request',async()=>{
+ const f=fixture();f.data.peerReviewEnabled=false;
+ await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+ await f.window.ThinkWorkflow.navigate(4);
+ assert.equal(f.document.querySelector('#thinkNTab1'),null);
+ assert.ok(f.document.querySelector('textarea'));
+ await f.window.ThinkWorkflow.reviewTab(true);
+ assert.equal(f.requests.some(r=>r.action==='review_list'),false);
+});
+
+test('teacher N review tab loads rankings on demand without student submission or writes',()=>{
+ const f=fixture(),before=structuredClone(f.state),box=f.document.createElement('div');
+ f.document.body.appendChild(box);let loads=0;
+ f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['N']},'N',box,false,target=>{loads++;target.textContent='반응 통계';});
+ assert.equal(loads,0);
+ box.querySelectorAll('[role="tab"]')[1].click();
+ assert.equal(loads,1);assert.match(box.textContent,/반응 통계/);
+ assert.equal(box.querySelectorAll('[role="tab"]')[1].getAttribute('aria-selected'),'true');
+ box.querySelectorAll('[role="tab"]')[1].click();assert.equal(loads,1);
+ box.querySelectorAll('[role="tab"]')[0].click();assert.ok(box.querySelector('textarea'));
+ assert.deepEqual(f.state,before);assert.equal(f.requests.length,0);
+ f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['N'],peerReviewEnabled:false},'N',box,false,()=>{loads++;});
+ assert.equal(box.querySelector('[role="tab"]'),null);assert.equal(loads,1);
 });

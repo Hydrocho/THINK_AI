@@ -73,15 +73,12 @@ test('teacher and client flows do not expose lesson sessions', () => {
   assert.match(dropSessionsMigration, /^DROP TABLE IF EXISTS public\.class_sessions;\s*$/i);
 });
 
-test('teacher class details render every attached project and retain stage controls', () => {
+test('teacher class details render every attached project with separate lesson plans', () => {
   assert.doesNotMatch(teacherAdmin, /const attachedCP = classProjects\?\.\[0\]/);
-  assert.match(teacherAdmin, /const activeProjects = \(classProjects \|\| \[\]\)\.flatMap\(classProject => classProject\.projects \? \[/);
   assert.match(teacherAdmin, /classProjectId: classProject\.id/);
   assert.match(teacherAdmin, /project\.project_versions\?\.find\(version => version\.id === project\.sourceVersionId\)/);
-  assert.match(teacherAdmin, /class_lesson_stage_access/);
-  assert.match(teacherAdmin, /TeacherAdminModule\.setClassStageAccess/);
-  assert.match(teacherAdmin, /TeacherAdminModule\.toggleClassLessonThinkStage/);
-  assert.match(teacherAdmin, /display:\s*\${isExpanded\s*\?\s*'block'\s*:\s*'none'}/);
+  assert.match(teacherAdmin, /class_lesson_plans/);
+  assert.match(teacherAdmin, /TeacherLiveModule\.planCard/);
 });
 
 test('student THINK screen uses the active live lesson instead of sample lessons', () => {
@@ -136,7 +133,7 @@ test('student response authorization resolves the active attached subject class 
 
 test('THINK renderer has a safe fallback before optional sample configuration is loaded', () => {
   assert.match(think, /window\.APP_CONFIG\?\.LESSONS \|\| \[\]/);
-  assert.match(index, /<script src="js\/config\.js"><\/script>/);
+  assert.match(index, /<script src="js\/config\.js(?:\?v=[\w-]+)?"><\/script>/);
 });
 
 test('student class is derived from a five-digit student number', () => {

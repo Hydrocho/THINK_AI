@@ -92,9 +92,10 @@ test('teacher stage response API returns class, project, lesson, access, and res
   assert.match(functionSource, /submittedAt:\s*response\.submitted_at/);
 });
 
-test('each THINK access row opens its class, lesson, and stage response view in-page', () => {
-  assert.match(teacherAdminSource, /openTeacherStageResponses\('\$\{classId\}',\s*'\$\{l\.id\}',\s*'\$\{st\}'\)/);
+test('response viewing remains available from class progress, separate from planning', () => {
+  assert.match(teacherAdminSource, /openTeacherStageResponses\(first.class_id, lesson.lesson_id, stage\)/);
   assert.match(teacherAdminSource, /renderInPageContainer/);
+  assert.match(detailModuleSource, /실시간 수업에서 진행/);
 });
 
 test('response detail utilities derive writing counts and local word frequencies', async () => {

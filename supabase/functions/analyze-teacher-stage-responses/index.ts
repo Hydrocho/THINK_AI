@@ -60,10 +60,10 @@ serve(async (req) => {
   if (!classroom) return json({ error: "학급을 찾을 수 없거나 열람 권한이 없습니다." }, 404);
   const { data: lesson, error: lessonError } = await admin.from("lesson_plans").select("id,project_version_id,core_question,background_description").eq("id", body.lessonId).maybeSingle();
   if (lessonError) return json({ error: lessonError.message }, 400);
-  if (!lesson) return json({ error: "차시를 찾을 수 없습니다." }, 404);
+  if (!lesson) return json({ error: "주제를 찾을 수 없습니다." }, 404);
   const { data: classProject, error: projectError } = await admin.from("class_projects").select("id").eq("class_id", body.classId).eq("source_version_id", lesson.project_version_id).limit(1).maybeSingle();
   if (projectError) return json({ error: projectError.message }, 400);
-  if (!classProject) return json({ error: "이 학급에 연결된 차시가 아닙니다." }, 404);
+  if (!classProject) return json({ error: "이 학급에 연결된 주제가 아닙니다." }, 404);
   const { data: responseRows, error: responseError } = await admin.from("think_records").select("content").eq("class_id", body.classId).eq("lesson_id", body.lessonId).eq("stage", body.stageCode).not("content", "is", null).order("updated_at", { ascending: false });
   if (responseError) return json({ error: responseError.message }, 400);
   const excerpts: string[] = [];

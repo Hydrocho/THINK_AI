@@ -142,7 +142,7 @@
       const lblLesson = document.getElementById('currentLessonLabel');
       const projectTitle = document.getElementById('currentProjectTitle');
       const mainTitle = document.getElementById('stepMainTitle');
-      if (lblLesson) lblLesson.innerText = `${lesson.number}차시 활동 진행 중`;
+      if (lblLesson) lblLesson.innerText = `${lesson.number}주제 활동 진행 중`;
       if (projectTitle) projectTitle.innerText = lesson.projectTitle || '진행 중인 프로젝트';
       if (mainTitle) mainTitle.innerText = lesson.coreQuestion || lesson.core_question || lesson.question;
 

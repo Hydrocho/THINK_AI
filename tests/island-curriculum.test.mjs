@@ -9,6 +9,13 @@ const context = { window: {} };
 vm.runInNewContext(read('../js/config.js'), context);
 const config = context.window.APP_CONFIG;
 
+test('topic labels use the current order once and preserve the descriptive title', () => {
+  const format = context.window.topicTitle;
+  assert.equal(format('1차시 · 과학 탐구', 2), '2주제 · 과학 탐구');
+  assert.equal(format('2주제', 2), '2주제');
+  assert.equal(format('두 차시에 걸친 탐구', 3), '3주제 · 두 차시에 걸친 탐구');
+});
+
 test('three agreed questions use all THINK stages and thought-provoking AI', () => {
   assert.equal(config.LESSONS.length, 3);
   assert.match(config.LESSONS[0].question, /질투 나는 거지/);

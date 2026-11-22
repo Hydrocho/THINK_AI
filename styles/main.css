@@ -231,6 +231,8 @@ body {
 .teacher-create-activity:hover { background: var(--primary-700); color:#fff; }
 .teacher-user-slot { margin-top:auto; border-top:1px solid var(--border-light); padding:14px 4px 0; }.teacher-user-slot .user-profile-badge { flex-wrap:wrap; gap:7px; align-items:flex-start !important; }.teacher-user-slot .user-name { width:100%; overflow:hidden; text-overflow:ellipsis; font-size:.78rem !important; }.teacher-user-slot .btn { padding:4px 8px !important; }.sidebar-collapsed .teacher-user-slot { padding:10px 0 0; }.sidebar-collapsed .teacher-user-slot .role-tag,.sidebar-collapsed .teacher-user-slot .user-name,.sidebar-collapsed .teacher-user-slot .btn { display:none; }.sidebar-collapsed .teacher-user-slot .user-profile-badge { display:flex !important; justify-content:center; }.sidebar-collapsed .teacher-user-slot .user-profile-badge::before { content:'👤'; font-size:1.2rem; }
 .teacher-content-shell { min-width:0; background:var(--bg-app); }
+#teacherAppSection.teacher-live-focused { grid-template-columns: minmax(0, 1fr); }
+#teacherAppSection.teacher-live-focused > .teacher-sidebar { display: none; }
 .teacher-breadcrumb-bar { height:50px; background:#fff; border-bottom:1px solid var(--border-light); display:flex; align-items:center; gap:18px; padding:0 20px; }
 .teacher-menu-toggle { border:0; background:transparent; font-size:1.25rem; cursor:pointer; }
 .teacher-content { padding:16px 20px; }
@@ -687,6 +689,9 @@ body {
   padding: 10px 14px;
   font-size: 0.9rem;
 }
+
+.chat-composer > .form-input { flex:1; min-width:0; width:auto; }
+.chat-composer > .btn { flex-shrink:0; white-space:nowrap; }
 
 .chat-input:focus {
   outline: none;
@@ -2492,4 +2497,72 @@ body.modal-open { overflow: hidden; }
   color: var(--text-main);
   font-style: italic;
   line-height: 1.6;
+}
+
+/* Live teaching uses the student shell, navigation and activity typography. */
+#teacherAppSection.teacher-live-focused {
+  grid-template-columns: minmax(0, 1fr);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.teacher-live-focused .teacher-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.teacher-live-focused #panelTeacherLive { padding: 0; border: 0; background: transparent; overflow: visible; }
+.teacher-live-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.teacher-live-toolbar [role="status"] { flex: 1; font-size: .85rem; color: var(--text-subtle); }
+.teacher-live-back { margin-bottom: 16px; }
+.teacher-live-back .btn { width: 100%; padding: 7px 12px; font-size: .84rem; font-weight: 700; background: #fff; }
+.teacher-live-layout .think-step-item { width: 100%; text-align: left; font-family: inherit; }
+.teacher-live-layout .step-icon-badge { flex-shrink: 0; }
+.teacher-live-layout > .content-area { min-width: 0; overflow: visible; }
+.teacher-live-hint { font-size: .8rem; color: var(--text-subtle); }
+.live-response-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.live-response-heading h2 { font-size:1.1rem; }
+.live-response-summary { margin:12px 0 4px; font-weight:700; }
+.live-response-meta { color:var(--text-subtle); font-size:.8rem; margin-bottom:16px; }
+.live-response-layout { display:grid; grid-template-columns:minmax(145px, 21%) minmax(0, 1fr); gap:16px; align-items:start; }
+.live-detail-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.live-detail-tabs .btn { padding:9px 12px; font-size:.85rem; }
+.live-detail-tabs [aria-pressed="true"] { background:var(--primary-50); border-color:var(--primary-600); color:var(--primary-700); }
+.live-chat-turn { border-top:1px solid var(--border-light); margin-top:20px; padding-top:16px; }
+.live-chat-question,.live-chat-answer { padding:12px; margin-top:10px; border-radius:var(--radius-md); background:var(--bg-sidebar); }
+.live-chat-question { background:var(--primary-50); }
+.live-chat-turn p { white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; }
+.live-response-roster { display:flex; flex-direction:column; gap:8px; max-height:65vh; overflow:auto; }
+.live-response-student { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; width:100%; padding:12px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-light); border-radius:var(--radius-md); text-align:left; font:inherit; cursor:pointer; }
+.live-response-student[aria-pressed="true"] { background:var(--primary-50); border-color:var(--primary-600); }
+.live-response-student:focus-visible { outline:2px solid var(--primary-600); outline-offset:-2px; }
+.live-response-badge { border-radius:20px; background:var(--bg-sidebar); padding:3px 8px; font-size:.75rem; color:var(--text-subtle); }
+.live-response-badge.submitted { background:#dcfce7; color:#166534; }
+.live-response-detail { min-width:0; padding:20px; border:1px solid var(--border-light); border-radius:var(--radius-lg); overflow-wrap:anywhere; }
+.live-response-detail h3 { margin-bottom:8px; font-size:1rem; }
+.live-response-answer { white-space:pre-wrap; line-height:1.8; margin-top:16px; }
+.live-response-empty { padding:16px 0; color:var(--text-subtle); }
+.live-ranking-sort { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.live-ranking-sort [aria-pressed="true"] { background:#e8f5ec; border-color:#27ae60; color:#166534; }
+.live-ranking-sort [data-sort="stars"] { margin-left:auto; }
+.live-ranking-sort [data-sort="stars"][aria-pressed="true"] { background:#fff4cc; border-color:#d99b00; color:#855700; }
+.live-ranking-counts { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:.85rem; }
+.live-ranking-counts span { padding:6px 10px; border:1px solid var(--border-light); border-radius:var(--radius-md); color:#166534; background:#f0fdf4; }
+.live-ranking-counts [data-reaction-count="stars"] { color:#855700; background:#fff4cc; }
+.live-ranking-results { display:grid; gap:16px; margin-top:16px; }
+@media (max-width: 1024px) { .live-response-layout { grid-template-columns:minmax(0,1fr); } .live-response-roster { max-height:280px; } }
+@media (max-width: 768px) {
+  .teacher-live-focused .teacher-content { padding: 12px; }
+  .teacher-live-toolbar { padding: 14px; }
 }

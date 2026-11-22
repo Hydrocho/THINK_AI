@@ -2,9 +2,10 @@
   <aside id="teacherSidebar" class="sidebar teacher-sidebar">
     <div class="teacher-sidebar-brand">[THINK]</div>
     <div class="teacher-menu-group"><span class="teacher-menu-label">내 수업</span></div>
-    <button class="teacher-nav-item active" id="tabTeacherOperation" onclick="TeacherAdminModule.switchTab('operation')" title="수업 운영"><span>🏫</span><span class="teacher-menu-label">수업 운영</span></button>
     <button class="teacher-nav-item" id="tabTeacherDesign" onclick="TeacherAdminModule.switchTab('design')" title="수업 설계"><span>🗂️</span><span class="teacher-menu-label">수업 설계</span></button>
-    <button class="teacher-nav-item active" id="tabTeacherEval" onclick="TeacherAdminModule.switchTab('eval')" title="수업 현황"><span>📊</span><span class="teacher-menu-label">수업 현황</span></button>
+    <button class="teacher-nav-item active" id="tabTeacherOperation" onclick="TeacherAdminModule.switchTab('operation')" title="학급 계획"><span>🏫</span><span class="teacher-menu-label">학급 계획</span></button>
+    <button class="teacher-nav-item" id="tabTeacherLive" onclick="TeacherAdminModule.switchTab('live')" title="실시간 수업"><span>▶</span><span class="teacher-menu-label">실시간 수업</span></button>
+    <button class="teacher-nav-item" id="tabTeacherEval" onclick="TeacherAdminModule.switchTab('eval')" title="수업 현황"><span>📊</span><span class="teacher-menu-label">수업 현황</span></button>
     <div class="teacher-menu-group"><span class="teacher-menu-label">계정 관리</span></div>
     <button class="teacher-nav-item" id="tabTeacherStudents" onclick="TeacherAdminModule.switchTab('students')" title="학생 관리"><span>👥</span><span class="teacher-menu-label">학생 관리</span></button>
     <button class="teacher-nav-item" id="tabTeacherMaster" style="display:none" onclick="TeacherAdminModule.switchTab('master')" title="교사 관리"><span>🛡️</span><span class="teacher-menu-label">교사 관리</span></button>
@@ -17,8 +18,8 @@
         <div id="classListSubView">
           <div class="teacher-panel-header">
             <div>
-              <h3>🏫 수업 운영</h3>
-              <p>학급 카드를 클릭하여 연결된 프로젝트와 차시별 수업을 세부 운영합니다.</p>
+              <h3>🏫 학급 계획</h3>
+              <p>학급별 수업 주제와 함께 진행할 THINK 단계를 설정합니다.</p>
             </div>
             <button class="btn btn-primary" onclick="TeacherAdminModule.createClassPrompt()">＋ 새 학급 추가</button>
           </div>
@@ -49,13 +50,15 @@
         </div>
       </div>
 
+      <div id="panelTeacherLive" class="teacher-panel" style="display:none"></div>
+
       <div id="panelTeacherDesign" class="teacher-panel" style="display:none">
         <!-- Sub View 1: Projects Card Grid -->
         <div id="projectListSubView">
           <div class="teacher-panel-header">
             <div>
               <h3>🗂️ 수업 설계</h3>
-              <p>프로젝트와 차시별 활동 계획을 작성합니다.</p>
+              <p>프로젝트와 주제별 활동 계획을 작성합니다.</p>
             </div>
             <button class="btn btn-primary" onclick="TeacherAdminModule.createProjectPrompt()">＋ 새 프로젝트</button>
           </div>
@@ -72,7 +75,7 @@
               <div class="project-title-content">
                 <h3 class="project-title-heading"><span aria-hidden="true">🗂️</span><input id="projectDetailTitle" class="project-title-input" type="text" aria-label="프로젝트명" title="프로젝트명 수정" required></h3>
                 <p id="projectDetailSubText" style="font-size: 0.85rem; color: var(--text-subtle); margin: 4px 0 0 0;">
-                  차시를 추가하고 항목을 펼쳐 핵심 발문 질문을 수정하세요. 핸들(⋮⋮)을 드래그하여 차시 순서를 변경할 수 있습니다.
+                  주제를 추가하고 항목을 펼쳐 핵심 발문 질문을 수정하세요. 핸들(⋮⋮)을 드래그하여 주제 순서를 변경할 수 있습니다.
                 </p>
               </div>
               <button id="projectTitleSave" type="button" class="btn btn-primary" hidden>변경 내용 저장</button>
@@ -83,10 +86,10 @@
           <div style="margin-bottom: 28px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
               <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 6px;">
-                📋 차시 목록 (드래그하여 순서 재배치)
+                📋 주제 목록 (드래그하여 순서 재배치)
               </h4>
               <button class="btn btn-primary" onclick="TeacherAdminModule.showAddLessonForm()">
-                ＋ 새 차시 추가
+                ＋ 새 주제 추가
               </button>
             </div>
             
@@ -98,13 +101,13 @@
           <!-- Add Lesson Section (Inline/Collapsible Form) -->
           <div id="addLessonFormBox" style="display: none; background: var(--bg-subtle, #f8fafc); border: 2px dashed var(--primary-300, #93c5fd); border-radius: var(--radius-lg); padding: 24px; margin-top: 20px;">
             <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-              ➕ 새 차시 추가
+              ➕ 새 주제 추가
             </h4>
             <form onsubmit="TeacherAdminModule.handleAddLessonToProject(event)" style="display: flex; flex-direction: column; gap: 16px;">
               <input type="hidden" id="detailVersionId" value="">
               
               <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">차시 제목</label>
+                <label class="form-label" style="font-weight: 600;">주제 제목</label>
                 <input type="text" id="detailLessonTitle" class="form-input" placeholder="예: 자율주행 자동차 사고 시 누구를 먼저 보호해야 할까?" required style="padding: 11px 14px; font-size: 0.95rem;">
               </div>
 
@@ -150,7 +153,7 @@
 
               <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
                 <button type="button" class="btn btn-secondary" onclick="TeacherAdminModule.hideAddLessonForm()">취소</button>
-                <button type="submit" class="btn btn-primary" id="btnSubmitAddLesson">＋ 차시 저장 및 추가</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitAddLesson">＋ 주제 저장 및 추가</button>
               </div>
             </form>
           </div>

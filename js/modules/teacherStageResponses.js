@@ -8,7 +8,7 @@ const EXTENDED_STOP_WORDS = new Set([
   '동일한', '똑같은', '모든', '모두', '특정', '가진', '치명적인', '다양하지', '않은', '않고', '있는', '없는', '있어서', '없어서',
   '경우', '때문', '정도', '부분', '의해', '통해', '위해', '관련', '관련된', '가지', '하나', '하나의', '이유', '어떤', '어떻게',
   '것이다', '거예요', '그대로', '아주', '매우', '항상', '전혀', '거의', '다시', '계속', '살짝', '진짜', '정말',
-  '수', '것', '거', '등', '및', '바', '줄', '분', '개', '명', '번', '차시', '100', '100%', '같다면'
+  '수', '것', '거', '등', '및', '바', '줄', '분', '개', '명', '번', '차시', '주제', '100', '100%', '같다면'
 ]);
 
 function normalizeKoreanNoun(token) {
@@ -125,6 +125,14 @@ function renderSummary(id) {
 }
 
 function renderHeader() {
+  const recommended=element('responseFilter')?.querySelector('option[value="recommended"]');
+  if(recommended) {
+    recommended.hidden=state.stageCode!=='N';
+    if(recommended.hidden && state.filter==='recommended') {
+      state.filter='all';
+      element('responseFilter').value='all';
+    }
+  }
   const classroom = state.classInfo;
   const lesson = state.lesson;
 
@@ -146,20 +154,10 @@ function renderHeader() {
     }).join('');
 
     const isWritable = state.stageAccessMode === 'writable';
-    const accessToggleHtml = classroom ? `
-      <button type="button" 
-              id="stageAccessToggleBtn" 
-              class="stage-access-toggle-btn ${isWritable ? 'is-writable' : 'is-locked'}"
-              onclick="TeacherStageResponsesModule.toggleCurrentStageAccess()"
-              title="클릭하여 학생 작성 상태를 '작성 가능' / '작성 잠금'으로 바로 전환합니다">
-        <span class="access-toggle-icon">${isWritable ? '✍️' : '🔒'}</span>
-        <span class="access-toggle-label">상태: ${isWritable ? '작성 가능' : '작성 잠금'}</span>
-        <span class="access-toggle-badge">${isWritable ? 'ON' : 'OFF'}</span>
-      </button>
-    ` : '';
+    const accessToggleHtml = classroom ? `<span>상태: ${isWritable ? '작성 가능' : '작성 잠금'}</span><button class="btn btn-secondary" onclick="TeacherAdminModule.switchTab('live')">실시간 수업에서 진행</button>` : '';
 
     const metaText = classroom && lesson
-      ? `${classroom.subjectName} ${classroom.gradeNumber}-${classroom.classNumber} · ${classroom.projectTitle} · ${lesson.number}차시`
+      ? `${classroom.subjectName} ${classroom.gradeNumber}-${classroom.classNumber} · ${classroom.projectTitle} · ${lesson.number}주제`
       : `수업 정보를 불러오는 중입니다...`;
 
     const questionText = lesson
@@ -169,7 +167,7 @@ function renderHeader() {
     headerEl.innerHTML = `
       <div class="stage-response-header-row-1">
         <button class="btn btn-secondary" onclick="TeacherAdminModule.showClassDetailSubView()" style="padding: 5px 12px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border-radius: 8px;">
-          ← 수업 운영으로 돌아가기
+          ← 학급 계획으로 돌아가기
         </button>
         <div class="stage-response-meta-group" style="display: flex; align-items: center; gap: 8px;">
           <span class="stage-response-eyebrow" style="font-weight: 600; font-size: 0.85rem; color: #475569; background: #f1f5f9; padding: 4px 10px; border-radius: 12px;">
@@ -177,7 +175,6 @@ function renderHeader() {
           </span>
           ${accessToggleHtml}
           <button class="btn btn-secondary" onclick="TeacherStageResponsesModule.switchStage('${state.stageCode}', true)">기록 새로고침</button>
-          ${state.stageCode === 'H' ? `<button class="btn btn-primary" onclick="ThinkWorkflow.assign('${state.classId}','${state.lessonId}')">친구 의견 배정</button>` : ''}
         </div>
       </div>
       <div class="stage-response-header-row-question" style="padding: 4px 2px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
@@ -197,7 +194,7 @@ function renderHeader() {
   }
 
   if (classroom && lesson) {
-    setText('stageResponseContext', `${classroom.subjectName} · ${classroom.gradeNumber}학년 ${classroom.classNumber}반 · ${classroom.projectTitle} · ${lesson.number}차시`);
+    setText('stageResponseContext', `${classroom.subjectName} · ${classroom.gradeNumber}학년 ${classroom.classNumber}반 · ${classroom.projectTitle} · ${lesson.number}주제`);
     setText('stageResponseTitle', `THINK ${state.stageCode} — ${stageLabels[state.stageCode] || state.stageCode}`);
     setText('stageResponseQuestion', `핵심 질문: “${lesson.coreQuestion || ''}”`);
     setText('stageResponseAccess', `학생 공개 상태: ${accessLabels[state.stageAccessMode] || accessLabels.hidden} · 비공개여도 교사는 저장된 초안을 열람할 수 있습니다.`);
@@ -268,7 +265,7 @@ export async function switchStage(newStageCode, force = false) {
 }
 
 function visibleStudents() {
-  return state.students.filter((student) => state.filter === 'all' || responseStatus(student) === state.filter).sort((a, b) => {
+  return state.students.filter((student) => state.filter === 'all' || (state.filter==='recommended' ? student.recommended : responseStatus(student) === state.filter)).sort((a, b) => {
     if (state.sort === 'student_number') return a.studentNumber.localeCompare(b.studentNumber);
     return new Date(b.response?.updatedAt || 0) - new Date(a.response?.updatedAt || 0) || a.studentNumber.localeCompare(b.studentNumber);
   });
@@ -1236,6 +1233,7 @@ export async function renderInPageContainer(container, classId, lessonId, stageC
                 <option value="writing">작성 중</option>
                 <option value="not_started">미작성</option>
                 <option value="submitted">제출 완료</option>
+                <option value="recommended" hidden>함께 읽기 추천</option>
               </select>
             </label>
             <label>정렬 

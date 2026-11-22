@@ -58,16 +58,9 @@ test('teacher class cards and details show the subject and load the active lesso
   assert.match(classDetail, /cls\.subject_name \|\| '미지정'/);
 });
 
-test('class detail has one inline active lesson toggle per lesson', () => {
-  assert.match(classDetail, /data-active-class-lesson-id="\$\{l\.id\}"/);
-  assert.match(classDetail, /수업 활성화/);
-  assert.match(classDetail, /TeacherAdminModule\.setActiveClassLesson/);
-
-  const setterStart = teacher.indexOf('TeacherAdminModule.setActiveClassLesson = async function');
-  assert.notEqual(setterStart, -1, 'expected an inline active-class-lesson setter');
-  const setterEnd = teacher.indexOf('TeacherAdminModule.', setterStart + 30);
-  const setterSource = teacher.slice(setterStart, setterEnd);
-  assert.match(setterSource, /SupabaseService\.setActiveClassLesson/);
-  assert.match(setterSource, /querySelectorAll\('\[data-active-class-lesson-id\]'\)/);
-  assert.doesNotMatch(setterSource, /openClassDetailSubView/);
+test('class detail saves plans without opening student activities', () => {
+  assert.match(classDetail, /class_lesson_plans/);
+  assert.match(classDetail, /TeacherLiveModule.planCard/);
+  assert.doesNotMatch(classDetail, /setActiveClassLesson|setClassStageAccess|수업 활성화/);
+  assert.match(view, /tabTeacherLive/);
 });

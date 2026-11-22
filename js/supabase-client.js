@@ -336,6 +336,7 @@
         lessons: (payload.lessons || []).map((l, i) => ({
           title: l.title,
           coreQuestion: l.coreQuestion || l.core_question || "",
+          reviewResource: l.reviewResource ?? l.review_resource ?? "",
           aiReference: l.aiReference ?? l.ai_reference ?? "",
           backgroundDescription: l.backgroundDescription ?? l.background_description ?? "",
           studentGuidance: l.studentGuidance || l.student_guidance || "",

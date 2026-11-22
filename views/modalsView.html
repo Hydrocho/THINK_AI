@@ -15,7 +15,7 @@
 <div id="createActivityModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
   <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 620px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 14px;">
-      <h3 style="font-size: 1.25rem; color: var(--text-main);">➕ 새 프로젝트 및 차시 추가 생성</h3>
+      <h3 style="font-size: 1.25rem; color: var(--text-main);">➕ 새 프로젝트 및 주제 추가 생성</h3>
       <button onclick="App.closeActivityModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
     </div>
 
@@ -27,11 +27,11 @@
 
       <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
         <div class="form-group">
-          <label class="form-label">차시 번호</label>
+          <label class="form-label">주제 번호</label>
           <input type="number" id="newLessonNum" class="form-input" min="1" max="20" value="6" required>
         </div>
         <div class="form-group">
-          <label class="form-label">차시 제목</label>
+          <label class="form-label">주제 제목</label>
           <input type="text" id="newLessonTitle" class="form-input" placeholder="예: 자율주행차의 트롤리 고뇌" required value="자율주행 자동차 사고 시 누구를 먼저 보호해야 할까?">
         </div>
       </div>
@@ -57,7 +57,7 @@
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
         <button type="button" class="btn btn-secondary" onclick="App.closeActivityModal()">취소</button>
-        <button type="submit" class="btn btn-primary">+ 프로젝트 차시 즉시 추가</button>
+        <button type="submit" class="btn btn-primary">+ 프로젝트 주제 즉시 추가</button>
       </div>
     </form>
   </div>

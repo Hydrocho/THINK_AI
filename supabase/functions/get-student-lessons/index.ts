@@ -49,7 +49,7 @@ serve(async req => {
 
   const { data: lessonRows, error: lessonError } = activeLessonIds.length
     ? await admin.from("lesson_plans")
-      .select("id,project_version_id,lesson_order,title,core_question,background_description,think_stages,ai_question_limit,ai_response_mode")
+      .select("id,project_version_id,lesson_order,title,core_question,review_resource,background_description,think_stages,ai_question_limit,ai_response_mode")
       .in("id", activeLessonIds)
     : { data: [], error: null };
   if (lessonError) return json({ error: lessonError.message }, 400);
@@ -61,6 +61,11 @@ serve(async req => {
       .in("lesson_plan_id", activeLessonIds)
     : { data: [], error: null };
   if (accessError) return json({ error: accessError.message }, 400);
+
+  const { data: plans, error: planError } = activeLessonIds.length
+    ? await admin.from("class_lesson_plans").select("class_id,lesson_plan_id,planned_stages").in("class_id", classIds).in("lesson_plan_id", activeLessonIds)
+    : { data: [], error: null };
+  if (planError) return json({ error: planError.message }, 400);
 
   const projectsByClassVersion = new Map(
     (classProjects || []).map(project => [`${project.class_id}:${project.source_version_id}`, project])
@@ -87,8 +92,9 @@ serve(async req => {
       number: lesson.lesson_order,
       title: lesson.title,
       coreQuestion: lesson.core_question,
+      reviewResource: lesson.review_resource || "",
       backgroundDescription: lesson.background_description || '',
-      thinkStages: lesson.think_stages,
+      thinkStages: plans?.find(plan => plan.class_id === classroom.id && plan.lesson_plan_id === lesson.id)?.planned_stages || lesson.think_stages,
       aiQuestionLimit: lesson.ai_question_limit,
       aiResponseMode: lesson.ai_response_mode,
       thinkStageAccess: stageAccessByClassLesson.get(`${classroom.id}:${lesson.id}`)
