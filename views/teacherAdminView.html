@@ -4,6 +4,7 @@
     <div class="teacher-menu-group"><span class="teacher-menu-label">내 수업</span></div>
     <button class="teacher-nav-item active" id="tabTeacherOperation" onclick="TeacherAdminModule.switchTab('operation')" title="수업 운영"><span>🏫</span><span class="teacher-menu-label">수업 운영</span></button>
     <button class="teacher-nav-item" id="tabTeacherDesign" onclick="TeacherAdminModule.switchTab('design')" title="수업 설계"><span>🗂️</span><span class="teacher-menu-label">수업 설계</span></button>
+    <button class="teacher-nav-item" id="tabTeacherLive" onclick="TeacherAdminModule.switchTab('live')" title="실시간 수업"><span>▶</span><span class="teacher-menu-label">실시간 수업</span></button>
     <button class="teacher-nav-item active" id="tabTeacherEval" onclick="TeacherAdminModule.switchTab('eval')" title="수업 현황"><span>📊</span><span class="teacher-menu-label">수업 현황</span></button>
     <div class="teacher-menu-group"><span class="teacher-menu-label">계정 관리</span></div>
     <button class="teacher-nav-item" id="tabTeacherStudents" onclick="TeacherAdminModule.switchTab('students')" title="학생 관리"><span>👥</span><span class="teacher-menu-label">학생 관리</span></button>
@@ -12,6 +13,7 @@
   </aside>
   <section class="teacher-content-shell">
     <div class="teacher-content">
+      <div id="panelTeacherLive" class="teacher-panel" style="display:none"></div>
       <div id="panelTeacherOperation" class="teacher-panel">
         <!-- Sub View 1: Class Card Grid -->
         <div id="classListSubView">

@@ -4,6 +4,7 @@
 
 window.TeacherAdminModule = {
   navigation: {
+    live: { breadcrumb: '내 수업 › 실시간 수업', title: '실시간 수업', description: '학생과 같은 활동 화면으로 수업을 진행합니다.' },
     operation: { breadcrumb: '내 수업 › 수업 운영', title: '수업 운영', description: '학급별 프로젝트와 차시별 실시간 수업을 운영합니다.' },
     design: { breadcrumb: '내 수업 › 수업 설계', title: '수업 설계', description: '프로젝트 및 차시별 활동 계획을 작성하고 관리합니다.' },
     eval: { breadcrumb: '내 수업 › 수업 현황', title: '수업 현황', description: '학생들의 THINK 5단계 진행과 AI 대화 내역 및 근거를 평가합니다.' },
@@ -39,6 +40,11 @@ window.TeacherAdminModule = {
 
   switchTab: function (tabName) {
     if (tabName !== 'design' && !this.confirmDiscardLessonChanges()) return;
+    document.getElementById('teacherAppSection')?.classList.remove('teacher-live-focused');
+    const livePanel = document.getElementById('panelTeacherLive');
+    if (livePanel) livePanel.style.display = tabName === 'live' ? 'block' : 'none';
+    document.getElementById('tabTeacherLive')?.classList.toggle('active', tabName === 'live');
+    if (tabName === 'live') window.TeacherLiveModule.showClasses();
     const nav = this.navigation[tabName];
     if (nav) {
       const bc = document.getElementById('teacherBreadcrumb');

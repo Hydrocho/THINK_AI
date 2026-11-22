@@ -422,3 +422,31 @@ test('writing stays local through navigation and reload until explicit submissio
   assert.equal(f.data.records.find(r=>r.stage==='T').content,'기기에 보관한 글');
   assert.equal(f.store.size,0);
 });
+
+
+test('teacher preview reuses all activity forms without requests or student state changes',()=>{
+  const f=fixture(),before=structuredClone(f.state);
+  for(const stage of ['T','H','I','N','K']) {
+    const box=f.document.createElement('div');
+    f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['T','H','I','N','K']},stage,box);
+    assert.ok(box.textContent.length>10);
+    for(const el of box.querySelectorAll('textarea,input,button,select'))assert.ok(el.disabled);
+    for(const el of box.querySelectorAll('*'))assert.ok([...el.attributes].every(a=>!a.name.startsWith('on')));
+    if(stage==='T')assert.equal(box.querySelectorAll('textarea').length,5);
+    if(stage==='N')assert.ok(box.querySelectorAll('textarea').length>=2);
+  }
+  assert.deepEqual(f.state,before);
+  assert.equal(f.requests.length,0);
+});
+
+test('attempting an unopened stage keeps current writing and checks again on the next click',async()=>{
+  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  f.data.access.H='hidden';
+  const input=f.document.getElementById('thinkText');input.value='작성 중인 답안';f.window.ThinkWorkflow.input(input.value);
+  await f.window.ThinkWorkflow.navigate(2);
+  assert.equal(f.document.getElementById('thinkText').value,'작성 중인 답안');
+  assert.equal(f.state.currentStep,1);
+  f.data.access.H='writable';await f.window.ThinkWorkflow.navigate(2);
+  assert.equal(f.state.currentStep,2);
+  assert.equal(f.polls.length,0);
+});

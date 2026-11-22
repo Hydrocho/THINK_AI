@@ -328,11 +328,11 @@
     capture(ctx);
     for(const stage of stages)if(ctx.dirty[stage])cache(ctx,stage);
   }
-  async function refresh(ctx,initial=false,turnId=null) {
+  async function refresh(ctx,initial=false,turnId=null,suppliedSnapshot=null) {
     if(ctx.refreshing) return;
     ctx.refreshing=true;
     try {
-      const snapshot=await api(ctx,initial?'snapshot':'stage_snapshot',turnId?'I':ctx.stage,turnId?{turnId}:{});
+      const snapshot=suppliedSnapshot || await api(ctx,initial?'snapshot':'stage_snapshot',turnId?'I':ctx.stage,turnId?{turnId}:{});
       if(current!==ctx) return;
       capture(ctx);
       const previous=ctx.access;
@@ -361,17 +361,17 @@
       if(initial||changed||peerChanged||(chatChanged&&ctx.stage==='I')) render();
     } finally {ctx.refreshing=false;}
   }
-  function render() {
-    const ctx=current, box=document.getElementById('stepContentContainer');
+  function render(preview=null, target=null) {
+    const ctx=preview || current, box=target || document.getElementById('stepContentContainer');
     if(!ctx||!box) return;
     const s=ctx.stage,r=record(ctx,s),mode=ctx.access[s]||'hidden';
     const finishing=mode!=='writable' && ctx.renderedStage===s && writingOpen(ctx,s) && !ctx.closing[s];
     const writable=(mode==='writable'||finishing)&&!!ctx.leases[s]&&!ctx.closing[s];
     const disabled=writable?'':'disabled';
-    const state=window.AppState;
+    const state=preview ? {} : window.AppState;
     state.currentStep=(ctx.lesson.thinkStages||stages).indexOf(s)+1;
-    window.App.updateStepNav();
-    document.querySelectorAll('.think-step-item[data-stage]').forEach(item => {
+    if(!preview) window.App.updateStepNav();
+    if(!preview) document.querySelectorAll('.think-step-item[data-stage]').forEach(item => {
       item.classList.toggle('completed', !!ctx.records[item.dataset.stage]?.submitted_at);
     });
     ctx.renderedStage=s;
@@ -465,6 +465,14 @@
       body=`<div class="think-i-tabs" data-stage="${s}" role="tablist" aria-label="${s}단계 활동">${tabs}</div>${hint}<div id="think${s}Panel" role="tabpanel" aria-labelledby="think${s}Tab${Number(secondTab)}">${body}</div>`;
     }
     box.innerHTML=`${finishing?'<p>단계가 마감되었습니다. 작성 중인 글을 마무리하고 제출할 수 있어요.</p>':mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${backToChat}${primary}</div>`;
+    if(preview) {
+      box.querySelectorAll('*').forEach(element => {
+        for(const attribute of [...element.attributes]) if(attribute.name.startsWith('on')) element.removeAttribute(attribute.name);
+        if(element.id) element.id='teacherPreview-'+element.id;
+        if(element.matches('textarea,input,select,button')) element.disabled=true;
+      });
+      return;
+    }
     box.querySelector('.think-i-tabs')?.addEventListener('keydown',event=>{
       const keys={ArrowLeft:!secondTab,ArrowRight:!secondTab,Home:false,End:true};
       if(!Object.hasOwn(keys,event.key))return;
@@ -544,6 +552,13 @@
     finally {entering=false;}
   }
   const flow=window.ThinkWorkflow={
+    renderTeacherPreview(lesson,stage,box,reflectionView=false) {
+      const ctx={lesson,stage,access:Object.fromEntries(stages.map(s=>[s,'writable'])),records:{},leases:{},
+        saved:{},dirty:{},status:{},closing:{},recovery:{},peers:[],turns:[],remaining:lesson.aiQuestionLimit||20,
+        reflecting:reflectionView,firstCount:0};
+      ctx.leases[stage]='preview';
+      render(ctx,box);
+    },
     showKReference(stage) {
       document.querySelectorAll('[data-k-choice]').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.kChoice===stage));});
       document.querySelectorAll('[data-k-reference]').forEach(panel=>{panel.hidden=panel.dataset.kReference!==stage;});
@@ -707,11 +722,15 @@
       ctx.navigating=true;
       try {
         const previous=ctx.stage;
+        const snapshot=await api(ctx,'stage_snapshot',next);
+        if(!snapshot.access[next] || snapshot.access[next]==='hidden') {
+          alert('선생님이 활동을 시작하면 참여할 수 있습니다.');return;
+        }
         if(next!==previous && !await allowLeavingWriting(ctx))return;
         await flush(ctx,next!==previous);
         if(next!==previous){delete ctx.leases[previous];ctx.readingReviews=false;}
         ctx.stage=next;
-        await refresh(ctx);
+        await refresh(ctx,false,null,snapshot);
         await open(ctx,next);
         if(next!==previous)await restoreDraft(ctx,next);
         render();

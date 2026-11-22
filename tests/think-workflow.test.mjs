@@ -32,6 +32,11 @@ async function fixture() {
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122040000_review_reading.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122050000_stage_snapshot.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122060000_shared_peer_texts.sql',import.meta.url),'utf8'));
+  await db.exec(`create function auth.uid() returns uuid language sql as 'select null::uuid';
+    alter table class_lesson_stage_access add column updated_at timestamptz default now();
+    alter table class_lesson_stage_access add unique(class_id,lesson_plan_id,stage_code);`);
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122070000_class_live_teaching.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122080000_close_live_stage.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
@@ -219,4 +224,56 @@ test('N readers see submitted anonymous reviews in a stable order distinct from 
     await db.exec("update class_lesson_stage_access set access_mode='read_only' where stage_code='N'");
     await assert.rejects(read('review_feedback',{id:peers[0].id,recommended:false}),/마감/);
   }finally{await db.close();}
+});
+
+
+test('closing a live stage blocks entry, preserves existing submission and allows reopening',async()=>{
+  const {db,rpc}=await fixture();
+  const live=(action,stage='T',actor=id(1))=>db.query('select manage_live_teaching($1,$2,$3,$4,$5)',[actor,id(10),id(20),action,JSON.stringify({stage})]);
+  try {
+    await live('stage');
+    const row=await rpc('open');
+    await assert.rejects(live('close_stage','T',id(4)),/권한/);
+    await live('close_stage');
+    assert.equal((await rpc('snapshot')).access.T,'hidden');
+    assert.equal((await rpc('snapshot')).access.H,'writable');
+    await assert.rejects(rpc('open','T',{},id(3)),/작성할 수 없는/);
+    await assert.rejects(rpc('open'),/작성할 수 없는/);
+    const saved=await rpc('save','T',saveData(row,'입장 후 마무리',920,{submit:true,final:true}));
+    assert.ok(saved.submitted_at);
+    assert.equal(saved.final_saved,true);
+    await live('stage');
+    assert.ok((await rpc('open','T',{},id(3))).lease);
+    await live('end');
+    await assert.rejects(live('close_stage'),/먼저/);
+  } finally {await db.close();}
+});
+
+test('live planning is independent, stage opening is cumulative, and existing writing survives end',async()=>{
+  const {db,rpc}=await fixture();
+  const live=async(action,payload={},actor=id(1),lesson=id(20))=>(await db.query(
+    'select manage_live_teaching($1,$2,$3,$4,$5) value',[actor,id(10),lesson,action,JSON.stringify(payload)])).rows[0].value;
+  try {
+    await live('end');
+    await db.exec("update class_lesson_stage_access set access_mode='hidden'");
+    await live('plan',{enabled:true,stages:['T','H']});
+    assert.equal((await rpc('snapshot')).active,false);
+    assert.equal((await rpc('snapshot')).access.T,'hidden');
+    await assert.rejects(live('start',{},id(4)),/권限|권한/);
+    await live('start');
+    await assert.rejects(rpc('open'),/작성할 수 없는/);
+    await assert.rejects(live('stage',{stage:'I'}),/포함되지 않은/);
+    await live('stage',{stage:'T'});
+    const row=await rpc('open');
+    await live('stage',{stage:'H'});
+    assert.equal((await rpc('snapshot')).access.T,'writable');
+    assert.equal((await rpc('snapshot')).access.H,'writable');
+    await assert.rejects(live('plan',{enabled:true,stages:['T']}),/종료 후/);
+    assert.equal((await db.query('select current_think_stage from classes where id=$1',[id(11)])).rows[0].current_think_stage,null);
+    await live('end');
+    await assert.rejects(rpc('open','H'),/작성할 수 없는/);
+    const saved=await rpc('save','T',saveData(row,'종료 후 마무리한 답안',910,{submit:true,final:true}));
+    assert.equal(saved.content,'종료 후 마무리한 답안');
+    assert.ok(saved.submitted_at);
+  } finally {await db.close();}
 });
