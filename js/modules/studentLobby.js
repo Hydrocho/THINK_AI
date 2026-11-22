@@ -61,7 +61,7 @@ window.StudentLobbyModule = {
 
       const statusContent = lesson ? `
         <div class="student-subject-lesson-box">
-          <div class="student-subject-lesson-title">📖 ${this.escapeHtml(lesson.number)}차시 · ${this.escapeHtml(lesson.title)}</div>
+          <div class="student-subject-lesson-title">📖 ${this.escapeHtml(window.topicTitle(lesson.title, lesson.number))}</div>
           ${lesson.coreQuestion ? `<div class="student-subject-lesson-question">💡 핵심 질문: "${this.escapeHtml(lesson.coreQuestion)}"</div>` : ''}
         </div>
       ` : `

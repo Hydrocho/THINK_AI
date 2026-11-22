@@ -18,6 +18,12 @@
   --border-medium: #cbd5e1;
   --border-active: #94a3b8;
   
+  /* 학생용 T·H·I·N·K 공통: 활동 영역은 같은 청회색 제목 띠와 테두리로 구분한다.
+     새 문항과 친구 글 카드에도 아래 변수를 사용한다. 선택·저장 상태에는 해당 상태색을 사용한다. */
+  --think-section-header: #f1f5f9;
+  --think-section-ink: #334155;
+  --think-section-border: var(--border-medium);
+
   /* Primary & Accent Colors */
   --primary-50: #eff6ff;
   --primary-100: #dbeafe;
@@ -318,24 +324,21 @@ body {
 .think-step-item[data-stage="H"].active { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; color: #166534; }
 .think-step-item[data-stage="H"].active .step-icon-badge { background: #16a34a; color: #ffffff; border-color: #16a34a; }
 
-.think-step-item[data-stage="I"] .step-icon-badge { border-color: #0284c7; color: #0284c7; background: #f0f9ff; }
-.think-step-item[data-stage="I"].active { background: #f0f9ff; border-color: #bae6fd; border-left: 4px solid #0284c7; color: #075985; }
+/* 단계 고유색은 탐색 메뉴와 배지에서 현재 위치를 알려 준다. */
+.think-step-item[data-stage="I"] { --think-stage-tint: #f0f9ff; --think-stage-ink: #075985; }
+.think-step-item[data-stage="N"] { --think-stage-tint: #fef2f2; --think-stage-ink: #991b1b; }
+.think-step-item[data-stage="I"] .step-icon-badge { border-color: #0284c7; color: #0284c7; background: var(--think-stage-tint); }
+.think-step-item[data-stage="I"].active { background: var(--think-stage-tint); border-color: #bae6fd; border-left: 4px solid #0284c7; color: var(--think-stage-ink); }
 .think-step-item[data-stage="I"].active .step-icon-badge { background: #0284c7; color: #ffffff; border-color: #0284c7; }
 
-.think-step-item[data-stage="N"] .step-icon-badge { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
-.think-step-item[data-stage="N"].active { background: #fef2f2; border-color: #fecaca; border-left: 4px solid #dc2626; color: #991b1b; }
+.think-step-item[data-stage="N"] .step-icon-badge { border-color: #dc2626; color: #dc2626; background: var(--think-stage-tint); }
+.think-step-item[data-stage="N"].active { background: var(--think-stage-tint); border-color: #fecaca; border-left: 4px solid #dc2626; color: var(--think-stage-ink); }
 .think-step-item[data-stage="N"].active .step-icon-badge { background: #dc2626; color: #ffffff; border-color: #dc2626; }
 
 .think-step-item[data-stage="K"] .step-icon-badge { border-color: #9333ea; color: #9333ea; background: #faf5ff; }
 .think-step-item[data-stage="K"].active { background: #faf5ff; border-color: #e9d5ff; border-left: 4px solid #9333ea; color: #6b21a8; }
 .think-step-item[data-stage="K"].active .step-icon-badge { background: #9333ea; color: #ffffff; border-color: #9333ea; }
 
-
-.question-card[data-stage="T"] { background: #fff7ed; border-color: #fed7aa; border-left: 4px solid #ea580c; color: #9a3412; }
-.question-card[data-stage="H"] { background: #f0fdf4; border-color: #bbf7d0; border-left: 4px solid #16a34a; color: #166534; }
-.question-card[data-stage="I"] { background: #f0f9ff; border-color: #bae6fd; border-left: 4px solid #0284c7; color: #075985; }
-.question-card[data-stage="N"] { background: #fef2f2; border-color: #fecaca; border-left: 4px solid #dc2626; color: #991b1b; }
-.question-card[data-stage="K"] { background: #faf5ff; border-color: #e9d5ff; border-left: 4px solid #9333ea; color: #6b21a8; }
 
 .think-step-item.completed .step-icon-badge {
   background: var(--success-bg);
@@ -418,20 +421,85 @@ body {
   line-height: 1.6;
 }
 
+.question-card[data-stage] {
+  background: var(--think-section-header);
+  border: 1px solid var(--think-section-border);
+  color: var(--think-section-ink);
+}
+
 /* Cards & Grid Containers */
 .think-writing-guide { margin-bottom: 22px; }
 .think-writing-guide ol { margin: 8px 0 0; padding-left: 22px; }
 .think-writing-guide li + li { margin-top: 5px; }
+/* I단계 활동 탭은 본문과 함께 스크롤한다. 상단 고정 영역은 핵심 질문에만 사용한다. */
+.think-i-tabs { display: flex; align-items: flex-end; gap: .35rem; padding-inline-start: .4rem; border-bottom: 1px solid var(--think-section-border); margin-bottom: 1rem; }
+.think-i-tabs button {
+  margin-bottom: -1px;
+  padding: .48rem 1.1rem;
+  border: 1px solid var(--think-section-border);
+  border-radius: .7rem .7rem 0 0;
+  background: var(--think-section-header);
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+/* 색인 윗부분만 강조하고 선택한 탭의 아래 테두리는 본문과 연결한다. */
+.think-i-tabs button[aria-selected="true"] {
+  padding-block: .65rem;
+  border-top: 3px solid #0284c7;
+  border-bottom-color: var(--bg-card);
+  background: var(--bg-card);
+  color: #075985;
+  font-weight: 700;
+}
+.think-i-tabs[data-stage="N"] button[aria-selected="true"] { border-top-color: #dc2626; color: #991b1b; }
+.think-i-tabs button:focus-visible { outline: 2px solid var(--primary-600); outline-offset: -2px; }
+.think-i-tabs button:disabled { opacity: .55; cursor: default; }
+.think-activity-card {
+  --section-inset: clamp(12px, 2vw, 16px);
+  border: 1px solid var(--think-section-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--section-inset) var(--section-inset);
+  background: var(--bg-card);
+  min-width: 0;
+}
+.think-t-example + .think-activity-card,
+.think-activity-card + .think-activity-card { margin-block-start: 1rem; }
+.think-activity-card > .form-label:first-child {
+  margin: 0 calc(-1 * var(--section-inset));
+  padding: .65rem var(--section-inset);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--think-section-header);
+  color: var(--think-section-ink);
+}
+.think-activity-card .think-writing-reference {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
 .think-writing-reference { padding: 16px; margin-bottom: 18px; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-sidebar); }
 .think-writing-reference strong { display: block; margin-bottom: 6px; font-size: 0.85rem; }
 .think-writing-reference p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.think-own-review { background: white; margin-bottom: 8px; }
+.think-own-review h4 { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); }
+.think-recommended-reviews { background: white; border: 1px solid var(--border-light); border-radius: var(--radius-md); }
+.think-recommended-reviews > summary { padding: 10px 16px; }
+.think-recommended-reviews > div { padding: 0 16px 14px; }
+.think-recommended-reviews > div > div + div { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-light); }
+.think-reference-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-block: 8px; }
+.think-reference-picker button { padding: 4px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text-subtle); font: inherit; cursor: pointer; }
+.think-reference-picker button:hover { color: var(--primary-700); }
+.think-reference-picker button[aria-pressed="true"] { background: #fff; border-color: var(--border-light); color: var(--text-main); font-weight: 700; }
+.think-reference-picker button:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 1px; }
 .think-writing-criteria { margin-bottom: 18px; }
 .think-writing-hint { color: var(--text-muted); font-size: 0.85rem; line-height: 1.6; }
-.think-t-field { margin-bottom: 24px; }
 .think-t-example { padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-sidebar); font-size: 0.85rem; line-height: 1.6; overflow-wrap: anywhere; }
 .think-t-example summary { cursor: pointer; color: var(--primary-700); font-weight: 600; }
 .think-t-example summary:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 3px; }
 .think-t-example p { margin-top: 8px; }
+.think-activity-card[data-stage="K"] .think-t-example blockquote { margin: 0.4rem 0 0; padding-inline-start: 1rem; border-inline-start: 3px solid var(--border-light); }
 
 .card-grid-2 {
   display: grid;
@@ -2240,3 +2308,188 @@ body.modal-open { overflow: hidden; }
 .project-title-input { flex: 1; min-width: 0; padding: 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text-main); font: inherit; font-weight: 700; text-overflow: ellipsis; }
 .project-title-input:hover, .project-title-input:focus { background: white; border-color: var(--primary-500); }
 #projectTitleSave[hidden] { display: none; }
+
+.think-peer-card { margin: 1rem 0; padding: 0; overflow: hidden; border: 1px solid var(--think-section-border); border-radius: var(--radius-md); background: var(--bg-card); text-align: left; }
+.think-peer-card h4 { margin: 0; padding: .7rem 1rem; background: var(--think-section-header); color: var(--think-section-ink); font-size: 1rem; }
+.think-peer-answers { margin: 0; padding: .25rem 1rem; }
+.think-peer-answers > div { padding: .65rem 0; }
+.think-peer-answers > div + div { border-top: 1px solid #edf1f4; }
+.think-peer-answers dt { display: flex; align-items: baseline; gap: .5rem; font-size: .9rem; font-weight: 600; color: #334155; line-height: 1.5; }
+.peer-question-label { flex: none; padding: .05rem .4rem; border-radius: .3rem; background: #edf1f6; font-size: .78rem; }
+.think-peer-answers dd { margin: .25rem 0 0 .65rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.think-peer-plain { padding: .4rem 1rem; }
+.think-peer-preview { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.think-peer-plain[open] .think-peer-preview { display: none; }
+.think-peer-card footer { padding: .7rem 1rem; border-top: 1px solid var(--border-light); background: #f8fafb; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.think-peer-card p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .65rem 0; }
+.think-peer-card summary { cursor: pointer; }
+.think-peer-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
+.think-peer-card button { font: inherit; color: inherit; background: white; border: 1px solid var(--border-light); border-radius: .6rem; padding: .5rem .75rem; cursor: pointer; }
+.think-peer-card button:disabled { cursor: default; }
+.think-peer-actions button[aria-pressed="true"] { color: #11623b; border-color: #459d6f; background: #e8f6ed; font-weight: 700; }
+.think-peer-card .think-peer-recommend { margin-inline-start: auto; }
+.think-peer-recommend[aria-pressed="true"] { background: #fff4cc; color: #754d04; border-color: #c49121; font-weight: 700; }
+.think-peer-card button[aria-pressed="true"] span { font-size: 0; }
+.think-peer-actions button[aria-pressed="true"] span::before { content: '♥'; font-size: 1rem; }
+.think-peer-recommend[aria-pressed="true"] span::before { content: '★'; font-size: 1rem; }
+
+
+/* ============================================================
+   THINK Stage Banner — 모든 단계 공통 헤더 컴포넌트
+   ============================================================ */
+.stage-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+}
+.stage-banner__icon { font-size: 1.5rem; flex-shrink: 0; line-height: 1; padding-top: 2px; }
+.stage-banner__body { flex: 1; min-width: 0; }
+.stage-banner__label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: 0.75;
+}
+.stage-banner__title { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
+.stage-banner__desc { font-size: 0.88rem; line-height: 1.6; opacity: 0.85; }
+.stage-badge {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 0.95rem;
+  color: #fff;
+}
+
+/* 단계별 배너 색상 */
+.stage-banner--T { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.stage-banner--T .stage-badge { background: #ea580c; }
+.stage-banner--H { background: #f0fdf4; border-color: #86efac; color: #166534; }
+.stage-banner--H .stage-badge { background: #16a34a; }
+.stage-banner--I { background: #f0f9ff; border-color: #7dd3fc; color: #075985; }
+.stage-banner--I .stage-badge { background: #0284c7; }
+.stage-banner--N { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.stage-banner--N .stage-badge { background: #dc2626; }
+.stage-banner--K { background: #faf5ff; border-color: #c4b5fd; color: #6b21a8; }
+.stage-banner--K .stage-badge { background: #9333ea; }
+
+/* ============================================================
+   THINK Stage Submit Button — 단계별 색상 버튼
+   ============================================================ */
+.btn-stage-T { background: #ea580c; color: #fff; box-shadow: var(--shadow-sm); }
+.btn-stage-T:hover:not(:disabled) { background: #c2410c; transform: translateY(-1px); }
+.btn-stage-H { background: #16a34a; color: #fff; box-shadow: var(--shadow-sm); }
+.btn-stage-H:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); }
+.btn-stage-I { background: #0284c7; color: #fff; box-shadow: var(--shadow-sm); }
+.btn-stage-I:hover:not(:disabled) { background: #0369a1; transform: translateY(-1px); }
+.btn-stage-N { background: #dc2626; color: #fff; box-shadow: var(--shadow-sm); }
+.btn-stage-N:hover:not(:disabled) { background: #b91c1c; transform: translateY(-1px); }
+.btn-stage-K { background: #9333ea; color: #fff; box-shadow: 0 0 0 3px #e9d5ff, var(--shadow-sm); }
+.btn-stage-K:hover:not(:disabled) { background: #7e22ce; transform: translateY(-1px); }
+.btn-stage-T:disabled,
+.btn-stage-H:disabled,
+.btn-stage-I:disabled,
+.btn-stage-N:disabled,
+.btn-stage-K:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* ============================================================
+   H단계 — 대기 화면 스피너
+   ============================================================ */
+.h-waiting-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  border: 2px dashed #86efac;
+  border-radius: var(--radius-lg);
+  background: #f0fdf4;
+  text-align: center;
+  gap: 8px;
+}
+.h-waiting-spinner {
+  width: 36px; height: 36px;
+  border: 4px solid #bbf7d0;
+  border-top-color: #16a34a;
+  border-radius: 50%;
+  animation: stage-spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+@keyframes stage-spin { to { transform: rotate(360deg); } }
+.h-waiting-title { font-weight: 700; font-size: 1rem; color: #15803d; }
+.h-waiting-sub { font-size: 0.88rem; color: #166534; line-height: 1.6; }
+
+/* ============================================================
+   H단계 — 선택 완료 요약 바
+   ============================================================ */
+.h-selection-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  color: #166534;
+}
+.h-selection-summary--empty {
+  background: #f8fafc;
+  border-color: var(--border-light);
+  color: var(--text-subtle);
+}
+
+/* ============================================================
+   option-card — 체크 뱃지 & 익명 뱃지 보강
+   ============================================================ */
+.option-check-mark {
+  display: none;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--primary-700);
+  background: var(--primary-100);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.option-card.selected .option-check-mark { display: inline-block; }
+.option-anon-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #166534;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.option-body {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  line-height: 1.6;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   K단계 — T단계 초기 생각 비교 블록
+   ============================================================ */
+.k-initial-ref {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid #9333ea;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+}
+.k-initial-ref__label {
+  font-weight: 700;
+  color: var(--text-subtle);
+  margin-bottom: 4px;
+}
+.k-initial-ref__text {
+  color: var(--text-main);
+  font-style: italic;
+  line-height: 1.6;
+}

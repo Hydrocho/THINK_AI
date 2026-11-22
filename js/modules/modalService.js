@@ -125,6 +125,15 @@
     actions: (area, done) => addButton(area, confirmLabel, 'btn btn-primary', () => done(), true)
   });
 
+  const writingExit = () => openDialog({
+    title:'작성한 글을 제출할까요?', message:'제출하면 선생님이 글을 확인할 수 있습니다.', cancelResult:'stay',
+    actions:(area,done)=>{
+      addButton(area,'계속 작성','btn btn-secondary',()=>done('stay'));
+      addButton(area,'임시 저장 후 이동','btn btn-secondary',()=>done('draft'));
+      addButton(area,'제출하고 이동','btn btn-primary',()=>done('submit'),true);
+    }
+  });
+
   const confirm = ({ title, message, tone = 'warning', confirmLabel = '확인', cancelLabel = '취소' }) => openDialog({
     title, message, tone, cancelResult: false,
     actions: (area, done) => {
@@ -271,13 +280,13 @@
           option.lessons.forEach((lTitle, idx) => {
             const chip = document.createElement('span');
             chip.className = 'modal-select-card__chip';
-            chip.textContent = `${idx + 1}차시 ${lTitle}`;
+            chip.textContent = window.topicTitle(lTitle, idx + 1);
             lessonContainer.appendChild(chip);
           });
           if (option.totalLessons && option.totalLessons > option.lessons.length) {
             const more = document.createElement('span');
             more.className = 'modal-select-card__chip-more';
-            more.textContent = `+ ${option.totalLessons - option.lessons.length}개 차시`;
+            more.textContent = `+ ${option.totalLessons - option.lessons.length}개 주제`;
             lessonContainer.appendChild(more);
           }
           body.appendChild(lessonContainer);
@@ -376,6 +385,6 @@
     if (activeModal?.id === modalId) cleanup();
   };
 
-  window.ModalService = { normalizeInput, findOption, alert, confirm, prompt, select, selectCards, showCustom, hideCustom };
+  window.ModalService = { normalizeInput, findOption, writingExit, alert, confirm, prompt, select, selectCards, showCustom, hideCustom };
   window.alert = (message) => { void alert({ title: '안내', message: String(message), tone: 'info' }); };
 })();

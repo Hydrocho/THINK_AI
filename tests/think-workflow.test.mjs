@@ -26,11 +26,40 @@ async function fixture() {
     insert into class_lesson_stage_access select '${id(10)}','${id(20)}',unnest(array['T','H','I','N','K']),'writable';
   `);
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261111000000_think_workflow.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261121140000_peer_feedback.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261121150000_automatic_peer_reading.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122020000_chat_usage.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122040000_review_reading.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122050000_stage_snapshot.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122060000_shared_peer_texts.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
 }
 const saveData=(row,content,n,extra={})=>({lease:row.lease,revision:row.revision,content,requestId:id(n),...extra});
+
+test('chat completion records provider usage once, including truncated replies',async()=>{
+  const {db,rpc}=await fixture();
+  try {
+    const turn=await rpc('chat_start','I',{requestId:id(500),question:'테스트'});
+    const usageMetadata={promptTokenCount:51,candidatesTokenCount:20,thoughtsTokenCount:90,totalTokenCount:161};
+    const finish=attempt=>db.query('select finish_think_chat($1,$2,$3,$4)',
+      [id(2),id(10),id(20),JSON.stringify({requestId:turn.id,attempt,answer:'부분 답변',model:'gemini-3.5-flash',finishReason:'MAX_TOKENS',usageMetadata})]);
+    await finish(id(999));
+    assert.equal((await db.query('select * from think_chat_usage')).rows.length,0);
+    await finish(turn.attempt);
+    await finish(turn.attempt);
+    const snapshot=async(stage,turnId=null)=>(await db.query('select think_stage_snapshot($1,$2,$3,$4,$5) data',[id(2),id(10),id(20),stage,turnId])).rows[0].data;
+    assert.deepEqual(Object.keys(await snapshot('T')),['access']);
+    assert.ok(Array.isArray((await snapshot('K')).peers));
+    assert.deepEqual((await snapshot('I',id(999))).turns,[]);
+    const delta=await snapshot('I',turn.id);
+    assert.equal(delta.turns[0].answer,'부분 답변');
+    assert.equal(delta.remaining,0);
+    assert.deepEqual((await db.query('select finish_reason,usage_metadata from think_chat_usage')).rows,
+      [{finish_reason:'MAX_TOKENS',usage_metadata:usageMetadata}]);
+  } finally {await db.close();}
+});
 
 test('close permits in-flight saves and one final flush, rejects stale writes and new entry',async()=>{
   const {db,rpc}=await fixture();try {
@@ -72,6 +101,18 @@ test('peer assignment excludes self/unsubmitted, persists snapshots and validate
     const h=await rpc('open','H');
     await assert.rejects(rpc('save','H',saveData(h,'',114,{metadata:{selectedPeerOpinion:id(999)}})),/배정된 의견/);
     await rpc('save','H',saveData(h,peers[0].text,115,{submit:true,metadata:{selectedPeerOpinion:peers[0].id}}));
+    let hr=await rpc('open','H');
+    const feedback={[peers[0].id]:{recommended:true}};
+    hr=await rpc('save','H',saveData(hr,'',180,{metadata:{feedback}}));
+    assert.equal(hr.submitted_at,null);
+    feedback[peers[0].id].reaction='similar';
+    hr=await rpc('save','H',{requestId:id(181),revision:hr.revision,lease:hr.lease,changes:feedback});
+    assert.equal(hr.metadata.feedback[peers[0].id].recommended,true);
+    const stored=(await db.query('select opinions from think_peer_sets where student_id=$1',[id(2)])).rows[0];
+    assert.equal(stored.opinions[0].text,undefined);
+    assert.ok(stored.opinions[0].ref);
+    assert.ok(hr.submitted_at);
+    await assert.rejects(rpc('save','H',saveData(hr,'',182,{metadata:{feedback:{wrong:{reaction:'similar'}}}})),/배정된 글/);
     const n=await rpc('open','N');
     await rpc('save','N',saveData(n,'이유',116,{submit:true,metadata:{criteria:'fairness',selectedPeerOpinion:peers[0].id}}));
     const restored=(await rpc('snapshot')).records.find(r=>r.stage==='N');
@@ -108,4 +149,74 @@ test('class/lesson isolation and direct browser DB denial',async()=>{
     await assert.rejects(rpc('snapshot'),/permission denied/);
     await db.exec('reset role');
   } finally {await db.close();}
+});
+
+test('opening H rotates six first reads fairly and late submissions stay optional', async()=>{
+  const {db,rpc}=await fixture();
+  try {
+    await db.exec("update class_lesson_stage_access set access_mode='hidden' where stage_code='H'");
+    const roster=[2,3,5,6,7,8,9,12,13];
+    for(const n of roster.slice(2)){
+      await db.query('insert into auth.users values($1)',[id(n)]);
+      await db.query('insert into student_accounts values($1,$2)',[id(n),'301'+String(n).padStart(2,'0')]);
+    }
+    for(const n of roster.slice(0,-1)){
+      const row=await rpc('open','T',{},id(n));
+      await rpc('save','T',saveData(row,'글 '+n,200+n,{submit:true}),id(n));
+    }
+    assert.equal((await rpc('snapshot')).peers.length,0);
+    await db.exec("update class_lesson_stage_access set access_mode='writable' where stage_code='H'");
+    const counts=new Map(),firsts=new Set();
+    for(const n of roster.slice(0,-1)){
+      const {peers,firstCount}=await rpc('snapshot','H',{},id(n));
+      assert.equal(firstCount,6);assert.equal(peers.length,7);
+      assert.ok(peers.every(p=>p.text!=='글 '+n));
+      firsts.add(peers[0].text);
+      for(const p of peers.slice(0,6)) counts.set(p.text,(counts.get(p.text)||0)+1);
+    }
+    assert.equal(firsts.size,8);assert.deepEqual([...new Set(counts.values())],[6]);
+    const before=await rpc('snapshot');
+    const feedback=Object.fromEntries(before.peers.slice(0,6).map(p=>[p.id,{reaction:'curious'}]));
+    const h=await rpc('open','H');
+    assert.ok((await rpc('save','H',saveData(h,'',310,{metadata:{feedback}}))).submitted_at);
+    const late=await rpc('open','T',{},id(13));
+    await rpc('save','T',saveData(late,'늦은 글',311,{submit:true}),id(13));
+    const after=await rpc('snapshot');
+    assert.equal(after.firstCount,6);
+    assert.deepEqual(after.peers.slice(0,-1),before.peers);
+    assert.equal(after.peers.at(-1).text,'늦은 글');
+    assert.ok(after.records.find(r=>r.stage==='H').submitted_at);
+  } finally {await db.close();}
+});
+
+test('N readers see submitted anonymous reviews in a stable order distinct from H and save independent reactions',async()=>{
+  const {db,rpc}=await fixture();
+  const read=(action='review_list',payload={},actor=id(2))=>db.query('select think_review_reading($1,$2,$3,$4,$5) value',[actor,id(10),id(20),action,JSON.stringify(payload)]).then(r=>r.rows[0].value);
+  try {
+    await assert.rejects(read(),/먼저 제출/);
+    await db.exec(`insert into auth.users values('${id(5)}');insert into student_accounts values('${id(5)}','30103');`);
+    for(const n of [2,3,5])for(const stage of ['T','N']) {
+      const row=await rpc('open',stage,{},id(n));
+      await rpc('save',stage,saveData(row,'글 '+n,n*10+(stage==='T'?1:2),{submit:true,metadata:{criteria:'validity',review:{evidence:'근거 '+n,judgment:'판단'}}}),id(n));
+    }
+    const peers=await read();
+    assert.equal(peers.length,2);assert.ok(peers.every(p=>!p.author && !p.reader));
+    const h=(await rpc('snapshot')).peers.map(p=>p.text);
+    assert.notDeepEqual(peers.map(p=>p.evidence.replace('근거','글')),h);
+    assert.ok(!peers.some(p=>p.evidence==='근거 2'));
+    await read('review_feedback',{id:peers[0].id,reaction:'similar'});
+    await read('review_feedback',{id:peers[0].id,recommended:true});
+    const again=await read();
+    assert.deepEqual(again.map(p=>p.id),peers.map(p=>p.id));
+    assert.equal(again[0].reaction,'similar');assert.equal(again[0].recommended,true);
+    await db.exec(`insert into auth.users values('${id(6)}');insert into student_accounts values('${id(6)}','30104');`);
+    const late=await rpc('open','N',{},id(6));
+    await rpc('save','N',saveData(late,'늦게 제출',606,{submit:true,metadata:{criteria:'validity'}}),id(6));
+    const extended=await read();
+    assert.deepEqual(extended.slice(0,2),again);
+    assert.equal(extended[2].evidence,'늦게 제출');
+    await assert.rejects(read('review_feedback',{id:peers[0].id,reaction:'newView'},id(3)),/읽을 수 없는/);
+    await db.exec("update class_lesson_stage_access set access_mode='read_only' where stage_code='N'");
+    await assert.rejects(read('review_feedback',{id:peers[0].id,recommended:false}),/마감/);
+  }finally{await db.close();}
 });
