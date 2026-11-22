@@ -2528,6 +2528,22 @@ body.modal-open { overflow: hidden; }
 .teacher-live-layout .step-icon-badge { flex-shrink: 0; }
 .teacher-live-layout > .content-area { min-width: 0; overflow: visible; }
 .teacher-live-hint { font-size: .8rem; color: var(--text-subtle); }
+.live-response-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.live-response-heading h2 { font-size:1.1rem; }
+.live-response-summary { margin:12px 0 4px; font-weight:700; }
+.live-response-meta { color:var(--text-subtle); font-size:.8rem; margin-bottom:16px; }
+.live-response-layout { display:grid; grid-template-columns:minmax(180px, 32%) minmax(0, 1fr); gap:20px; align-items:start; }
+.live-response-roster { display:flex; flex-direction:column; gap:8px; max-height:65vh; overflow:auto; }
+.live-response-student { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; width:100%; padding:12px; background:var(--bg-card); color:var(--text-main); border:1px solid var(--border-light); border-radius:var(--radius-md); text-align:left; font:inherit; cursor:pointer; }
+.live-response-student[aria-pressed="true"] { background:var(--primary-50); border-color:var(--primary-600); }
+.live-response-student:focus-visible { outline:2px solid var(--primary-600); outline-offset:-2px; }
+.live-response-badge { border-radius:20px; background:var(--bg-sidebar); padding:3px 8px; font-size:.75rem; color:var(--text-subtle); }
+.live-response-badge.submitted { background:#dcfce7; color:#166534; }
+.live-response-detail { min-width:0; padding:20px; border:1px solid var(--border-light); border-radius:var(--radius-lg); overflow-wrap:anywhere; }
+.live-response-detail h3 { margin-bottom:8px; font-size:1rem; }
+.live-response-answer { white-space:pre-wrap; line-height:1.8; margin-top:16px; }
+.live-response-empty { padding:16px 0; color:var(--text-subtle); }
+@media (max-width: 1024px) { .live-response-layout { grid-template-columns:minmax(0,1fr); } .live-response-roster { max-height:280px; } }
 @media (max-width: 768px) {
   .teacher-live-focused .teacher-content { padding: 12px; }
   .teacher-live-toolbar { padding: 14px; }

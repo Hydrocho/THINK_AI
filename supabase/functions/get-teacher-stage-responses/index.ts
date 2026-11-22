@@ -56,7 +56,7 @@ serve(async (req) => {
     typeof body.lessonId !== "string" ||
     !stageCodes.includes(body.stageCode)
   ) {
-    return json({ error: "학급, 차시, THINK 단계 정보가 올바르지 않습니다." }, 400);
+    return json({ error: "학급, 주제, THINK 단계 정보가 올바르지 않습니다." }, 400);
   }
 
   const { data: classroom, error: classError } = await admin
@@ -74,7 +74,7 @@ serve(async (req) => {
     .eq("id", body.lessonId)
     .maybeSingle();
   if (lessonError) return json({ error: lessonError.message }, 400);
-  if (!lesson) return json({ error: "차시를 찾을 수 없습니다." }, 404);
+  if (!lesson) return json({ error: "주제를 찾을 수 없습니다." }, 404);
 
   const { data: classProject, error: classProjectError } = await admin
     .from("class_projects")
@@ -84,16 +84,42 @@ serve(async (req) => {
     .limit(1)
     .maybeSingle();
   if (classProjectError) return json({ error: classProjectError.message }, 400);
-  if (!classProject) return json({ error: "이 학급에 연결된 차시가 아닙니다." }, 404);
+  if (!classProject) return json({ error: "이 학급에 연결된 주제가 아닙니다." }, 404);
 
   const studentPrefix = `${classroom.grade_number}${String(classroom.class_number).padStart(2, "0")}`;
   const { data: studentRows, error: studentError } = await admin
     .from("student_accounts")
-    .select("student_number,student_name")
+    .select("student_number,student_name,auth_user_id")
     .like("student_number", `${studentPrefix}%`)
     .order("student_number", { ascending: true });
   if (studentError) return json({ error: studentError.message }, 400);
   const roster = studentRows || [];
+
+  // Live activities persist in class-scoped think_records, not the legacy table.
+  // Only submitted work is exposed by this view; an open lease is not a submission.
+  if (body.view === "live") {
+    const { data: records, error: recordsError } = await admin
+      .from("think_records")
+      .select("student_id,content,metadata,updated_at,submitted_at")
+      .eq("class_id", body.classId)
+      .eq("lesson_id", body.lessonId)
+      .eq("stage", body.stageCode);
+    if (recordsError) return json({ error: recordsError.message }, 400);
+    const byStudent = new Map((records || []).map(record => [record.student_id, record]));
+    return json({ students: roster.map(student => {
+      const record = byStudent.get(student.auth_user_id);
+      return {
+        studentNumber: student.student_number,
+        studentName: student.student_name,
+        response: record?.submitted_at ? {
+          content: record.content,
+          metadata: record.metadata,
+          updatedAt: record.updated_at,
+          submittedAt: record.submitted_at,
+        } : null,
+      };
+    }) });
+  }
 
   const responseQuery = admin
     .from("think_stage_responses")

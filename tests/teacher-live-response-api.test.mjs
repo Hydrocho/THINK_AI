@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+async function request({owned=true,attached=true}={}) {
+  const queries=[];let handler;
+  const rows={profiles:{role:'teacher',approval_status:'approved'},classes:owned?{id:'c',grade_number:3,class_number:1}:null,
+    lesson_plans:{id:'l',project_version_id:'v'},class_projects:attached?{id:'p'}:null,
+    student_accounts:[{student_number:'30101',student_name:'제출',auth_user_id:'a'},{student_number:'30102',student_name:'미제출',auth_user_id:'b'}],
+    think_records:[{student_id:'a',content:'실제 제출',metadata:{tAnswers:['실제 제출']},submitted_at:'2026-11-22'},
+      {student_id:'b',content:'비공개 초안',submitted_at:null},{student_id:'outside',content:'다른 학생',submitted_at:'2026-11-22'}]};
+  const admin={from(table){const query={table,filters:[]};queries.push(query);
+    const chain={select(){return chain;},eq(...args){query.filters.push(args);return chain;},like(){return chain;},order(){return chain;},limit(){return chain;},
+      maybeSingle(){return Promise.resolve({data:rows[table],error:null});},then(resolve){return Promise.resolve({data:rows[table],error:null}).then(resolve);}};return chain;}};
+  const source=fs.readFileSync(new URL('../supabase/functions/get-teacher-stage-responses/index.ts',import.meta.url),'utf8')
+    .replace(/^import .*;\r?\n/gm,'').replace('body: unknown','body').replace('req: Request','req').replaceAll(')!;',');');
+  vm.runInNewContext(source,{Deno:{env:{get:()=>''}},Response,
+    createClient:(url,key,options)=>options?{auth:{async getUser(){return {data:{user:{id:'teacher'}},error:null};}}}:admin,
+    serve(fn){handler=fn;}});
+  const response=await handler(new Request('https://example.test',{method:'POST',headers:{Authorization:'Bearer test','Content-Type':'application/json'},
+    body:JSON.stringify({classId:'c',lessonId:'l',stageCode:'T',view:'live'})}));
+  return {response,data:await response.json(),queries};
+}
+test('live API scopes current records to class lesson stage and returns only roster submissions',async()=>{
+  const {response,data,queries}=await request();
+  assert.equal(response.status,200);
+  assert.equal(data.students.length,2);
+  assert.equal(data.students[0].response.content,'실제 제출');
+  assert.equal(data.students[1].response,null);
+  assert.doesNotMatch(JSON.stringify(data),/비공개 초안|다른 학생|auth_user_id/);
+  assert.deepEqual(queries.find(q=>q.table==='think_records').filters,[['class_id','c'],['lesson_id','l'],['stage','T']]);
+  assert.equal(queries.some(q=>q.table==='think_stage_responses'),false);
+});
+test('live API rejects classes the teacher does not own and unattached lessons before reading records',async()=>{
+  for(const options of [{owned:false},{attached:false}]) {
+    const {response,queries}=await request(options);
+    assert.equal(response.status,404);
+    assert.equal(queries.some(q=>q.table==='think_records'),false);
+  }
+});

@@ -37,3 +37,28 @@ test('live controls order open stages as THINK and toggle admission per selected
     assert.match(document.querySelector('[role="status"]').textContent, /열린 단계: T, H, I, N, K$/);
   }
 });
+
+test('student status replaces only the activity pane and follows the selected stage',async()=>{
+  const {document}=parseHTML('<main id="teacherAppSection"><div id="panelTeacherLive"></div></main>');
+  const opened=[];let closed=0;
+  const context={document,window:{ThinkWorkflow:{renderTeacherPreview(){}},TeacherLiveResponses:{
+    close(){closed++;},async open(context){opened.push(context);}
+  }}};
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(new URL('../js/modules/teacherLive.js',import.meta.url),'utf8'),context);
+  const live=context.window.TeacherLiveModule;
+  Object.assign(live,{classId:'c',stage:'T',access:[],classroom:{},lesson:{id:'l',core_question:'핵심 질문',plan:{planned_stages:['T','H']}}});
+  live.render();
+  await live.toggleResponses();
+  assert.equal(document.getElementById('teacherLiveActivity').hidden,true);
+  assert.equal(document.getElementById('teacherLiveResponses').hidden,false);
+  assert.equal(document.querySelector('.step-main-title').textContent,'핵심 질문');
+  assert.equal(document.querySelectorAll('.think-step-item').length,2);
+  live.preview('H');
+  assert.equal(opened.at(-1).stageCode,'H');
+  live.toggleResponses();
+  assert.equal(document.getElementById('teacherLiveActivity').hidden,false);
+  assert.equal(document.getElementById('teacherLiveResponses').hidden,true);
+  assert.equal(document.getElementById('teacherLiveResponseToggle').textContent,'학생 작성 현황');
+  assert.ok(closed>=3);
+});

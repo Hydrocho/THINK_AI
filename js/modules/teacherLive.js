@@ -27,6 +27,7 @@
       finally{button.disabled=false;}
     },
     async showClasses() {
+      window.TeacherLiveResponses?.close();this.responsesVisible=false;
       document.getElementById('teacherAppSection')?.classList.remove('teacher-live-focused');
       const request=++revision;this.classId=null;panel().textContent='학급을 불러오는 중…';
       try {
@@ -52,6 +53,7 @@
       return {classroom,lessons,access};
     },
     async selectClass(classId) {
+      window.TeacherLiveResponses?.close();this.responsesVisible=false;
       document.getElementById('teacherAppSection')?.classList.remove('teacher-live-focused');
       const request=++revision;panel().textContent='수업 주제를 불러오는 중…';
       try {
@@ -79,6 +81,7 @@
     },
     preview(stage) {this.stage=stage;this.render();},
     render() {
+      window.TeacherLiveResponses?.close();
       document.getElementById('teacherAppSection')?.classList.add('teacher-live-focused');
       const l=this.lesson,c=this.classroom;
       const opened=Object.keys(names).filter(stage=>this.access.some(a=>a.lesson_plan_id===l.id&&a.access_mode==='writable'&&a.stage_code===stage));
@@ -97,9 +100,28 @@
         <ul class="think-steps-list">${l.plan.planned_stages.map(s=>`<li><button type="button" class="think-step-item ${s===this.stage?'active':''}" data-stage="${s}" aria-pressed="${s===this.stage}" onclick="TeacherLiveModule.preview('${s}')"><span class="step-icon-badge">${s}</span><span>${names[s]}</span></button></li>`).join('')}</ul></div>
         <p class="teacher-live-hint">‘단계 시작’을 누르면 학생들이 입장할 수 있습니다. ‘단계 종료하기’를 누르면 새 입장이 닫히며, 이미 작성 중인 학생은 마무리하여 제출할 수 있습니다.</p></aside>
         <section class="content-area"><div class="step-header"><h1 class="step-main-title">${esc(l.core_question)}</h1>${l.background_description?`<details class="think-t-example think-background"><summary>배경 설명 보기</summary><p>${esc(l.background_description)}</p></details>`:''}</div>
-        ${this.stage==='I'?'<button class="btn btn-secondary" onclick="TeacherLiveModule.renderPreview(false)">AI와 대화하기</button> <button class="btn btn-secondary" onclick="TeacherLiveModule.renderPreview(true)">대화 후 내 생각 정리하기</button>':''}
-        <div id="teacherLivePreview"></div></section></div>`;
+        <div><button type="button" class="btn btn-secondary" id="teacherLiveResponseToggle" aria-expanded="false" aria-controls="teacherLiveResponses" onclick="TeacherLiveModule.toggleResponses()">학생 작성 현황</button></div>
+        <div id="teacherLiveActivity">${this.stage==='I'?'<button class="btn btn-secondary" onclick="TeacherLiveModule.renderPreview(false)">AI와 대화하기</button> <button class="btn btn-secondary" onclick="TeacherLiveModule.renderPreview(true)">대화 후 내 생각 정리하기</button>':''}
+        <div id="teacherLivePreview"></div></div><div id="teacherLiveResponses" hidden></div></section></div>`;
       this.renderPreview(false);
+      if(this.responsesVisible)this.showResponses();
+    },
+    toggleResponses() {
+      if(!this.responsesVisible)return this.showResponses();
+      this.responsesVisible=false;
+      window.TeacherLiveResponses.close();
+      document.getElementById('teacherLiveActivity').hidden=false;
+      document.getElementById('teacherLiveResponses').hidden=true;
+      const button=document.getElementById('teacherLiveResponseToggle');
+      button.textContent='학생 작성 현황';button.setAttribute('aria-expanded','false');
+    },
+    showResponses() {
+      this.responsesVisible=true;
+      document.getElementById('teacherLiveActivity').hidden=true;
+      const target=document.getElementById('teacherLiveResponses');target.hidden=false;
+      const button=document.getElementById('teacherLiveResponseToggle');
+      button.textContent='← 활동 화면으로 돌아가기';button.setAttribute('aria-expanded','true');
+      return window.TeacherLiveResponses.open({classId:this.classId,lessonId:this.lesson.id,stageCode:this.stage},target);
     },
     renderPreview(reflection) {
       const l=this.lesson;
