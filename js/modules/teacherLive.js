@@ -64,8 +64,9 @@
         const session=await window.SupabaseService.getUserSession();
         const classes=checked(await window.SupabaseService.getClient().from('classes').select('*').eq('teacher_id',session.user.id).order('class_code'));
         if(request!==revision)return;
-        panel().innerHTML=`<h3>▶ 실시간 수업</h3><p>학급을 선택한 뒤 계획된 주제로 수업을 시작하세요.</p><div class="project-card-grid">${classes.map(c=>
-          `<button class="btn btn-secondary" style="padding:24px" onclick="TeacherLiveModule.selectClass('${c.id}')">${c.grade_number}학년 ${c.class_number}반 · ${esc(c.subject_name)}${c.active_lesson_plan_id?' · 진행 중':''}</button>`).join('')||'<p>학급 계획에서 학급을 먼저 만들어 주세요.</p>'}</div>`;
+        classes.sort((a,b)=>Number(a.grade_number)-Number(b.grade_number)||Number(a.class_number)-Number(b.class_number)||String(a.subject_name||'').localeCompare(String(b.subject_name||''),'ko'));
+        panel().innerHTML=`<div class="teacher-panel-header live-class-heading"><div><h3>▶ 실시간 수업</h3><p>학급을 선택한 뒤 계획된 주제로 수업을 시작하세요.</p></div><span class="live-class-total">전체 ${classes.length}학급</span></div><div class="live-class-grid">${classes.map(c=>
+          `<button type="button" class="live-class-card ${c.active_lesson_plan_id?'is-running':''}" onclick="TeacherLiveModule.selectClass('${c.id}')"><span class="live-class-top"><span class="live-class-grade">${esc(c.grade_number)}학년</span>${c.active_lesson_plan_id?'<span class="live-class-status">진행 중</span>':''}</span><strong class="live-class-name">${esc(c.class_number)}반</strong><span class="live-class-bottom"><span class="live-class-subject">${esc(c.subject_name)}</span></span></button>`).join('')||'<p class="live-response-empty">학급 계획에서 학급을 먼저 만들어 주세요.</p>'}</div>`;
       } catch(error){panel().textContent='학급을 불러오지 못했습니다: '+error.message;}
     },
     async loadClass(classId) {
@@ -90,10 +91,30 @@
         const data=await this.loadClass(classId);if(request!==revision)return;
         Object.assign(this,data,{classId});
         const c=data.classroom;
-        panel().innerHTML=`<button class="btn btn-secondary" onclick="TeacherLiveModule.showClasses()">← 학급 목록</button>
-          <h3>${c.grade_number}학년 ${c.class_number}반 · ${esc(c.subject_name)}</h3>
-          ${data.lessons.map(l=>`<article class="question-card" style="margin-top:16px"><strong>${esc(l.projectTitle)} · ${esc(l.title)}</strong><p>${esc(l.core_question)}</p>
-            <p>함께 진행할 단계: ${l.plan.planned_stages.join(' · ')}</p><button class="btn btn-primary" onclick="TeacherLiveModule.start('${l.id}',this)">${c.active_lesson_plan_id===l.id?'진행 중인 수업으로 돌아가기':'실시간 수업 하기'}</button></article>`).join('')||'<p>학급 계획에서 사용할 주제와 단계를 저장해 주세요.</p>'}`;
+        const cards=data.lessons.map(lesson=>{
+          const active=c.active_lesson_plan_id===lesson.id;
+          return `<article class="student-subject-card${active?' is-live':''}">
+            <div class="student-subject-card-body">
+              <header class="live-topic-card-header">
+                <span class="student-subject-class-label">${esc(lesson.projectTitle)}</span>
+                <span class="live-topic-stages">함께 진행할 단계 <strong>${esc(lesson.plan.planned_stages.join(' · '))}</strong></span>
+                ${active?'<span class="student-status-badge is-active">수업 진행 중</span>':''}
+              </header>
+              <div class="student-subject-lesson-box">
+                <h4 class="student-subject-lesson-title">${esc(lesson.title)}</h4>
+                ${lesson.core_question?`<p class="student-subject-lesson-question">${esc(lesson.core_question)}</p>`:''}
+              </div>
+            </div>
+            <footer class="student-subject-card-footer">
+              <button type="button" class="btn ${active?'btn-primary':'btn-secondary'} student-enter-btn" onclick="TeacherLiveModule.start('${lesson.id}',this)">${active?'진행 중인 수업으로 돌아가기':'실시간 수업 하기'}</button>
+            </footer>
+          </article>`;
+        });
+        panel().innerHTML=`<header class="teacher-panel-header live-class-heading live-topic-heading">
+          <div><h3>${esc(c.grade_number)}학년 ${esc(c.class_number)}반 · ${esc(c.subject_name)}</h3><p>실시간 수업 주제</p></div>
+          <button type="button" class="btn btn-secondary live-topic-back" onclick="TeacherLiveModule.showClasses()">← 학급 목록</button>
+        </header>
+        ${cards.length?`<div class="student-subject-card-grid live-topic-grid">${cards.join('')}</div>`:'<p class="live-response-empty">학급 계획에서 사용할 주제와 단계를 저장해 주세요.</p>'}`;
       } catch(error){panel().textContent='주제를 불러오지 못했습니다: '+error.message;}
     },
     async start(lessonId,button) {

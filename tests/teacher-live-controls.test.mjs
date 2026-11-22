@@ -127,3 +127,19 @@ test('student status replaces only the activity pane and follows the selected st
   live.preview('T');live.preview('H');
   assert.equal(opened.length,previous+2);
 });
+
+test('live class cards sort numerically by grade and class while keeping active status',async()=>{
+ const {document}=parseHTML('<main id="teacherAppSection"><div id="panelTeacherLive"></div></main>');
+ const rows=[{id:'a',grade_number:3,class_number:10,subject_name:'과학'},{id:'b',grade_number:3,class_number:6,subject_name:'과학',active_lesson_plan_id:'lesson'},{id:'c',grade_number:2,class_number:9,subject_name:'<과학>'}];
+ let calls=0;
+ const query={select(){return this;},eq(){return this;},async order(){calls++;return {data:rows,error:null};}};
+ const context={document,window:{SupabaseService:{async getUserSession(){return {user:{id:'teacher'}};},getClient(){return {from:()=>query};}}}};
+ vm.createContext(context);vm.runInContext(fs.readFileSync(new URL('../js/modules/teacherLive.js',import.meta.url),'utf8'),context);
+ await context.window.TeacherLiveModule.showClasses();
+ const cards=[...document.querySelectorAll('.live-class-card')];
+ assert.deepEqual(cards.map(c=>c.querySelector('.live-class-name').textContent),['9반','6반','10반']);
+ assert.match(cards[0].textContent,/2학년/);
+ assert.equal(cards[1].querySelector('.live-class-status').textContent,'진행 중');
+ assert.match(cards[0].textContent,/<과학>/);assert.equal(cards[0].querySelector('과학'),null);
+ assert.equal(calls,1);
+});

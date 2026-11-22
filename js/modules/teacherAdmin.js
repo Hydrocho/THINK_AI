@@ -321,7 +321,11 @@ window.TeacherAdminModule = {
       const session = await window.SupabaseService.getUserSession();
       const teacherId = session?.user?.id;
 
-      let query = client.from('classes').select('id,class_code,grade_number,class_number,subject_name,active_lesson_plan_id,teacher_id').order('class_code');
+      let query = client.from('classes')
+        .select('id,class_code,grade_number,class_number,subject_name,active_lesson_plan_id,teacher_id')
+        .order('grade_number')
+        .order('class_number')
+        .order('subject_name');
       if (teacherId) {
         query = query.eq('teacher_id', teacherId);
       }
@@ -765,7 +769,17 @@ window.TeacherAdminModule = {
         if (!classes.has(row.class_id)) classes.set(row.class_id, []);
         classes.get(row.class_id).push(row);
       }
-      view.innerHTML = '<p>각 반에서 열어 둔 주제와 학생 제출 진도를 비교합니다. 단계별 숫자는 제출한 학생 수입니다.</p><button type="button" class="btn btn-secondary">현황 새로고침</button><div style="overflow-x:auto;margin-top:16px"><table style="width:100%;text-align:left;border-collapse:collapse"><thead><tr><th>학급</th><th>진행 중인 주제</th><th>작성 가능 단계</th><th>제출이 있는 주제 · 단계</th><th>주제별 제출 인원</th></tr></thead><tbody></tbody></table></div>';
+      view.innerHTML = `<div class="class-progress-toolbar">
+        <p>단계별 숫자는 제출 인원입니다. 누르면 학생별 기록을 볼 수 있습니다.</p>
+        <button type="button" class="btn btn-secondary">현황 새로고침</button>
+      </div>
+      <div class="class-progress-scroll">
+        <table class="class-progress-table">
+          <colgroup><col class="class-progress-class-col"><col class="class-progress-active-col"><col class="class-progress-open-col"><col class="class-progress-reached-col"><col></colgroup>
+          <thead><tr><th scope="col">학급</th><th scope="col">진행 중인 주제</th><th scope="col">작성 가능 단계</th><th scope="col">제출이 있는 주제 · 단계</th><th scope="col">주제별 제출 인원</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>`;
       view.querySelector('button').onclick = () => this.renderEvalTable();
       const body = view.querySelector('tbody');
       for (const rows of classes.values()) {
@@ -774,9 +788,19 @@ window.TeacherAdminModule = {
         const active = lessons.find(row => row.active);
         const tr = body.insertRow();
         const label = row => window.topicTitle(row.lesson_title, row.lesson_order);
-        tr.insertCell().textContent = first.subject + ' · ' + first.grade + '학년 ' + first.room + '반 (' + first.roster + '명)';
-        tr.insertCell().textContent = active ? label(active) : '열린 주제 없음';
-        tr.insertCell().textContent = active?.writable?.join(' · ') || '없음';
+        const classroom = tr.insertCell();
+        const className = document.createElement('strong');
+        className.textContent = first.grade + '학년 ' + first.room + '반';
+        const classMeta = document.createElement('span');
+        classMeta.className = 'class-progress-muted';
+        classMeta.textContent = first.subject + ' · ' + first.roster + '명';
+        classroom.append(className, classMeta);
+        const activeTopic = tr.insertCell();
+        activeTopic.textContent = active ? label(active) : '열린 주제 없음';
+        activeTopic.className = active ? 'class-progress-active' : 'class-progress-muted';
+        const writable = tr.insertCell();
+        writable.textContent = active?.writable?.join(' · ') || '없음';
+        if (!active?.writable?.length) writable.className = 'class-progress-muted';
         const reached = tr.insertCell();
         const byProject = new Map();
         for (const lesson of lessons) {
@@ -788,17 +812,20 @@ window.TeacherAdminModule = {
           line.textContent = project + ' · ' + lesson.lesson_order + '주제 ' + stage + ' (' + lesson.submissions[stage] + '명 제출)';
           reached.append(line);
         }
-        if (!byProject.size) reached.textContent = '아직 제출 없음';
+        if (!byProject.size) {
+          reached.textContent = '아직 제출 없음';
+          reached.className = 'class-progress-muted';
+        }
         const counts = tr.insertCell();
         if (!lessons.length) { counts.textContent = '연결된 주제 없음'; continue; }
         const select = document.createElement('select');
         select.className = 'form-select';
-        select.setAttribute('aria-label', first.room + '반 제출 인원을 볼 주제');
+        select.setAttribute('aria-label', className.textContent + ' ' + first.subject + ' 제출 인원을 볼 주제');
         for (const lesson of lessons) select.add(new Option(lesson.project_title + ' · ' + label(lesson)));
         const latest = [...byProject.values()].at(-1)?.lesson;
         select.selectedIndex = lessons.indexOf(active || latest || lessons[0]);
         const links = document.createElement('div');
-        links.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:6px';
+        links.className = 'class-progress-stage-links';
         const showCounts = () => {
           links.replaceChildren();
           const lesson = lessons[select.selectedIndex];
@@ -816,7 +843,10 @@ window.TeacherAdminModule = {
           }
         };
         select.onchange = showCounts;
-        counts.append(select, links);
+        const controls = document.createElement('div');
+        controls.className = 'class-progress-controls';
+        controls.append(select, links);
+        counts.append(controls);
         showCounts();
       }
     } catch (error) {

@@ -65,22 +65,23 @@
 
 <!-- Batch Student Account Creation Modal -->
 <div id="batchStudentModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px;">
-  <div style="background: #ffffff; border-radius: var(--radius-xl); max-width: 520px; width: 100%; padding: 28px; box-shadow: var(--shadow-lg);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px;">
-      <h3 style="font-size: 1.2rem; color: var(--text-main);">➕ 학생 계정 일괄 생성 마법사</h3>
-      <button onclick="StudentManagerModule.closeBatchModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-subtle);">&times;</button>
+  <div class="modal-dialog batch-student-dialog" role="dialog" aria-modal="true" aria-labelledby="batchStudentTitle">
+    <div class="modal-dialog__header">
+      <h3 id="batchStudentTitle" class="modal-dialog__title">➕ 학생 계정 일괄 생성 마법사</h3>
+      <button type="button" class="modal-dialog__close" aria-label="닫기" onclick="StudentManagerModule.closeBatchModal()">&times;</button>
     </div>
 
-    <form onsubmit="StudentManagerModule.handleBatchCreate(event)" style="display: flex; flex-direction: column; gap: 16px;">
-      <div class="form-group">
-        <label class="form-label">학생 명단 붙여넣기</label>
-        <textarea id="batchRosterText" class="form-input" rows="7" oninput="StudentManagerModule.previewRoster()" placeholder="3 2 1 김하늘&#10;3 2 2 이준호&#10;3 2 10 이철수&#10;(공백, 탭, 쉼표 구분 모두 지원)" required></textarea>
-        <div id="batchRosterPreview" style="margin-top:10px;font-size:.85rem;"></div>
+    <form class="batch-student-form" onsubmit="StudentManagerModule.handleBatchCreate(event)">
+      <div class="batch-student-scroll">
+        <div class="form-group">
+          <label class="form-label" for="batchRosterText">학생 명단 붙여넣기</label>
+          <textarea id="batchRosterText" class="form-input" rows="7" oninput="StudentManagerModule.previewRoster()" placeholder="3 2 1 김하늘&#10;3 2 2 이준호&#10;3 2 10 이철수&#10;(공백, 탭, 쉼표 구분 모두 지원)" required></textarea>
+          <div id="batchRosterPreview" style="margin-top:10px;font-size:.85rem;"></div>
+        </div>
+        <p style="margin: 0; color: var(--text-subtle); font-size: 0.9rem;">초기 비밀번호는 <strong>000000</strong>으로 생성됩니다. 학생은 첫 로그인 후 새 비밀번호를 설정해야 합니다.</p>
       </div>
 
-      <p style="margin: 0; color: var(--text-subtle); font-size: 0.9rem;">초기 비밀번호는 <strong>000000</strong>으로 생성됩니다. 학생은 첫 로그인 후 새 비밀번호를 설정해야 합니다.</p>
-
-      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+      <div class="modal-dialog__actions">
         <button type="button" class="btn btn-secondary" onclick="StudentManagerModule.closeBatchModal()">취소</button>
         <button id="batchCreateButton" type="submit" class="btn btn-primary" disabled>학생 계정 생성</button>
       </div>
