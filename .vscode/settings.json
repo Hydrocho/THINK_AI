@@ -1,0 +1,5 @@
+{
+  "git.ignoredRepositories": [
+    ".worktrees/deploy-live-controls"
+  ]
+}
