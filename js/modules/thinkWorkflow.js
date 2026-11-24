@@ -7,11 +7,16 @@
   const exampleTopic='수업 중 휴대전화 사용을 허용해야 할까?';
   const tQuestions = [
     {title:'① 나의 생각',question:'이 문제에 대해 지금 어떻게 생각하나요?',example:'수업에 필요한 활동을 할 때는 휴대전화 사용을 허용하면 좋겠어요.'},
-    {title:'② 생각한 이유',question:'무엇을 보거나, 배우거나, 경험해서 그렇게 생각했나요?',example:'수업에서 모르는 단어를 휴대전화로 찾아보고, 내용을 이해하는 데 도움을 받은 적이 있어요.'},
+    {title:'② 생각한 이유',question:'왜 그렇게 생각하나요? 읽거나 겪은 일이 있다면 함께 써도 좋아요.',example:'수업에서 모르는 단어를 휴대전화로 찾아보고, 내용을 이해하는 데 도움을 받은 적이 있어요.'},
     {title:'③ 이유 설명하기',question:'방금 쓴 내용이 내 생각을 어떻게 뒷받침하나요?',example:'모르는 내용을 바로 찾아볼 수 있으면 수업을 이해하는 데 도움이 되므로, 필요한 활동에서는 휴대전화를 사용할 수 있으면 좋겠어요.'},
     {title:'④ 더 궁금한 점',question:'내 생각에서 다시 확인해 보고 싶은 부분은 무엇인가요? 질문으로 써도 좋아요.',example:'휴대전화가 공부에 도움이 되기도 하지만, 오히려 집중을 방해하지는 않을까요?'},
     {title:'⑤ 알아볼 방법',question:'그것을 알아내려면 무엇을 해 보면 좋을까요?',example:'친구들에게 수업 중 휴대전화가 도움이 됐던 경험과 집중을 방해했던 경험을 물어보고 비교해 보면 좋겠어요.'}
   ];
+  // indices are persisted in student records and local drafts; slot 2 is historical.
+  const activeTSlots = [0, 1, 3, 4];
+  const activeTTitles = {3:'③ 더 궁금한 점',4:'④ 알아볼 방법'};
+  const activeTTitle = i => activeTTitles[i] || tQuestions[i].title;
+  const recordTTitle = (answers,i) => answers[2]?.trim() ? tQuestions[i].title : activeTTitle(i);
   const tAnswers = row => tQuestions.map((_,i)=>String(Array.isArray(row.metadata.tAnswers)?row.metadata.tAnswers[i]||'':i===0?row.content:''));
   function setTAnswers(ctx,answers) {
     const row=record(ctx,'T');
@@ -19,7 +24,7 @@
     // Keep plain legacy writing intact; structured writing remains readable in
     // peer snapshots, teacher summaries, and the K reference without API changes.
     row.content=answers.slice(1).some(value=>value.trim())
-      ? answers.map((value,i)=>value.trim()?`${tQuestions[i].title}\n${value}`:'').filter(Boolean).join('\n\n')
+      ? answers.map((value,i)=>value.trim()?`${recordTTitle(answers,i)}\n${value}`:'').filter(Boolean).join('\n\n')
       : answers[0];
   }
   function referenceFields(fields) {
@@ -37,10 +42,13 @@
     const panels=available.map((s,i)=>{
       const row=record(ctx,s);
       let contents='';
-      if(s==='T') contents=referenceFields(tAnswers(row).map((value,n)=>[tQuestions[n].title,value]));
+      if(s==='T') {
+        const answers=tAnswers(row);
+        contents=referenceFields(answers.map((value,n)=>[recordTTitle(answers,n),value]));
+      }
       if(s==='H') {
         const feedback=row.metadata.feedback||{};
-        const priority=p=>Number(!!feedback[p.id]?.recommended || feedback[p.id]?.reaction==='newView');
+        const priority=p=>Number(!!feedback[p.id]?.recommended || selectedHearts(feedback[p.id]).includes('newView'));
         contents=ctx.peers.map((peer,n)=>({peer,n})).sort((a,b)=>priority(b.peer)-priority(a.peer))
           .map(({peer,n})=>`<details><summary>친구 글 ${n+1}${feedback[peer.id]?.recommended?' ☆':''}</summary>${peerAnswers(peer.text)}</details>`).join('');
       }
@@ -97,7 +105,7 @@
         <dt><strong>내 생각에 연결하기</strong></dt><dd style="margin:4px 0 0;white-space:pre-wrap">${escape(pair.connection || '아직 작성한 내용이 없어요.')}</dd></dl></section>`;
     }
     if(draft.source.key!=='reflectionPair') {
-      html+=`<div class="form-group think-activity-card" data-stage="N"><label class="form-label" for="reviewTarget">다시 살펴보고 싶은 내 생각</label>
+      html+=`<div class="form-group think-activity-card" data-stage="N"><label class="form-label" for="reviewTarget">① 다시 살펴보고 싶은 내 생각</label>
         <textarea id="reviewTarget" data-review="target" class="form-textarea" rows="2" ${disabled} oninput="ThinkWorkflow.reviewInput()">${escape(draft.target)}</textarea></div>`;
     }
     html+=`<div class="form-group think-activity-card" data-stage="N"><h3 class="form-label">② 다른 자료와 비교해 보니 어땠나요?</h3>
@@ -122,11 +130,18 @@
     return html;
   }
   const reactions = {similar:'내 생각과 비슷해요', newView:'새로운 관점이에요', curious:'더 궁금해요'};
+  function selectedHearts(feedback = {}) {
+    return feedback.reactions ?? (feedback.reaction ? [feedback.reaction] : []);
+  }
+  function toggleHeart(feedback, key) {
+    const selected = selectedHearts(feedback);
+    return selected.includes(key) ? selected.filter(item => item !== key) : [...selected, key];
+  }
   function peerAnswers(text) {
     const blocks=text.trim().replace(/\r\n/g,'\n').split(/\n\n(?=[①②③④⑤] )/);
     const pairs=[];
     for(const block of blocks) {
-      const question=tQuestions.find(item=>block.startsWith(item.title+'\n'));
+      const question=tQuestions.find((item,i)=>[item.title,activeTTitle(i)].some(title=>block.startsWith(title+'\n')));
       if(!question) {
         const plain=escape(text);
         return text.length>200
@@ -147,7 +162,7 @@
       if(peer.sourceUrl && isWebAddress(peer.sourceUrl))contents+=`<p class="think-peer-plain"><a href="${escape(peer.sourceUrl)}" target="_blank" rel="noopener noreferrer">출처 열기</a></p>`;
     } else contents=peerAnswers(peer.text);
     const buttons=Object.entries(reactions).map(([key,label])=>
-      `<button type="button" data-reaction="${key}" aria-pressed="${feedback.reaction===key}" ${disabled} onclick="ThinkWorkflow.${handler}(${index},'${key}')"><span aria-hidden="true">♡</span> ${label}</button>`).join('');
+      `<button type="button" data-reaction="${key}" aria-pressed="${selectedHearts(feedback).includes(key)}" ${disabled} onclick="ThinkWorkflow.${handler}(${index},'${key}')"><span aria-hidden="true">♡</span> ${label}</button>`).join('');
     return `<article class="think-peer-card" id="thinkPeer${index}"><h4>친구 글 ${index+1}</h4>${contents}
       <footer><div class="think-peer-actions" role="group" aria-label="친구 글 ${index+1}에 대한 내 반응">${buttons}</div>
       <button type="button" class="think-peer-recommend" aria-pressed="${!!feedback.recommended}" ${disabled} onclick="ThinkWorkflow.${handler}(${index},'recommend')"><span aria-hidden="true">☆</span> 우리 반과 함께 읽고 싶어요</button></footer></article>`;
@@ -174,7 +189,9 @@
     return `<div class="chat-messages">${ctx.turns.map(t=>`<div class="chat-bubble user">${escape(t.question)}</div><div class="chat-bubble ai" style="white-space:pre-wrap">${escape(t.answer||t.error||'응답을 기다리는 중…')}</div>`).join('')}</div>`;
   }
   let current = null, entering = false;
-  const api = (ctx, action, stage='T', payload={}) => window.SupabaseService.invokeAccountFunction('think-workflow', {
+  const api = (ctx, action, stage='T', payload={}) => ctx.classId === 'student-demo-class'
+    ? window.StudentDemo.invoke(action, stage, payload)
+    : window.SupabaseService.invokeAccountFunction('think-workflow', {
     action, classId:ctx.classId, lessonId:ctx.lesson.id, stage, payload
   });
   const key = (ctx,stage) => `think-draft:${ctx.student}:${ctx.classId}:${ctx.lesson.id}:${stage}`;
@@ -182,7 +199,7 @@
   const record = (ctx,stage) => ctx.records[stage] ||= blank(stage);
   const payloadText = r => JSON.stringify([r.content,r.metadata]);
   function cache(ctx,stage) {
-    try { localStorage.setItem(key(ctx,stage),JSON.stringify({content:record(ctx,stage).content,metadata:record(ctx,stage).metadata,revision:record(ctx,stage).revision})); return true; } catch (_) {status(ctx,stage,'브라우저 임시 저장에 실패했습니다. 글을 복사하거나 제출해 주세요.');return false;}
+    try { localStorage.setItem(key(ctx,stage),JSON.stringify({content:record(ctx,stage).content,metadata:record(ctx,stage).metadata,revision:record(ctx,stage).revision})); return true; } catch (_) {status(ctx,stage,'브라우저 임시 저장에 실패했습니다. 글을 복사하거나 저장해 주세요.');return false;}
   }
   function status(ctx,stage,message) {
     ctx.status[stage]=message;
@@ -197,9 +214,11 @@
     if(stage==='T'||stage==='I') {
       const isT=stage==='T';
       const fields=[...document.querySelectorAll(isT?'[data-t-answer]':'[data-i-answer]')];
-      if(fields.length===(isT?tQuestions.length:reflectionPrompts.length) && fields.every(field=>!field.disabled)) {
-        const row=record(ctx,stage),answers=fields.map(field=>field.value);
+      if(fields.length===(isT?activeTSlots.length:reflectionPrompts.length) && fields.every(field=>!field.disabled)) {
+        const row=record(ctx,stage);
         const previous=isT?tAnswers(row):reflectionAnswers(row);
+        const answers=previous.slice();
+        fields.forEach((field,i)=>{answers[isT?activeTSlots[i]:i]=field.value;});
         if(answers.some((answer,i)=>answer!==previous[i])) {
           if(isT)setTAnswers(ctx,answers);else setReflectionAnswers(ctx,answers);
           ctx.dirty[stage]=true;cache(ctx,stage);
@@ -245,7 +264,7 @@
     if(!draft || typeof draft.content!=='string' || !draft.metadata)return;
     if(JSON.stringify([draft.content,draft.metadata])===ctx.saved[stage])return;
     const restore=await window.ModalService.confirm({
-      title:'임시 저장된 글',message:'이 기기에 제출하지 않은 글이 있습니다. 불러오시겠습니까?',
+      title:'임시 저장된 글',message:'이 기기에 저장하지 않은 글이 있습니다. 불러오시겠습니까?',
       confirmLabel:'불러오기',cancelLabel:'불러오지 않기'
     });
     if(current!==ctx || ctx.stage!==stage)return;
@@ -272,7 +291,7 @@
       const request=ctx.retry[stage]||{requestId:crypto.randomUUID(),lease:ctx.leases[stage],revision:row.revision,
         content:row.content,metadata:structuredClone(row.metadata),submit,final};
       ctx.retry[stage]=request;
-      status(ctx,stage,submit?'제출 중…':'저장 중…');
+      status(ctx,stage,'저장 중…');
       let result;
       try {
         let payload=request;
@@ -385,13 +404,16 @@
     else if(s==='T') {
       const answers=tAnswers(r);
       body='<div class="question-card think-writing-guide" data-stage="T"><strong>나의 처음 생각 정리하기</strong><p>AI나 친구의 의견을 보기 전에 내 생각을 적어 보세요. 짧게 써도 괜찮아요. 아직 잘 모르거나 확신이 없는 부분은 그대로 적어 주세요.</p></div>';
-      body+=tQuestions.map((item,i)=>{
+      body+=activeTSlots.map(i=>{
+        const item=tQuestions[i];
         const id=i===0?'thinkText':`thinkTextT${i}`;
-        return `<div class="form-group think-activity-card" data-stage="T"><label class="form-label" for="${id}">${item.title}</label><p id="thinkTQuestion${i}" class="think-writing-hint">${item.question}</p><textarea id="${id}" data-t-answer="${i}" class="form-textarea" rows="3" ${disabled} aria-describedby="thinkTQuestion${i}" oninput="ThinkWorkflow.input(this.value,${i})">${escape(answers[i])}</textarea><details class="think-t-example"><summary>예시 보기</summary><p><strong>예시 주제: ${exampleTopic}</strong></p><p>${item.example}</p><p>찬성하거나 반대해도 좋고, 특정한 조건에서만 허용해야 한다고 생각해도 괜찮아요. 예시를 따라 쓰지 않고 현재 수업의 질문에 대한 내 생각을 써 주세요.</p></details></div>`;
+        return `<div class="form-group think-activity-card" data-stage="T"><label class="form-label" for="${id}">${activeTTitle(i)}</label><p id="thinkTQuestion${i}" class="think-writing-hint">${item.question}</p><textarea id="${id}" data-t-answer="${i}" class="form-textarea" rows="3" ${disabled} aria-describedby="thinkTQuestion${i}" oninput="ThinkWorkflow.input(this.value,${i})">${escape(answers[i])}</textarea><details class="think-t-example"><summary>예시 보기</summary><p><strong>예시 주제: ${exampleTopic}</strong></p><p>${item.example}</p><p>찬성하거나 반대해도 좋고, 특정한 조건에서만 허용해야 한다고 생각해도 괜찮아요. 예시를 따라 쓰지 않고 현재 수업의 질문에 대한 내 생각을 써 주세요.</p></details></div>`;
       }).join('');
+      if(answers[2]?.trim()) body+=`<details class="think-t-example"><summary>이전에 작성한 이유 설명 보기</summary><p style="white-space:pre-wrap">${escape(answers[2])}</p></details>`;
+
     }
     else if(s==='N' && ctx.readingReviews && r.submitted_at) {
-      body='<p>친구가 자료를 확인하고 내린 판단을 읽고, 내 반응을 하나 골라 주세요. 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</p>';
+      body='<p>친구가 자료를 확인하고 내린 판단을 읽고, 해당하는 하트를 모두 고르세요. 다시 누르면 선택이 해제됩니다. 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</p>';
       body+=`<button class="btn btn-secondary" onclick="ThinkWorkflow.reviewTab(true)" ${ctx.loadingReviews?'disabled':''}>새 글 확인</button>`;
       if(ctx.loadingReviews)body+='<p role="status">친구 검토를 불러오는 중…</p>';
       else if(ctx.reviewError)body+=`<p role="alert">${escape(ctx.reviewError)}</p>`;
@@ -421,8 +443,8 @@
         <textarea id="thinkText" class="form-textarea" rows="8" ${disabled} aria-describedby="thinkWritingHint" oninput="ThinkWorkflow.input(this.value)">${escape(r.content)}</textarea></div>`;
     } else if(s==='H') {
       const cards=ctx.peers.map((p,i)=>peerCard(p,i,r.metadata.feedback?.[p.id]||{},disabled));
-      body=cards.length ? `<p><strong>친구 글마다 내 반응을 하나씩 고르세요. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</strong></p>`+
-        cards.join('') : '<p>친구가 T단계 글을 제출하면 여기에 표시됩니다.</p>';
+      body=cards.length ? `<p><strong>친구 글마다 해당하는 하트를 모두 고르세요. 다시 누르면 선택이 해제됩니다. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</strong></p>`+
+        cards.join('') : '<p>친구가 T단계 글을 저장하면 여기에 표시됩니다.</p>';
     } else if(reflecting) {
       const answers=reflectionAnswers(r);
       const picker=writable && ctx.turns.length ? `<select class="form-select" aria-label="내가 보낸 질문 가져오기" onchange="ThinkWorkflow.importReflectionQuestion(this)">
@@ -451,7 +473,7 @@
         if(writable || reflection(r)) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.reflectionView(true,true)" ${ctx.chatBusy?'disabled':''}>${writable?'내 생각 정리하기 →':'대화 후 내 생각 보기'}</button>`;
       } else if(s==='N' && ctx.readingReviews && r.submitted_at) {
         if((ctx.lesson.thinkStages||stages)[state.currentStep])primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.navigate(${state.currentStep+1})">다음 단계로</button>`;
-      } else if(s!=='I' || writable) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled}>${s==='N'?'검토 완료':s==='K'?'최종 글 제출':'제출하기'}</button>`;
+      } else if(s!=='I' || writable) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled}>저장하기</button>`;
     }
     const backToChat=reflecting && mode==='writable' ? '<button type="button" class="btn btn-secondary" onclick="ThinkWorkflow.reflectionView(false,true)">대화로 돌아가기</button>' : '';
     const reviewTabs=s==='N'&&ctx.peerReviewEnabled!==false, secondTab=reviewTabs?!!(ctx.readingReviews && (preview || r.submitted_at)):reflecting;
@@ -466,7 +488,7 @@
       if(preview && reviewTabs && secondTab){body='<div data-teacher-review-rankings></div>';primary='';}
       body=`<div class="think-i-tabs" data-stage="${s}" role="tablist" aria-label="${s}단계 활동">${tabs}</div>${hint}<div id="think${s}Panel" role="tabpanel" aria-labelledby="think${s}Tab${Number(secondTab)}">${body}</div>`;
     }
-    box.innerHTML=`${finishing?'<p>단계가 마감되었습니다. 작성 중인 글을 마무리하고 제출할 수 있어요.</p>':mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${backToChat}${primary}</div>`;
+    box.innerHTML=`${finishing?'<p>단계가 마감되었습니다. 작성 중인 글을 마무리하고 저장할 수 있어요.</p>':mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${backToChat}${primary}</div>`;
     if(preview) {
       const ids=new Set([...box.querySelectorAll('[id]')].map(element=>element.id));
       box.querySelectorAll('*').forEach(element => {
@@ -679,7 +701,7 @@
     async reviewReaction(index,action) {
       const ctx=current,post=ctx?.reviewPosts?.[index];
       if(!post || post.saving || ctx.loadingReviews || ctx.stage!=='N' || !ctx.readingReviews || ctx.access.N!=='writable')return;
-      const change=action==='recommend'?{recommended:!post.recommended}:{reaction:action===post.reaction?null:action};
+      const change=action==='recommend'?{recommended:!post.recommended}:{reactions:toggleHeart(post,action)};
       post.saving=true;render();
       try {
         await api(ctx,'review_feedback','N',{id:post.id,...change});
@@ -696,12 +718,15 @@
       const entry=feedback[peer.id] ||= {};
       if(action==='recommend') entry.recommended=!entry.recommended;
       else if(Object.hasOwn(reactions,action)) {
-        if(entry.reaction===action) delete entry.reaction;
-        else entry.reaction=action;
+        const selected = toggleHeart(entry, action);
+        if (selected.length) entry.reaction = selected[0];
+        else delete entry.reaction;
+        if (selected.length > 1) entry.reactions = selected;
+        else delete entry.reactions;
       }
       else return;
       const card=document.getElementById(`thinkPeer${index}`);
-      for(const button of card.querySelectorAll('[data-reaction]')) button.setAttribute('aria-pressed',String(button.dataset.reaction===entry.reaction));
+      for(const button of card.querySelectorAll('[data-reaction]')) button.setAttribute('aria-pressed',String(selectedHearts(entry).includes(button.dataset.reaction)));
       card.querySelector('.think-peer-recommend').setAttribute('aria-pressed',String(!!entry.recommended));
       ctx.dirty.H=true;cache(ctx,'H');
       await save(ctx,'H').catch(()=>{});
@@ -727,14 +752,14 @@
       try {
         await save(ctx,s,{submit:true,final:true});
         if(current!==ctx || ctx.stage!==s)return;
-        if(!record(ctx,s).submitted_at)throw new Error('제출 미확인');
+        if(!record(ctx,s).submitted_at)throw new Error('저장 미확인');
         status(ctx,s,'');
         render();
         document.querySelector('button[onclick="ThinkWorkflow.submit()"]')?.focus({preventScroll:true});
-        await window.ModalService.alert({title:'제출 완료',message:'자료의 제출이 완료되었습니다.',tone:'success'});
+        await window.ModalService.alert({title:'저장 완료',message:'작성한 내용을 저장했습니다.',tone:'success'});
         return true;
       } catch {
-        status(ctx,s,'제출을 확인하지 못했습니다. 작성한 글은 이 화면에 남아 있습니다. 같은 버튼을 다시 눌러 주세요.');
+        status(ctx,s,'저장을 확인하지 못했습니다. 작성한 글은 이 화면에 남아 있습니다. 같은 버튼을 다시 눌러 주세요.');
       } finally {ctx.submitting=false;}
     },
     async navigate(step) {

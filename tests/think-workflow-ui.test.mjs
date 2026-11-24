@@ -104,13 +104,15 @@ test('background is available in all stages without entering the question or dra
   assert.equal(panel.querySelector('p').textContent,'');
 });
 
-test('five T answers survive submission, re-entry and read-only display',async()=>{
-  const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+test('four T fields preserve the retired answer through save, re-entry and K reference',async()=>{
+  const f=fixture();
+  f.data.records.push({stage:'T',content:'기존 글',metadata:{tAnswers:['','','이해에 도움이 된다','','']},revision:1,lease:'lease-T'});
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   const fields=[...f.document.querySelectorAll('[data-t-answer]')];
-  assert.equal(fields.length,5);
+  assert.equal(fields.length,4);
   assert.equal(f.document.querySelectorAll('details.think-t-example[open]').length,0);
   const answers=['조건부 허용','단어를 찾아봤다','이해에 도움이 된다','집중을 방해할까?','친구들에게 물어본다'];
-  fields.forEach((field,i)=>{field.value=answers[i];f.window.ThinkWorkflow.input(answers[i],i);});
+  fields.forEach(field=>{const i=Number(field.dataset.tAnswer);field.value=answers[i];f.window.ThinkWorkflow.input(answers[i],i);});
   await f.window.ThinkWorkflow.submit();
   assert.deepEqual(f.data.records[0].metadata.tAnswers,answers);
   for(const answer of answers)assert.ok(f.data.records[0].content.includes(answer));
@@ -118,7 +120,7 @@ test('five T answers survive submission, re-entry and read-only display',async()
   f.data.access.T='read_only';
   await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   const restored=[...f.document.querySelectorAll('[data-t-answer]')];
-  assert.deepEqual(restored.map(field=>field.value),answers);
+  assert.deepEqual(restored.map(field=>field.value),answers.filter((_,i)=>i!==2));
   assert.ok(restored.every(field=>field.disabled));
   await f.window.ThinkWorkflow.navigate(5);
   for(const answer of answers)assert.ok(f.document.querySelector('.think-writing-reference').textContent.includes(answer));
@@ -127,8 +129,8 @@ test('five T answers survive submission, re-entry and read-only display',async()
 test('T captures unsignalled edits in all fields when closing',async()=>{
   const f=fixture();await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   const fields=[...f.document.querySelectorAll('[data-t-answer]')];
-  assert.equal(fields.length,5);
-  fields[4].value='마지막 확인 방법';
+  assert.equal(fields.length,4);
+  fields[3].value='마지막 확인 방법';
   f.data.access.T='read_only';await f.window.ThinkWorkflow.navigate(1);
   assert.equal(f.polls.length,0);
   assert.equal(f.document.querySelector('[data-t-answer]').disabled,false);
@@ -249,12 +251,12 @@ test('UI retries the same request after unknown result and then persists latest 
   let fail=true;f.intercept(b=>{if(b.action==='save'&&fail){fail=false;throw new Error('network');}});
   await f.window.ThinkWorkflow.submit();
   assert.deepEqual(f.alerts,[]);
-  assert.match(f.document.getElementById('thinkSaveStatus').textContent,/제출을 확인하지 못했습니다/);
+  assert.match(f.document.getElementById('thinkSaveStatus').textContent,/저장을 확인하지 못했습니다/);
   assert.equal(f.document.getElementById('thinkText').value,'글');
   await f.window.ThinkWorkflow.submit();
   assert.doesNotMatch(f.document.getElementById('stepContentContainer').textContent,/다시 저장/);
   const saves=f.requests.filter(r=>r.action==='save');
-  assert.deepEqual(f.alerts,['자료의 제출이 완료되었습니다.']);
+  assert.deepEqual(f.alerts,['작성한 내용을 저장했습니다.']);
   assert.equal(f.document.getElementById('thinkSaveStatus').textContent,'');
   assert.equal(f.state.currentStep,1);
   assert.equal(saves[0].payload.requestId,saves[1].payload.requestId);
@@ -280,23 +282,26 @@ test('six peer responses autosave independently and allow every recommendation',
   await flow.navigate(2);
   await Promise.all(f.data.peers.map((_,i)=>flow.peerAction(i,'recommend')));
   assert.equal(f.document.getElementById('thinkPeerProgress'),null);
-  assert.equal(f.document.querySelector('#stepContentContainer p strong').textContent,'친구 글마다 내 반응을 하나씩 고르세요. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.');
+  assert.equal(f.document.querySelector('#stepContentContainer p strong').textContent,'친구 글마다 해당하는 하트를 모두 고르세요. 다시 누르면 선택이 해제됩니다. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.');
   await Promise.all(f.data.peers.map((_,i)=>flow.peerAction(i,'curious')));
   await flow.peerAction(0,'similar');
   const feedback=f.data.records.find(r=>r.stage==='H').metadata.feedback;
   assert.equal(Object.values(feedback).filter(x=>x.recommended).length,6);
-  assert.equal(feedback.peer0.reaction,'similar');
-  assert.equal(f.document.querySelectorAll('[data-reaction][aria-pressed="true"]').length,6);
+  assert.deepEqual(feedback.peer0.reactions,['curious','similar']);
+  await flow.peerAction(0,'newView');
+  assert.equal(f.document.querySelectorAll('#thinkPeer0 [data-reaction][aria-pressed="true"]').length,3);
+  await flow.peerAction(0,'newView');
+  assert.equal(f.document.querySelectorAll('[data-reaction][aria-pressed="true"]').length,7);
   await flow.peerAction(0,'similar');
-  assert.deepEqual(f.data.records.find(r=>r.stage==='H').metadata.feedback.peer0,{recommended:true});
-  assert.equal(f.document.querySelectorAll('[data-reaction][aria-pressed="true"]').length,5);
+  assert.deepEqual(f.data.records.find(r=>r.stage==='H').metadata.feedback.peer0,{recommended:true,reaction:'curious'});
+  assert.equal(f.document.querySelectorAll('[data-reaction][aria-pressed="true"]').length,6);
   assert.doesNotMatch(f.document.getElementById('stepContentContainer').textContent,/제출하기|다시 저장/);
   await flow.stop();
   f.data.access.H='read_only';
   await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   await flow.navigate(2);
   assert.equal(f.document.querySelectorAll('.think-peer-recommend[aria-pressed="true"][disabled]').length,6);
-  assert.equal(f.document.querySelectorAll('#thinkPeer0 [data-reaction][aria-pressed="true"]').length,0);
+  assert.equal(f.document.querySelectorAll('#thinkPeer0 [data-reaction][aria-pressed="true"]').length,1);
 });
 
 test('H shows every peer in the assigned order without collapsing extra posts',async()=>{
@@ -437,7 +442,7 @@ test('teacher preview reuses all activity forms without requests or student stat
       else assert.ok(el.disabled);
     }
     for(const el of box.querySelectorAll('*'))assert.ok([...el.attributes].every(a=>!a.name.startsWith('on')));
-    if(stage==='T')assert.equal(box.querySelectorAll('textarea').length,5);
+    if(stage==='T')assert.equal(box.querySelectorAll('textarea').length,4);
     if(stage==='N')assert.ok(box.querySelectorAll('textarea').length>=2);
   }
   assert.deepEqual(f.state,before);

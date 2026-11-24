@@ -44,6 +44,7 @@ async function fixture() {
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122130000_teacher_n_ranking_questions.sql',import.meta.url),'utf8'));
   await db.exec("alter table student_accounts add column student_name text; update student_accounts set student_name='작성 학생' where student_number='30101';");
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122140000_teacher_ranking_author_names.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261123010000_multiple_hearts.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
@@ -247,7 +248,7 @@ test('N readers see submitted anonymous reviews in a stable order distinct from 
   const {db,rpc}=await fixture();
   const read=(action='review_list',payload={},actor=id(2))=>db.query('select think_review_reading($1,$2,$3,$4,$5) value',[actor,id(10),id(20),action,JSON.stringify(payload)]).then(r=>r.rows[0].value);
   try {
-    await assert.rejects(read(),/먼저 제출/);
+    await assert.rejects(read(),/먼저 저장/);
     await db.exec(`insert into auth.users values('${id(5)}');insert into student_accounts values('${id(5)}','30103');`);
     for(const n of [2,3,5])for(const stage of ['T','N']) {
       const row=await rpc('open',stage,{},id(n));
@@ -260,7 +261,9 @@ test('N readers see submitted anonymous reviews in a stable order distinct from 
     assert.ok(!peers.some(p=>p.evidence==='근거 2'));
     await read('review_feedback',{id:peers[0].id,reaction:'similar'});
     await read('review_feedback',{id:peers[0].id,recommended:true});
+    await read('review_feedback',{id:peers[0].id,reactions:['similar','newView','curious']});
     const again=await read();
+    assert.deepEqual(again[0].reactions,['similar','newView','curious']);
     assert.deepEqual(again.map(p=>p.id),peers.map(p=>p.id));
     assert.equal(again[0].reaction,'similar');assert.equal(again[0].recommended,true);
     await db.exec(`insert into auth.users values('${id(6)}');insert into student_accounts values('${id(6)}','30104');`);

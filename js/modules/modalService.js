@@ -126,11 +126,11 @@
   });
 
   const writingExit = () => openDialog({
-    title:'작성한 글을 제출할까요?', message:'제출하면 선생님이 글을 확인할 수 있습니다.', cancelResult:'stay',
+    title:'작성한 글을 저장할까요?', message:'저장하면 선생님이 글을 확인할 수 있습니다.', cancelResult:'stay',
     actions:(area,done)=>{
       addButton(area,'계속 작성','btn btn-secondary',()=>done('stay'));
       addButton(area,'임시 저장 후 이동','btn btn-secondary',()=>done('draft'));
-      addButton(area,'제출하고 이동','btn btn-primary',()=>done('submit'),true);
+      addButton(area,'저장하고 이동','btn btn-primary',()=>done('submit'),true);
     }
   });
 

@@ -28,7 +28,9 @@ window.StudentLobbyModule = {
     container.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">과목별 수업을 불러오는 중입니다…</div>';
 
     try {
-      const result = await window.SupabaseService.fetchStudentClassLessons();
+      const result = window.StudentDemo?.active
+        ? window.StudentDemo.lobby()
+        : await window.SupabaseService.fetchStudentClassLessons();
       if (result?.studentName) {
         state.studentData.name = result.studentName;
         const userName = document.getElementById('lblUserName');

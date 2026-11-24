@@ -75,6 +75,11 @@ window.AuthModule = {
     const num = document.getElementById('inputStudentNum')?.value.trim() || '';
     const pw = document.getElementById('inputStudentPw')?.value || '';
     if (!num || !pw) { alert('학번과 비밀번호를 모두 입력해 주세요.'); return; }
+    if (num === '111111' && window.StudentDemo) {
+      if (pw !== '111111') { alert('학생 로그인 실패: 비밀번호를 확인해 주세요.'); return; }
+      await window.StudentDemo.login(state);
+      return;
+    }
     if (!window.SupabaseService?.isConnected()) { alert('Supabase 서버 연결 상태를 확인해 주세요.'); return; }
     try {
       const res = await window.SupabaseService.signInStudent(num, pw);
@@ -116,7 +121,8 @@ window.AuthModule = {
   },
 
   logout: async function () {
-    if (window.SupabaseService?.isConnected()) await window.SupabaseService.signOut();
+    if (window.StudentDemo?.active) window.StudentDemo.end();
+    else if (window.SupabaseService?.isConnected()) await window.SupabaseService.signOut();
     const userNav = document.getElementById('userNavArea');
     document.querySelector('.navbar')?.appendChild(userNav);
     userNav.style.display = 'none';

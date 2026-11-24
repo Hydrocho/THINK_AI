@@ -37,6 +37,10 @@
       }
 
       // Check active Supabase auth session (e.g. after Google OAuth redirect back)
+      if (window.StudentDemo?.active) {
+        await window.StudentDemo.login(state);
+        return;
+      }
       if (window.SupabaseService && window.SupabaseService.isConnected()) {
         try {
           const session = await window.SupabaseService.getUserSession();
@@ -310,7 +314,7 @@
         alert(`저장 중 오류가 발생했습니다: ${error.message}`);
         return;
       }
-      alert('🎉 THINK 5단계 활동 제출이 완료되었습니다!\n선생님 화면에서 AI 근거 평가 및 피드백을 확인받을 수 있습니다.');
+      alert('🎉 THINK 5단계 활동 저장이 완료되었습니다!\n선생님 화면에서 AI 근거 평가 및 피드백을 확인받을 수 있습니다.');
     },
 
     // Teacher Admin Delegation

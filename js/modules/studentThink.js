@@ -233,7 +233,7 @@ window.StudentThinkModule = {
                 placeholder="AI 대화와 동료 의견 비교 후 무엇이 달라졌나요? 최종 주장과 근거를 작성해 주세요.">${state.studentData.finalThought}</textarea>
             </div>
 
-            ${_navRow(prevStepIndex, '🎉 최종 제출하기', 'App.submitFinalReflection()', 'K', isFirstStep)}
+            ${_navRow(prevStepIndex, '저장하기', 'App.submitFinalReflection()', 'K', isFirstStep)}
           </div>`;
         break;
     }

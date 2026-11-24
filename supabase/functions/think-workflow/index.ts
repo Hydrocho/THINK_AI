@@ -49,7 +49,7 @@ Deno.serve(async req => {
             const labels:Record<string,string>={similar:'내 생각과 비슷해요',newView:'새로운 관점이에요',curious:'더 궁금해요'};
             content=opinions.map((op:any,i:number)=>{
               const feedback=row?.metadata?.feedback?.[op.id];
-              const reaction=labels[feedback?.reaction] || (chosen?.id===op.id?'기존 선택':'미응답');
+              const reaction=(feedback?.reactions ?? [feedback?.reaction]).map((key:string)=>labels[key]).filter(Boolean).join(' · ') || (chosen?.id===op.id?'기존 선택':'미응답');
               return `친구 글 ${i+1} · ${reaction}${feedback?.recommended?' · 함께 읽기 추천':''}\n${op.text}`;
             }).join('\n\n');
           }

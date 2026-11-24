@@ -45,7 +45,7 @@
     target.innerHTML+=`<p class="live-response-meta">제출 완료${Number.isNaN(date.getTime())?'':' · '+esc(date.toLocaleString('ko-KR'))}</p>`;
     const feedback=response.metadata?.feedback;
     const sections=ctx.stageCode==='H' && feedback
-      ? Object.values(feedback).map((entry,i)=>`<section class="live-response-answer"><h4>친구 글 ${i+1}</h4><p>${esc(reactions[entry.reaction]||'반응 없음')}${entry.recommended?' · 추천':''}</p><p>${esc(entry.comment||'')}</p></section>`).join('') : '';
+      ? Object.values(feedback).map((entry,i)=>`<section class="live-response-answer"><h4>친구 글 ${i+1}</h4><p>${esc((entry.reactions ?? [entry.reaction]).map(key=>reactions[key]).filter(Boolean).join(' · ') || '반응 없음')}${entry.recommended?' · 추천':''}</p><p>${esc(entry.comment||'')}</p></section>`).join('') : '';
     target.innerHTML+=sections+(response.content?`<div class="live-response-answer">${esc(response.content)}</div>`:sections?'':'<p class="live-response-empty">제출한 글 내용이 없습니다.</p>');
   }
   function renderStudents(ctx) {
