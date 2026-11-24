@@ -1,7 +1,8 @@
 /* Read-only roster and submitted work within the live teaching activity pane. */
 (function () {
   let current=null;
-  const rosters=new Map();
+  const statusLabels={not_started:'미작성',writing:'작성 중',submitted:'제출 완료'};
+  const studentStatus=student=>Object.hasOwn(statusLabels,student.status)?student.status:'unknown';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const reactions={similar:'내 생각과 비슷해요',newView:'새로운 관점이에요',curious:'더 궁금해요'};
   function rankingContent(row,stage) {
@@ -51,8 +52,10 @@
   function renderStudents(ctx) {
     const list=ctx.target.querySelector('.live-response-roster');
     const focused=document.activeElement?.dataset?.studentNumber;
-    ctx.target.querySelector('.live-response-summary').textContent=`${ctx.stageCode}단계 · 전체 ${ctx.students.length}명`;
-    list.innerHTML=ctx.students.map(s=>`<button type="button" class="live-response-student" data-student-number="${esc(s.studentNumber)}" aria-pressed="${s.studentNumber===ctx.selected}"><span><strong>${esc(s.studentNumber)}</strong> ${esc(s.studentName)}</span></button>`).join('')||'<p class="live-response-empty">등록된 학생이 없습니다.</p>';
+    const counts={not_started:0,writing:0,submitted:0,unknown:0};
+    ctx.students.forEach(s=>counts[studentStatus(s)]++);
+    ctx.target.querySelector('.live-response-summary').innerHTML=`<span>${esc(ctx.stageCode)}단계 · 전체 ${ctx.students.length}명</span>`+['writing','not_started','submitted',...(counts.unknown?['unknown']:[])].map(status=>`<span class="live-response-status" data-status="${status}">${statusLabels[status]||'상태 확인 필요'} ${counts[status]}명</span>`).join('');
+    list.innerHTML=ctx.students.map(s=>`<button type="button" class="live-response-student" data-student-number="${esc(s.studentNumber)}" aria-pressed="${s.studentNumber===ctx.selected}"><span><strong>${esc(s.studentNumber)}</strong> ${esc(s.studentName)}</span><span class="live-response-status" data-status="${studentStatus(s)}">${statusLabels[studentStatus(s)]||'상태 확인 필요'}</span></button>`).join('')||'<p class="live-response-empty">등록된 학생이 없습니다.</p>';
     list.querySelectorAll('[data-student-number]').forEach(button=>{
       button.addEventListener('click',()=>module.selectStudent(button.dataset.studentNumber));
       if(button.dataset.studentNumber===focused)button.focus();
@@ -95,30 +98,27 @@
     async open(context,target) {
       this.close();
       const ctx=current={...context,target,students:[],selected:null,response:null,loading:false,detailRequest:0,detailView:'submission',chatCache:new Map(),chatLoading:new Set(),chatErrors:new Map()};
-      target.innerHTML='<div class="live-response-heading"><h2>학생 작성 현황</h2><button type="button" class="btn btn-secondary" data-refresh>명렬 새로고침</button></div><p class="live-response-summary"></p><p class="live-response-meta" role="status" aria-live="polite"></p><div class="live-response-layout"><nav class="live-response-roster" aria-label="학생 명렬"></nav><section class="live-response-detail" aria-label="선택한 학생의 제출 내용" aria-live="polite"></section></div>';
+      target.innerHTML='<div class="live-response-heading"><h2>학생 작성 현황</h2><button type="button" class="btn btn-secondary" data-refresh>현황 새로고침</button></div><p class="live-response-summary"></p><p class="live-response-meta" role="status" aria-live="polite"></p><div class="live-response-layout"><nav class="live-response-roster" aria-label="학생 명렬"></nav><section class="live-response-detail" aria-label="선택한 학생의 제출 내용" aria-live="polite"></section></div>';
       target.querySelector('[data-refresh]').addEventListener('click',()=>this.refresh());
       renderDetail(ctx);
-      if(rosters.has(ctx.classId)) {
-        ctx.students=rosters.get(ctx.classId);renderStudents(ctx);
-        target.querySelector('[role="status"]').textContent='학생 이름을 누르면 해당 학생의 제출 내용을 조회합니다.';
-      } else await this.refresh();
+      await this.refresh();
     },
     async refresh() {
       const ctx=current;if(!ctx||ctx.loading)return;
       ctx.loading=true;
       const button=ctx.target.querySelector('[data-refresh]');button.disabled=true;
-      const status=ctx.target.querySelector('[role="status"]');status.textContent='명렬을 불러오는 중…';
+      const status=ctx.target.querySelector('[role="status"]');status.textContent='작성 현황을 불러오는 중…';
       try {
         const result=await window.SupabaseService.invokeAccountFunction('get-teacher-stage-responses',{
           classId:ctx.classId,lessonId:ctx.lessonId,stageCode:ctx.stageCode,view:'live'
         });
         if(current!==ctx||!ctx.target.isConnected)return;
         ctx.students=[...(result.students||[])].sort((a,b)=>String(a.studentNumber).localeCompare(String(b.studentNumber),'ko',{numeric:true}));
-        rosters.set(ctx.classId,ctx.students);
         renderStudents(ctx);
-        status.textContent='학생 이름을 누르면 해당 학생의 제출 내용을 조회합니다.';
+        status.textContent='조회 시각: '+new Date().toLocaleTimeString('ko-KR')+' · 최신 상태는 현황 새로고침으로 확인하세요. 작성 중은 단계에 입장한 뒤 아직 제출하지 않은 상태입니다.';
+        if(ctx.selected)await this.selectStudent(ctx.selected);
       } catch(error) {
-        if(current===ctx)status.textContent='명렬을 불러오지 못했습니다: '+error.message+' · 명렬 새로고침으로 다시 시도해 주세요.';
+        if(current===ctx)status.textContent='작성 현황을 불러오지 못했습니다: '+error.message+' · 현황 새로고침으로 다시 시도해 주세요.';
       } finally {ctx.loading=false;button.disabled=false;}
     },
     async selectStudent(studentNumber) {

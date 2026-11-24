@@ -116,10 +116,24 @@ serve(async (req) => {
   // Only submitted work is exposed by this view; an open lease is not a submission.
   if (body.view === "live") {
     if (body.studentNumber === undefined) {
-      return json({ students: roster.map(student => ({
-        studentNumber: student.student_number,
-        studentName: student.student_name,
-      })) });
+      // Opening a stage creates a record; only submitted_at marks completion.
+      // Fetch status metadata only, keeping draft text out of the roster response.
+      const { data: records, error: statusError } = await admin
+        .from("think_records")
+        .select("student_id,submitted_at")
+        .eq("class_id", body.classId)
+        .eq("lesson_id", body.lessonId)
+        .eq("stage", body.stageCode);
+      if (statusError) return json({ error: statusError.message }, 400);
+      const byStudent = new Map((records || []).map(record => [record.student_id, record]));
+      return json({ students: roster.map(student => {
+        const record = byStudent.get(student.auth_user_id);
+        return {
+          studentNumber: student.student_number,
+          studentName: student.student_name,
+          status: record?.submitted_at ? "submitted" : record ? "writing" : "not_started",
+        };
+      }) });
     }
     const student = roster.find(student => student.student_number === body.studentNumber);
     if (!student?.auth_user_id) return json({ error: "이 학급의 학생을 찾을 수 없습니다." }, 404);

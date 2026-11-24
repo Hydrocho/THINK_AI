@@ -14,16 +14,18 @@ function fixture(fetch) {
   return {document,timers,module:context.window.TeacherLiveResponses};
 }
 const students=[
-  {studentNumber:'30102',studentName:'미제출 학생',response:{content:'공개하지 않을 초안',submittedAt:null}},
-  {studentNumber:'30101',studentName:'<img src=x onerror=alert(1)>',response:{content:'① 나의 생각\n<svg onload=alert(1)>',submittedAt:'2026-11-22T10:00:00Z'}}
+  {studentNumber:'30102',studentName:'미제출 학생',status:'writing',response:{content:'공개하지 않을 초안',submittedAt:null}},
+  {studentNumber:'30101',studentName:'<img src=x onerror=alert(1)>',status:'submitted',response:{content:'① 나의 생각\n<svg onload=alert(1)>',submittedAt:'2026-11-22T10:00:00Z'}}
 ];
 test('roster loads once without polling; each name click fetches only that submission',async()=>{
   const calls=[];
-  const {module,document,timers}=fixture(async(name,args)=>{calls.push({name,args});return args.studentNumber?{response:students.find(s=>s.studentNumber===args.studentNumber).response}:{students:students.map(({studentNumber,studentName})=>({studentNumber,studentName}))};});
+  const {module,document,timers}=fixture(async(name,args)=>{calls.push({name,args});return args.studentNumber?{response:students.find(s=>s.studentNumber===args.studentNumber).response}:{students:students.map(({studentNumber,studentName,status})=>({studentNumber,studentName,status}))};});
   await module.open({classId:'c',lessonId:'l',stageCode:'T'},document.getElementById('responses'));
   const buttons=[...document.querySelectorAll('[data-student-number]')];
   assert.equal(buttons[0].dataset.studentNumber,'30101');
-  assert.doesNotMatch(buttons[0].textContent,/제출 완료|미제출/);
+  assert.match(buttons[0].textContent,/제출 완료/);
+  assert.match(buttons[1].textContent,/작성 중/);
+  assert.match(document.querySelector('.live-response-summary').textContent,/전체 2명.*작성 중 1명.*미작성 0명.*제출 완료 1명/);
   assert.equal(calls.length,1);assert.equal(timers.size,0);
   await module.selectStudent('30101');
   assert.match(document.querySelector('.live-response-detail').textContent,/① 나의 생각/);
@@ -39,9 +41,25 @@ test('roster loads once without polling; each name click fetches only that submi
   assert.equal(calls[1].args.studentNumber,'30101');
   assert.equal(calls[3].args.studentNumber,'30102');
   await module.open({classId:'c',lessonId:'l',stageCode:'H'},document.getElementById('responses'));
-  assert.equal(calls.length,4);assert.equal(timers.size,0);
+  assert.equal(calls.length,5);assert.equal(timers.size,0);
   module.close();assert.equal(timers.size,0);
 });
+test('refresh updates counts and selected submission; changing lessons never reuses previous statuses',async()=>{
+  let submitted=false;
+  const {module,document}=fixture(async(name,args)=>args.studentNumber
+    ? {response:submitted?students[1].response:null}
+    : {students:[{studentNumber:'30101',studentName:'학생',status:args.lessonId==='other'?'not_started':submitted?'submitted':'writing'}]});
+  const target=document.getElementById('responses');
+  await module.open({classId:'c',lessonId:'l',stageCode:'T'},target);
+  await module.selectStudent('30101');
+  submitted=true;await module.refresh();
+  assert.match(target.querySelector('.live-response-summary').textContent,/작성 중 0명.*제출 완료 1명/);
+  assert.match(target.querySelector('.live-response-detail').textContent,/① 나의 생각/);
+  assert.equal(target.querySelector('[aria-pressed="true"]').dataset.studentNumber,'30101');
+  await module.open({classId:'c',lessonId:'other',stageCode:'T'},target);
+  assert.match(target.querySelector('.live-response-summary').textContent,/미작성 1명.*제출 완료 0명/);
+});
+
 test('late response cannot overwrite another stage or a closed response panel',async()=>{
   let resolve;
   const {module,document}=fixture((name,args)=>args.stageCode==='T'?new Promise(r=>resolve=r):Promise.resolve({students:[]}));
