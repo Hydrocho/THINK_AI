@@ -36,12 +36,20 @@
         window.lucide.createIcons();
       }
 
+      await this.restoreSession();
+    },
+
+    restoreSession: async function () {
+      if (this.restoringSession) return;
       // Check active Supabase auth session (e.g. after Google OAuth redirect back)
       if (window.StudentDemo?.active) {
         await window.StudentDemo.login(state);
         return;
       }
       if (window.SupabaseService && window.SupabaseService.isConnected()) {
+        this.restoringSession = true;
+        window.AuthModule.setSessionStatus('loading');
+        let restoreFailed = false;
         try {
           const session = await window.SupabaseService.getUserSession();
           if (session && session.user) {
@@ -123,7 +131,12 @@
             document.getElementById('userNavArea').style.display = 'none';
           }
         } catch (e) {
+          restoreFailed = true;
           console.warn("Session check warning:", e.message);
+          window.AuthModule.setSessionStatus('error');
+        } finally {
+          this.restoringSession = false;
+          if (!restoreFailed) window.AuthModule.setSessionStatus(null);
         }
       }
     },

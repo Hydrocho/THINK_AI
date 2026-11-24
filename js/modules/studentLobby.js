@@ -24,7 +24,10 @@ window.StudentLobbyModule = {
 
   renderLobby: async function (state) {
     const container = document.getElementById('lobbyClassLessonsContainer');
-    if (!container) return;
+    if (!container || this.loading) return;
+    this.loading = true;
+    const refreshButton = document.getElementById('refreshStudentLessons');
+    if (refreshButton) refreshButton.disabled = true;
     container.innerHTML = '<div style="text-align:center; color:var(--text-subtle); padding:20px;">과목별 수업을 불러오는 중입니다…</div>';
 
     try {
@@ -40,6 +43,9 @@ window.StudentLobbyModule = {
       this.renderSubjectClasses(container, state.subjectClasses, result.classResolution);
     } catch (error) {
       container.innerHTML = `<div style="text-align:center; color:var(--danger-text); padding:20px;">과목별 수업을 불러오지 못했습니다. ${this.escapeHtml(error.message)}</div>`;
+    } finally {
+      this.loading = false;
+      if (refreshButton) refreshButton.disabled = false;
     }
   },
 

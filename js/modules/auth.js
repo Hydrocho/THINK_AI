@@ -3,6 +3,19 @@
    ========================================================================== */
 
 window.AuthModule = {
+  setSessionStatus: function (status) {
+    const panel = document.getElementById('authSessionStatus');
+    const forms = document.getElementById('authForms');
+    if (forms) forms.style.display = status ? 'none' : '';
+    if (panel) panel.style.display = status ? 'block' : 'none';
+    const message = document.getElementById('authSessionMessage');
+    if (message) message.textContent = status === 'error'
+      ? '로그인 정보를 확인하지 못했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.'
+      : '로그인 정보를 확인하고 있습니다…';
+    const retry = document.getElementById('authSessionRetry');
+    if (retry) retry.style.display = status === 'error' ? 'inline-block' : 'none';
+  },
+
   switchTab: function (role) {
     const studentForm = document.getElementById('studentLoginForm');
     const teacherForm = document.getElementById('teacherLoginForm');
@@ -104,13 +117,32 @@ window.AuthModule = {
       message.style.display = 'block';
       return;
     }
+    if (this.changingPassword) return;
+    this.changingPassword = true;
+    let passwordChanged = false;
     try {
       await window.SupabaseService.changeStudentPassword(password);
+      passwordChanged = true;
+      // The admin password update can invalidate the old refresh token.
+      await window.SupabaseService.signInStudent(state.studentData.studentNumber, password);
+      const { mustChangePassword } = await window.SupabaseService.getStudentPasswordChangeStatus();
+      if (mustChangePassword) throw new Error('비밀번호 변경 상태를 다시 확인해 주세요.');
       message.style.display = 'none';
       this.enterStudentLobby(state, state.studentData.studentNumber);
     } catch (err) {
+      if (passwordChanged) {
+        this.switchTab('student');
+        const loginPassword = document.getElementById('inputStudentPw');
+        if (loginPassword) loginPassword.value = '';
+        alert('비밀번호는 변경되었습니다. 변경한 새 비밀번호로 다시 로그인해 주세요.');
+        return;
+      }
       message.innerText = err.message;
       message.style.display = 'block';
+    } finally {
+      this.changingPassword = false;
+      document.getElementById('inputNewStudentPw').value = '';
+      document.getElementById('inputConfirmStudentPw').value = '';
     }
   },
 

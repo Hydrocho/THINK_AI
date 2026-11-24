@@ -1,6 +1,10 @@
 <!-- Auth View (Initial default screen) -->
 <section id="authSection" class="main-shell" style="display: grid; grid-template-columns: 1fr;">
-  <div style="max-width: 480px; margin: 60px auto; width: 100%; padding: 0 20px;">
+  <div id="authSessionStatus" role="status" aria-live="polite" style="display:none; padding:40px; text-align:center;">
+    <p id="authSessionMessage"></p>
+    <button id="authSessionRetry" type="button" class="btn btn-primary" onclick="App.restoreSession()">다시 확인하기</button>
+  </div>
+  <div id="authForms" style="max-width: 480px; margin: 60px auto; width: 100%; padding: 0 20px;">
     <div style="text-align: center; margin-bottom: 28px;">
       <h2 style="font-size: 1.6rem; color: var(--text-main); margin-bottom: 8px;">THINK AI 활용 생각 교실 로그인</h2>
       <p style="color: var(--text-subtle); font-size: 0.95rem;">선생님 또는 학생 계정으로 로그인해 주세요.</p>

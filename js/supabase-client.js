@@ -43,6 +43,10 @@
         password: password,
       });
 
+      if (error || !data?.session || !data?.user) {
+        throw new Error("학번과 비밀번호를 확인해 주세요. 로그인에 실패했습니다.");
+      }
+
       let studentName = null;
       try {
         const { data: stData } = await supabaseClient
@@ -50,24 +54,8 @@
           .select("student_name")
           .eq("student_number", studentNumber)
           .maybeSingle();
-        if (stData && stData.student_name) {
-          studentName = stData.student_name;
-        }
+        if (stData?.student_name) studentName = stData.student_name;
       } catch (e) {}
-
-      if (error) {
-        // Check student_accounts table in Supabase DB for verification
-        const { data: stData, error: stErr } = await supabaseClient
-          .from("student_accounts")
-          .select("*")
-          .eq("student_number", studentNumber)
-          .single();
-
-        if (stErr || !stData) {
-          throw new Error("등록되지 않은 학번이거나 비밀번호가 일치하지 않습니다.");
-        }
-        if (stData.student_name) studentName = stData.student_name;
-      }
       return { success: true, data, studentName };
     },
 
@@ -91,7 +79,8 @@
 
     getUserSession: async function () {
       if (!supabaseClient) return null;
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (error) throw error;
       return session;
     },
 
