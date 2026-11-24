@@ -501,6 +501,9 @@ body {
 .think-t-example summary { cursor: pointer; color: var(--primary-700); font-weight: 600; }
 .think-t-example summary:focus-visible { outline: 2px solid var(--primary-600); outline-offset: 3px; }
 .think-t-example p { margin-top: 8px; }
+#thinkChatGuide { margin: 8px 0; }
+#thinkChatGuide ol { padding-inline-start: 1.5rem; margin-top: 8px; }
+#thinkChatGuide li + li { margin-top: 6px; }
 .think-activity-card[data-stage="K"] .think-t-example blockquote { margin: 0.4rem 0 0; padding-inline-start: 1rem; border-inline-start: 3px solid var(--border-light); }
 
 .card-grid-2 {

@@ -3,6 +3,7 @@
 // No personal identifiers are transmitted to Gemini API.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { dialogueGuide } from "../_shared/dialogue-guide.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_CHAT_MODEL") || "gemini-3.5-flash";
@@ -38,16 +39,15 @@ serve(async (req: Request) => {
 
 [응답 지침]
 1. 정답이나 완결된 답을 대신 작성해주지 마라. 최종 입장과 글은 학생이 스스로 완성하도록 해라.
-2. 학생의 현재 주장과 근거를 먼저 확인하되, 오개념이나 잘못된 전제에는 무조건 동조하지 말고 확인된 사실과 생각을 명확히 구분해 주어라.
-3. 학생의 생각이 한쪽 입장에만 치우칠 경우, 반대편 입장의 가치나 사회적·윤리적 딜레마를 고려해 볼 수 있는 열린 질문이나 반례를 던져라.
-4. 학생 학년에 맞는 친절하고 쉬운 한국어를 사용해라.
-5. 개인정보를 묻거나 저장하려 하지 마라.
+2. 학생 학년에 맞는 친절하고 쉬운 한국어를 사용해라.
+3. 개인정보를 묻거나 저장하려 하지 마라.
+${dialogueGuide}
     `.trim();
 
     // Prepare payload for Gemini Developer API (store=false principle)
     const payload = {
+      systemInstruction: { parts: [{ text: systemInstruction }] },
       contents: [
-        { role: "user", parts: [{ text: systemInstruction }] },
         ...(previous_messages || []).map((msg: any) => ({
           role: (msg.role === "user" || msg.role === "student" || msg.sender_role === "student") ? "user" : "model",
           parts: [{ text: msg.text || msg.content || "" }],

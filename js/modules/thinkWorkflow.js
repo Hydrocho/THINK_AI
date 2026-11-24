@@ -464,7 +464,17 @@
       const hint=ctx.turns.some(turn=>turn.status==='succeeded')
         ? '어느 부분을 더 설명해 주면 좋을까요? 내 생각과 다른 점을 물어봐도 좋아요.'
         : '궁금한 점을 입력하세요.';
-      body=`<p>남은 질문: ${ctx.remaining}회 · 이름·전화번호 등 개인정보는 입력하지 마세요.</p>${chatHistory(ctx)}${importButton}<div class="chat-composer"><textarea placeholder="${hint}" id="thinkChatInput" class="form-input" aria-label="AI에게 질문" ${disabled} ${ctx.chatBusy?'disabled':''}>${escape(ctx.chatDraft||'')}</textarea><button class="btn btn-primary" onclick="ThinkWorkflow.chat()" ${disabled} ${ctx.chatBusy||ctx.remaining<=0?'disabled':''}>${ctx.chatBusy?'응답 중…':'전송'}</button></div>`;
+      const guide=`<details id="thinkChatGuide" class="think-t-example"${ctx.chatGuideOpen?' open':''}>
+        <summary>AI와의 대화 가이드</summary>
+        <p>궁금한 것부터 골라 AI에게 물어보세요.</p>
+        <ol>
+          <li><strong>핵심 개념 알아보기</strong> — “이 질문에서 ‘___’는 어떤 뜻이야? 예를 하나 들어 줘.”</li>
+          <li><strong>찬성 입장 알아보기</strong> — “이 생각에 찬성하는 사람은 무엇을 중요하게 여겨? 그 이유는 뭐야?”</li>
+          <li><strong>반대 입장 알아보기</strong> — “반대하는 사람은 무엇을 걱정해? 그 걱정을 뒷받침하는 근거가 있어?”</li>
+        </ol>
+        <p>여러 행동 중 하나를 고르는 질문이라면 “다른 선택을 할 수도 있을까? 그 이유는 뭐야?”라고 물어보세요.</p>
+      </details>`;
+      body=`<p>남은 질문: ${ctx.remaining}회 · 이름·전화번호 등 개인정보는 입력하지 마세요.</p>${guide}${chatHistory(ctx)}${importButton}<div class="chat-composer"><textarea placeholder="${hint}" id="thinkChatInput" class="form-input" aria-label="AI에게 질문" ${disabled} ${ctx.chatBusy?'disabled':''}>${escape(ctx.chatDraft||'')}</textarea><button class="btn btn-primary" onclick="ThinkWorkflow.chat()" ${disabled} ${ctx.chatBusy||ctx.remaining<=0?'disabled':''}>${ctx.chatBusy?'응답 중…':'전송'}</button></div>`;
     }
     const recovery=ctx.recovery[s]?`<details><summary>다른 저장본과 겹친 미저장 글 보기</summary><pre style="white-space:pre-wrap">${escape(ctx.recovery[s])}</pre></details>`:'';
     let primary='';
@@ -523,6 +533,8 @@
       document.getElementById('think'+s+'Tab'+Number(keys[event.key])).click();
     });
     const chatInput=document.getElementById('thinkChatInput');
+    const guide=document.getElementById('thinkChatGuide');
+    if(guide) guide.addEventListener('toggle',()=>{ctx.chatGuideOpen=guide.open;});
     if(s==='I' && chatInput) {
       const importButton=document.getElementById('thinkImportQuestion');
       importButton?.addEventListener('click',()=>{

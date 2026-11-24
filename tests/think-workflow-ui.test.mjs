@@ -335,6 +335,21 @@ test('H pairs each structured response with its original T prompt and preserves 
   assert.equal(f.document.querySelector('#thinkPeer1 p').textContent,'첫 문단\n\n둘째 문단');
 });
 
+test('I chat guide starts collapsed above the conversation and stays open when sending',async()=>{
+  const f=fixture();
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  await f.window.ThinkWorkflow.navigate(3);
+  const guide=f.document.querySelector('details#thinkChatGuide');
+  assert.equal(guide.hasAttribute('open'),false);
+  assert.ok(guide.nextElementSibling.classList.contains('chat-messages'));
+  assert.equal(guide.querySelectorAll('ol li').length,3);
+  guide.open=true;
+  guide.dispatchEvent(new f.document.defaultView.Event('toggle'));
+  f.document.getElementById('thinkChatInput').value='다른 선택도 있을까?';
+  await f.window.ThinkWorkflow.chat();
+  assert.ok(f.document.getElementById('thinkChatGuide').hasAttribute('open'));
+});
+
 test('I chat sends on Enter but preserves Shift+Enter and IME composition',async()=>{
   const f=fixture();
   await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');

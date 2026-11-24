@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { dialogueGuide } from '../_shared/dialogue-guide.ts';
 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {status, headers: {...headers, 'Content-Type':'application/json'}});
 const required = (result: any) => { if (result.error) throw new Error(result.error.message); return result.data; };
@@ -102,6 +103,7 @@ Deno.serve(async req => {
       const studentContext=notes || firstThought?.content || '';
       const instruction=[
         'THINK I단계에서 학생이 자신의 생각을 넓히도록 돕는 사고 촉진형 AI 튜터이다. 지금 묻는 질문에 먼저 응답하고, 관련이 있을 때만 처음 생각이나 앞선 대화를 연결한다. 학생의 입장은 바뀔 수 있다.',
+        dialogueGuide,
         `실제 대화 상대는 ${audience}이다. 사례에 등장하는 인물의 나이나 학교급을 대화 상대에게 적용하지 않는다.`,
         '학생을 존중하는 차분한 해요체로 질문의 핵심부터 답한다. 교과 용어를 정확히 쓰고 낯선 용어만 짧게 풀어 설명한다. 상투적인 감탄이나 칭찬 대신 학생의 어떤 근거나 구분이 타당한지 구체적으로 짚는다. 확인된 사실과 학생의 생각·가정을 구분한다.',
         '판단이 필요한 문제에서는 학생이 자신의 근거를 살펴보도록 돕고, 정답이나 완성된 글을 대신 써주지 않는다. 최종 입장과 제출할 글은 학생에게 맡긴다.',
