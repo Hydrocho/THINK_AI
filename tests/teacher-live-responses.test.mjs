@@ -207,3 +207,20 @@ test('ranking cards show escaped author names and an explicit missing-name fallb
  assert.match(document.querySelector('.live-ranking-results').textContent,/이름 확인 불가/);
  assert.equal(document.querySelector('img'),null);
 });
+
+test('K ranks named final writings by the selected vote without refetching',async()=>{
+  const requests=[];
+  const {module,document}=fixture(async(name,body)=>{
+    requests.push([name,body.operation]);
+    return [
+      {studentName:'가',text:'별표 글',stars:2,similar:0,newView:0,curious:0},
+      {studentName:'나',text:'관점 글',stars:1,similar:0,newView:3,curious:0}
+    ];
+  });
+  await module.openRankings({classId:'c',lessonId:'l',stageCode:'K'},document.getElementById('responses'));
+  const first=()=>document.querySelector('.live-ranking-results article').textContent;
+  assert.match(first(),/작성 학생: 가.*별표 글/s);
+  document.querySelector('[data-sort="newView"]').click();
+  assert.match(first(),/작성 학생: 나.*관점 글/s);
+  assert.deepEqual(requests,[['manage-class-projects','list_final_cards']]);
+});

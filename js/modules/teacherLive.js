@@ -194,7 +194,7 @@
     },
     renderPreview(reflection) {
       const l=this.lesson;
-      window.ThinkWorkflow.renderTeacherPreview({...l,peerReviewEnabled:l.plan.peer_review_enabled,thinkStages:l.plan.planned_stages,reviewResource:l.review_resource,aiQuestionLimit:l.ai_question_limit},this.stage,document.getElementById('teacherLivePreview'),reflection,target=>window.TeacherLiveResponses.openRankings({classId:this.classId,lessonId:l.id,stageCode:'N'},target));
+      window.ThinkWorkflow.renderTeacherPreview({...l,peerReviewEnabled:l.plan.peer_review_enabled,thinkStages:l.plan.planned_stages,reviewResource:l.review_resource,aiQuestionLimit:l.ai_question_limit},this.stage,document.getElementById('teacherLivePreview'),reflection,target=>window.TeacherLiveResponses.openRankings({classId:this.classId,lessonId:l.id,stageCode:this.stage},target));
     },
     async listFinals(button) {
       const target=button.parentElement.querySelector('[data-final-posts]');

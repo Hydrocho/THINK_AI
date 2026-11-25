@@ -5,6 +5,19 @@
   const studentStatus=student=>Object.hasOwn(statusLabels,student.status)?student.status:'unknown';
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const reactions={similar:'내 생각과 비슷해요',newView:'새로운 관점이에요',curious:'더 궁금해요'};
+  async function loadRankings(ctx) {
+    const {classId,lessonId,stageCode}=ctx;
+    if(stageCode==='K'){
+      const posts=await window.SupabaseService.invokeAccountFunction('manage-class-projects',{
+        action:'manage_live_teaching',classId,lessonId,operation:'list_final_cards'
+      });
+      return posts.map(post=>({...post,content:post.text,likes:post.similar+post.newView+post.curious}));
+    }
+    const result=await window.SupabaseService.invokeAccountFunction('get-teacher-stage-responses',{
+      classId,lessonId,stageCode,view:stageCode==='N'?'n_rankings':'h_rankings'
+    });
+    return result.rankings||[];
+  }
   function rankingContent(row,stage) {
     const review=row.review;
     if(stage!=='N'||!review||typeof review!=='object')return `<div class="live-response-answer">${esc(row.content)}</div>`;
@@ -70,7 +83,7 @@
       this.close();
       const ctx=current={...context,target,rankings:[],sort:'stars'};
       const categories={similar:'♡ 내 생각과 비슷해요',newView:'♡ 새로운 관점이에요',curious:'♡ 더 궁금해요',stars:'★ 우리 반 함께 읽고 싶어요'};
-      target.innerHTML=`<div class="live-response-heading"><h2>${ctx.stageCode}단계 ${ctx.stageCode==='N'?'친구의 검토':'친구 글'} 반응</h2><button type="button" class="btn btn-secondary" data-enlarge aria-haspopup="dialog" disabled>전체 글 크게 보기</button><button type="button" class="btn btn-secondary" data-query>다시 조회하기</button></div><p class="live-response-meta">선택한 반응이 많은 순으로 표시합니다. 항목 전환은 추가 조회 없이 정렬하며, 최신 반응은 ‘다시 조회하기’를 눌러 확인하세요.</p><div class="live-ranking-sort" role="group" aria-label="반응 순위 정렬">${Object.entries(categories).map(([key,label])=>`<button type="button" class="btn btn-secondary" data-sort="${key}" aria-pressed="${key===ctx.sort}">${label}</button>`).join('')}</div><p role="status" aria-live="polite"></p><div class="live-ranking-results"></div>`;
+      target.innerHTML=`<div class="live-response-heading"><h2>${ctx.stageCode}단계 ${{H:'친구 글',N:'친구의 검토',K:'최종 글'}[ctx.stageCode]} 반응</h2><button type="button" class="btn btn-secondary" data-enlarge aria-haspopup="dialog" disabled>전체 글 크게 보기</button><button type="button" class="btn btn-secondary" data-query>다시 조회하기</button></div><p class="live-response-meta">선택한 반응이 많은 순으로 표시합니다. 항목 전환은 추가 조회 없이 정렬하며, 최신 반응은 ‘다시 조회하기’를 눌러 확인하세요.</p><div class="live-ranking-sort" role="group" aria-label="반응 순위 정렬">${Object.entries(categories).map(([key,label])=>`<button type="button" class="btn btn-secondary" data-sort="${key}" aria-pressed="${key===ctx.sort}">${label}</button>`).join('')}</div><p role="status" aria-live="polite"></p><div class="live-ranking-results"></div>`;
       const reader=document.createElement('dialog');
       reader.className='live-ranking-reader';
       reader.setAttribute('aria-label','학생 글 크게 보기');
@@ -104,11 +117,9 @@
         const button=target.querySelector('[data-query]');button.disabled=true;
         const status=target.querySelector('[role="status"]');status.textContent='반응을 집계하는 중…';
         try {
-          const result=await window.SupabaseService.invokeAccountFunction('get-teacher-stage-responses',{
-            classId:ctx.classId,lessonId:ctx.lessonId,stageCode:ctx.stageCode,view:ctx.stageCode==='N'?'n_rankings':'h_rankings'
-          });
+          const rows=await loadRankings(ctx);
           if(current!==ctx||!target.isConnected)return;
-          ctx.rankings=result.rankings||[];ctx.loaded=true;render();
+          ctx.rankings=rows;ctx.loaded=true;render();
           status.textContent='조회 시각: '+new Date().toLocaleTimeString('ko-KR')+' · 같은 수이면 다른 반응 수가 많은 글을 먼저 표시합니다.';
         } catch(error) {if(current===ctx)status.textContent='반응을 불러오지 못했습니다: '+error.message+' · 다시 조회하기를 눌러 주세요.';}
         finally {ctx.loading=false;button.disabled=false;}

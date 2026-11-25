@@ -422,7 +422,7 @@
     } else if(s==='N') body=reviewForm(ctx,r,writable);
     else if(s==='K') {
       if(ctx.readingFinals && mode!=='hidden'){
-        body=preview?'교사가 공개하면 이 탭에서 친구들의 최종 글을 익명으로 읽을 수 있습니다.':
+        body=preview?'<div data-teacher-review-rankings></div>':
           `<button type="button" class="btn btn-secondary" data-final-refresh onclick="ThinkWorkflow.finalTab(true)">새 글 확인</button>`+
           (ctx.finalPosts.map((post,i)=>peerCard(post,i,post,mode==='writable'?'':'disabled',false,true)).join('')||'아직 친구가 제출한 최종 글이 없습니다.');
       } else {
