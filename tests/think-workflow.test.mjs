@@ -47,6 +47,7 @@ async function fixture() {
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261123010000_multiple_hearts.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125010000_teacher_all_answers.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125020000_final_writing_sharing.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125030000_release_final_writing.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
@@ -362,10 +363,16 @@ test('K sharing is opt-in, class-scoped and returns only submitted peer text',as
     await manage('start');
     await manage('stage',{stage:'K'});
     await db.query("insert into think_records(class_id,lesson_id,student_id,stage,content,submitted_at) values($1,$2,$3,'K','본인 글',now()),($1,$2,$4,'K','친구 글',null)",[id(10),id(20),id(2),id(3)]);
+    assert.deepEqual((await manage('list_finals')).rows[0].manage_live_teaching,['본인 글']);
+    await assert.rejects(read(),/아직 최종 글을 공개/);
+    await manage('release_finals');
     assert.deepEqual(await read(),[]);
     await db.query("update think_records set submitted_at=now() where student_id=$1",[id(3)]);
     assert.deepEqual(await read(),['친구 글']);
     await assert.rejects(read(id(4)),/최종 글/);
+    await manage('hide_finals');
+    await assert.rejects(read(),/아직 최종 글을 공개/);
+    await manage('release_finals');
     await manage('close_stage',{stage:'K'});
     await assert.rejects(read(),/최종 글/);
     await manage('end');

@@ -423,7 +423,7 @@
       else body+=ctx.reviewPosts.map((p,i)=>peerCard(p,i,p,mode==='writable'&&!p.saving?'':'disabled',true)).join('');
     } else if(s==='N') body=reviewForm(ctx,r,writable);
     else if(s==='K') {
-      if(ctx.finalSharingEnabled && mode!=='hidden')body+='<p class="think-writing-hint">제출한 최종 글은 같은 반 친구들에게 익명으로 공유됩니다.</p><details class="think-t-example" ontoggle="ThinkWorkflow.readFinals(this)"><summary>친구들의 최종 글 읽기</summary><div role="status" aria-live="polite"></div></details>';
+      if(!preview && ctx.finalSharingEnabled && mode!=='hidden')body+='<p class="think-writing-hint">내가 제출한 글은 선생님이 공개한 뒤 같은 반 친구들이 익명으로 읽을 수 있습니다.</p><details class="think-t-example" ontoggle="ThinkWorkflow.readFinals(this)"><summary>친구들의 최종 글 읽기</summary><button type="button" class="btn btn-secondary" onclick="ThinkWorkflow.readFinals(this.parentElement)">다시 확인</button><div role="status" aria-live="polite"></div></details>';
       body+=finalReferences(ctx)+`<div class="form-group think-activity-card" data-stage="K">
         <label class="form-label" for="thinkText">나의 최종 글</label>
         <p id="thinkWritingHint" class="think-writing-hint">핵심 질문에 대한 주장을 분명히 밝히고, 그 주장을 뒷받침하는 근거와 이유를 담아 한 편의 글로 써 보세요.</p>
@@ -633,7 +633,7 @@
         if(current!==ctx || !loading.isConnected || !details.open)return;
         panel.innerHTML=posts.map((text,index)=>`<article class="think-activity-card"><h4>친구 글 ${index+1}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</p></article>`).join('')||'아직 친구가 제출한 최종 글이 없습니다.';
       } catch(error) {
-        if(loading.isConnected)panel.textContent=error.message+' · 접었다가 다시 열어 주세요.';
+        if(loading.isConnected)panel.textContent=error.message;
       }
     },
     async showRecommendedReviews(details) {

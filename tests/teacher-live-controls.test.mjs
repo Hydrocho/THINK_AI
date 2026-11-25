@@ -74,7 +74,7 @@ test('live controls order open stages as THINK and toggle admission per selected
   });
   live.render();
   assert.match(document.querySelector('[role="status"]').textContent, /열린 단계: T, H, I, N, K$/);
-  live.loadClass = async () => ({ access: live.access.map(a => a.stage_code === live.stage
+  live.loadClass = async () => ({ lessons:[live.lesson], access: live.access.map(a => a.stage_code === live.stage
     ? { ...a, access_mode: calls.at(-1).operation === 'stage' ? 'writable' : 'hidden' } : a) });
   for (const stage of live.lesson.plan.planned_stages) {
     live.preview(stage);
@@ -142,4 +142,29 @@ test('live class cards sort numerically by grade and class while keeping active 
  assert.equal(cards[1].querySelector('.live-class-status').textContent,'진행 중');
  assert.match(cards[0].textContent,/<과학>/);assert.equal(cards[0].querySelector('과학'),null);
  assert.equal(calls,1);
+});
+
+test('K teacher can preview submissions before releasing them and stop sharing',async()=>{
+  const {document}=parseHTML('<main id="panelTeacherLive"></main>');
+  const calls=[];
+  const context={document,window:{ThinkWorkflow:{renderTeacherPreview(){}},SupabaseService:{
+    async invokeAccountFunction(name,args){calls.push(args.operation);if(args.operation==='list_finals')return ['제출한 글 <img src=x>'];}
+  }}};
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(new URL('../js/modules/teacherLive.js',import.meta.url),'utf8'),context);
+  const live=context.window.TeacherLiveModule;
+  Object.assign(live,{classId:'c',stage:'K',classroom:{},access:[{lesson_plan_id:'l',stage_code:'K',access_mode:'writable'}],
+    lesson:{id:'l',plan:{planned_stages:['K'],final_sharing_enabled:true}}});
+  live.render();
+  await live.listFinals(document.querySelector('[onclick*="listFinals"]'));
+  assert.match(document.querySelector('[data-final-posts]').textContent,/제출한 글/);
+  assert.equal(document.querySelector('[data-final-posts] img'),null);
+  assert.deepEqual(calls,['list_finals']);
+  const toggle=()=>document.querySelector('[onclick*="releaseFinals"]');
+  assert.equal(toggle().textContent,'학생에게 공개');
+  await live.releaseFinals(toggle(),true);
+  assert.equal(toggle().textContent,'공개 중지');
+  await live.releaseFinals(toggle(),false);
+  assert.equal(toggle().textContent,'학생에게 공개');
+  assert.deepEqual(calls,['list_finals','release_finals','hide_finals']);
 });

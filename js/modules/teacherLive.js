@@ -20,7 +20,7 @@
         ${(lesson.think_stages||Object.keys(names)).includes('K')?`<label><input type="checkbox" data-plan-final-sharing ${plan?.final_sharing_enabled?'checked':''} ${active?'disabled':''}> K단계 ‘최종 글 공유’ 허용</label>`:''}
         </div>
         ${(lesson.think_stages||Object.keys(names)).includes('N')?'<p class="teacher-live-hint">N단계 친구 읽기 허용을 해제하면 학생은 자신의 검토만 작성합니다. 이 학급의 현재 주제에만 적용됩니다.</p>':''}
-        ${(lesson.think_stages||Object.keys(names)).includes('K')?'<p class="teacher-live-hint">허용하면 같은 반 학생들이 이 주제에 제출한 최종 글을 익명으로 읽을 수 있습니다.</p>':''}
+        ${(lesson.think_stages||Object.keys(names)).includes('K')?'<p class="teacher-live-hint">허용하면 K단계 수업 중 교사가 원하는 시점에 제출된 최종 글을 학급에 익명으로 공개할 수 있습니다.</p>':''}
         <span role="status">${active?'진행 중인 수업입니다. 종료 후 계획을 수정할 수 있습니다.':''}</span></article>`;
     },
     async savePlan(classId,lessonId,input) {
@@ -158,6 +158,11 @@
         <ul class="think-steps-list">${l.plan.planned_stages.map(s=>`<li><button type="button" class="think-step-item ${s===this.stage?'active':''}" data-stage="${s}" aria-pressed="${s===this.stage}" onclick="TeacherLiveModule.preview('${s}')"><span class="step-icon-badge">${s}</span><span>${names[s]}</span></button></li>`).join('')}</ul></div>
         <p class="teacher-live-hint">‘단계 시작’을 누르면 학생들이 입장할 수 있습니다. ‘단계 종료하기’를 누르면 새 입장이 닫히며, 이미 작성 중인 학생은 마무리하여 제출할 수 있습니다.</p></aside>
         <section class="content-area"><div class="step-header"><h1 class="step-main-title">${esc(l.core_question)}</h1>${l.background_description?`<details class="think-t-example think-background"><summary>배경 설명 보기</summary><p>${esc(l.background_description)}</p></details>`:''}</div>
+        ${this.stage==='K'?`<section class="think-activity-card"><h3>최종 글 공유</h3>
+          <button type="button" class="btn btn-secondary" onclick="TeacherLiveModule.listFinals(this)">제출된 최종 글 모아 보기</button>
+          <span role="status">${!l.plan.final_sharing_enabled?'학급 계획에서 공유가 꺼져 있습니다.':l.plan.final_sharing_released?'학생에게 공개 중':'학생에게 공개 전'}</span>
+          ${l.plan.final_sharing_enabled?`<button type="button" class="btn btn-primary" onclick="TeacherLiveModule.releaseFinals(this,${!l.plan.final_sharing_released})" ${!l.plan.final_sharing_released&&!this.access.some(a=>a.lesson_plan_id===l.id&&a.stage_code==='K'&&['writable','read_only'].includes(a.access_mode))?'disabled':''}>${l.plan.final_sharing_released?'공개 중지':'학생에게 공개'}</button>`:''}
+          <div data-final-posts></div></section>`:''}
         ${this.stage==='H'?'':'<div><button type="button" class="btn btn-secondary" id="teacherLiveResponseToggle" aria-expanded="false" aria-controls="teacherLiveResponses" onclick="TeacherLiveModule.toggleResponses()">학생 작성 현황</button></div>'}
         <div id="teacherLiveActivity">
         <div id="teacherLivePreview"></div></div><div id="teacherLiveResponses" hidden></div></section></div>`;
@@ -194,6 +199,25 @@
       const l=this.lesson;
       window.ThinkWorkflow.renderTeacherPreview({...l,finalSharingEnabled:l.plan.final_sharing_enabled,peerReviewEnabled:l.plan.peer_review_enabled,thinkStages:l.plan.planned_stages,reviewResource:l.review_resource,aiQuestionLimit:l.ai_question_limit},this.stage,document.getElementById('teacherLivePreview'),reflection,target=>window.TeacherLiveResponses.openRankings({classId:this.classId,lessonId:l.id,stageCode:'N'},target));
     },
+    async listFinals(button) {
+      const target=button.parentElement.querySelector('[data-final-posts]');
+      button.disabled=true;
+      try {
+        const posts=await api(this.classId,this.lesson.id,'list_finals');
+        target.innerHTML=posts.map((text,i)=>`<article><h4>글 ${i+1}</h4><p class="live-response-answer">${esc(text)}</p></article>`).join('')||'아직 제출된 최종 글이 없습니다.';
+        button.textContent='제출된 글 다시 조회';
+      } catch(error){target.textContent=error.message;}
+      finally{button.disabled=false;}
+    },
+    async releaseFinals(button,release) {
+      const lesson=this.lesson;
+      button.disabled=true;
+      try {
+        await api(this.classId,lesson.id,release?'release_finals':'hide_finals');
+        lesson.plan.final_sharing_released=release;
+        if(button.isConnected)this.render();
+      } catch(error){alert(error.message);button.disabled=false;}
+    },
     async openStage(button) {
       return this.setStageAccess(button,'stage');
     },
@@ -204,7 +228,9 @@
       button.disabled=true;
       try {
         await api(this.classId,this.lesson.id,operation,{stage:this.stage});
-        Object.assign(this,await this.loadClass(this.classId));this.render();
+        Object.assign(this,await this.loadClass(this.classId));
+        this.lesson=this.lessons.find(l=>l.id===this.lesson.id);
+        this.render();
       } catch(error){alert(error.message);button.disabled=false;}
     },
     async end(button) {
