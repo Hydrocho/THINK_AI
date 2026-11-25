@@ -148,7 +148,7 @@ test('K teacher can preview submissions before releasing them and stop sharing',
   const {document}=parseHTML('<main id="panelTeacherLive"></main>');
   const calls=[];
   const context={document,window:{ThinkWorkflow:{renderTeacherPreview(){}},SupabaseService:{
-    async invokeAccountFunction(name,args){calls.push(args.operation);if(args.operation==='list_finals')return ['제출한 글 <img src=x>'];}
+    async invokeAccountFunction(name,args){calls.push(args.operation);if(args.operation==='list_final_cards')return [{studentName:'김학생',text:'제출한 글 <img src=x>',similar:2,curious:0,newView:1,stars:3}];}
   }}};
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(new URL('../js/modules/teacherLive.js',import.meta.url),'utf8'),context);
@@ -158,13 +158,15 @@ test('K teacher can preview submissions before releasing them and stop sharing',
   live.render();
   await live.listFinals(document.querySelector('[onclick*="listFinals"]'));
   assert.match(document.querySelector('[data-final-posts]').textContent,/제출한 글/);
+  assert.match(document.querySelector('[data-final-posts]').textContent,/김학생/);
+  assert.match(document.querySelector('[data-final-posts]').textContent,/함께 읽고 싶어요 3명/);
   assert.equal(document.querySelector('[data-final-posts] img'),null);
-  assert.deepEqual(calls,['list_finals']);
+  assert.deepEqual(calls,['list_final_cards']);
   const toggle=()=>document.querySelector('[onclick*="releaseFinals"]');
   assert.equal(toggle().textContent,'학생에게 공개');
   await live.releaseFinals(toggle(),true);
   assert.equal(toggle().textContent,'공개 중지');
   await live.releaseFinals(toggle(),false);
   assert.equal(toggle().textContent,'학생에게 공개');
-  assert.deepEqual(calls,['list_finals','release_finals','hide_finals']);
+  assert.deepEqual(calls,['list_final_cards','release_finals','hide_finals']);
 });

@@ -13,12 +13,15 @@ Deno.serve(async req => {
     const {data:{user},error}=await caller.auth.getUser();
     if(error||!user) return json({error:'다시 로그인해 주세요.'},401);
     const b=await req.json();
-    if(!['stage_snapshot','snapshot','open','save','chat','assign','teacher','final_list','review_list','review_feedback'].includes(b.action)||!b.classId||!b.lessonId) return json({error:'잘못된 요청입니다.'},400);
+    if(!['stage_snapshot','snapshot','open','save','chat','assign','teacher','final_cards','final_feedback','final_list','review_list','review_feedback'].includes(b.action)||!b.classId||!b.lessonId) return json({error:'잘못된 요청입니다.'},400);
     const db=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const rpc=async(action:string,payload=b.payload||{})=>required(await db.rpc('think_workflow',{
       p_actor:user.id,p_class:b.classId,p_lesson:b.lessonId,p_action:action,p_stage:b.stage||'T',p_payload:payload
     }));
     if(b.action==='review_list'||b.action==='review_feedback')return json(required(await db.rpc('think_review_reading',{
+      p_actor:user.id,p_class:b.classId,p_lesson:b.lessonId,p_action:b.action,p_payload:b.payload||{}
+    })));
+    if(b.action==='final_cards'||b.action==='final_feedback')return json(required(await db.rpc('think_final_cards',{
       p_actor:user.id,p_class:b.classId,p_lesson:b.lessonId,p_action:b.action,p_payload:b.payload||{}
     })));
     if(b.action==='final_list')return json(required(await db.rpc('think_final_reading',{
@@ -28,11 +31,8 @@ Deno.serve(async req => {
       const snapshot=b.action==='snapshot'?await rpc('snapshot'):required(await db.rpc('think_stage_snapshot',{
         p_actor:user.id,p_class:b.classId,p_lesson:b.lessonId,p_stage:b.stage,p_turn:b.payload?.turnId||null
       }));
-      if(b.action==='snapshot'||b.stage==='K'){
-        const plan=snapshot.access?.K && snapshot.access.K!=='hidden'
-          ? required(await db.from('class_lesson_plans').select('final_sharing_enabled').eq('class_id',b.classId).eq('lesson_plan_id',b.lessonId).maybeSingle()) : null;
-        snapshot.finalSharingEnabled=plan?.final_sharing_enabled===true;
-      }
+      // Older student clients use this flag to display the K reader.
+      snapshot.finalSharingEnabled=true;
       return json(snapshot);
     }
     if(b.action==='teacher') {

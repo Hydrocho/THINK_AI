@@ -153,17 +153,17 @@
     }
     return `<dl class="think-peer-answers">${pairs.join('')}</dl>`;
   }
-  function peerCard(peer,index,feedback,disabled,review=false) {
-    const handler=review?'reviewReaction':'peerAction';
+  function peerCard(peer,index,feedback,disabled,review=false,final=false) {
+    const handler=final?'finalReaction':review?'reviewReaction':'peerAction';
     let contents;
     if(review) {
       const fields=[['검토한 내용',peer.target],['자료에서 확인한 내용',peer.evidence],['확인한 뒤 내 생각',peer.judgment]];
       contents='<dl class="think-peer-answers">'+fields.filter(([,value])=>value).map(([label,value])=>`<div><dt>${label}</dt><dd>${escape(value)}</dd></div>`).join('')+'</dl>';
       if(peer.sourceUrl && isWebAddress(peer.sourceUrl))contents+=`<p class="think-peer-plain"><a href="${escape(peer.sourceUrl)}" target="_blank" rel="noopener noreferrer">출처 열기</a></p>`;
-    } else contents=peerAnswers(peer.text);
+    } else contents=final?`<p class="think-peer-plain" style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(peer.text)}</p>`:peerAnswers(peer.text);
     const buttons=Object.entries(reactions).map(([key,label])=>
       `<button type="button" data-reaction="${key}" aria-pressed="${selectedHearts(feedback).includes(key)}" ${disabled} onclick="ThinkWorkflow.${handler}(${index},'${key}')"><span aria-hidden="true">♡</span> ${label}</button>`).join('');
-    return `<article class="think-peer-card" id="thinkPeer${index}"><h4>친구 글 ${index+1}</h4>${contents}
+    return `<article class="think-peer-card" id="${final?'thinkFinal':'thinkPeer'}${index}"><h4>친구 글 ${index+1}</h4>${contents}
       <footer><div class="think-peer-actions" role="group" aria-label="친구 글 ${index+1}에 대한 내 반응">${buttons}</div>
       <button type="button" class="think-peer-recommend" aria-pressed="${!!feedback.recommended}" ${disabled} onclick="ThinkWorkflow.${handler}(${index},'recommend')"><span aria-hidden="true">☆</span> 우리 반과 함께 읽고 싶어요</button></footer></article>`;
   }
@@ -359,9 +359,7 @@
       ctx.peerReviewEnabled=snapshot.peerReviewEnabled!==false;
       if(!ctx.peerReviewEnabled){ctx.readingReviews=false;ctx.reviewPosts=[];}
       const next=Object.fromEntries(stages.map(s=>[s,snapshot.access[s]||'hidden']));
-      const finalOptionChanged=snapshot.finalSharingEnabled!==undefined && ctx.finalSharingEnabled!==snapshot.finalSharingEnabled;
-      if(finalOptionChanged)ctx.finalSharingEnabled=snapshot.finalSharingEnabled===true;
-      const changed=finalOptionChanged||reviewOptionChanged||JSON.stringify(previous)!==JSON.stringify(next);
+      const changed=reviewOptionChanged||JSON.stringify(previous)!==JSON.stringify(next);
       ctx.access=next;
       const peerChanged=snapshot.peers && JSON.stringify(ctx.peers)!==JSON.stringify(snapshot.peers);
       const chatChanged=!!snapshot.turns;
@@ -423,7 +421,11 @@
       else body+=ctx.reviewPosts.map((p,i)=>peerCard(p,i,p,mode==='writable'&&!p.saving?'':'disabled',true)).join('');
     } else if(s==='N') body=reviewForm(ctx,r,writable);
     else if(s==='K') {
-      if(!preview && ctx.finalSharingEnabled && mode!=='hidden')body+='<p class="think-writing-hint">내가 제출한 글은 선생님이 공개한 뒤 같은 반 친구들이 익명으로 읽을 수 있습니다.</p><details class="think-t-example" ontoggle="ThinkWorkflow.readFinals(this)"><summary>친구들의 최종 글 읽기</summary><button type="button" class="btn btn-secondary" onclick="ThinkWorkflow.readFinals(this.parentElement)">다시 확인</button><div role="status" aria-live="polite"></div></details>';
+      if(ctx.readingFinals && mode!=='hidden'){
+        body=preview?'교사가 공개하면 이 탭에서 친구들의 최종 글을 익명으로 읽을 수 있습니다.':
+          `<button type="button" class="btn btn-secondary" data-final-refresh onclick="ThinkWorkflow.finalTab(true)">새 글 확인</button>`+
+          (ctx.finalPosts.map((post,i)=>peerCard(post,i,post,mode==='writable'?'':'disabled',false,true)).join('')||'아직 친구가 제출한 최종 글이 없습니다.');
+      } else {
       body+=finalReferences(ctx)+`<div class="form-group think-activity-card" data-stage="K">
         <label class="form-label" for="thinkText">나의 최종 글</label>
         <p id="thinkWritingHint" class="think-writing-hint">핵심 질문에 대한 주장을 분명히 밝히고, 그 주장을 뒷받침하는 근거와 이유를 담아 한 편의 글로 써 보세요.</p>
@@ -444,6 +446,7 @@
         <p><strong>한 문단으로 이으면</strong></p>
         <blockquote>수업에 필요한 정보를 찾을 때는 휴대전화를 쓸 수 있어야 한다. 예를 들어, 영어 지문에서 모르는 단어를 사전 앱으로 찾아보니 막혔던 문장을 스스로 읽을 수 있었다. 이 경험은 짧은 검색만으로도 수업을 멈추거나 선생님께 묻지 않고 막힌 부분을 스스로 해결할 수 있다는 것을 보여 준다. 다만 알림이 집중을 방해할 수 있으므로, 검색을 마치면 바로 휴대전화를 가방에 넣어야 한다.</blockquote></details>
         <textarea id="thinkText" class="form-textarea" rows="8" ${disabled} aria-describedby="thinkWritingHint" oninput="ThinkWorkflow.input(this.value)">${escape(r.content)}</textarea></div>`;
+      }
     } else if(s==='H') {
       const cards=ctx.peers.map((p,i)=>peerCard(p,i,r.metadata.feedback?.[p.id]||{},disabled));
       body=cards.length ? `<p><strong>친구 글마다 해당하는 하트를 모두 고르세요. 다시 누르면 선택이 해제됩니다. 그리고 우리 반과 함께 읽고 싶은 글에는 ☆를 눌러 주세요.</strong></p>`+
@@ -481,7 +484,7 @@
     }
     const recovery=ctx.recovery[s]?`<details><summary>다른 저장본과 겹친 미저장 글 보기</summary><pre style="white-space:pre-wrap">${escape(ctx.recovery[s])}</pre></details>`:'';
     let primary='';
-    if((mode!=='hidden'||finishing) && s!=='H') {
+    if((mode!=='hidden'||finishing) && s!=='H' && !(s==='K'&&ctx.readingFinals)) {
       if(s==='I' && !reflecting) {
         if(writable || reflection(r)) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.reflectionView(true,true)" ${ctx.chatBusy?'disabled':''}>${writable?'내 생각 정리하기 →':'대화 후 내 생각 보기'}</button>`;
       } else if(s==='N' && ctx.readingReviews && r.submitted_at) {
@@ -489,23 +492,23 @@
       } else if(s!=='I' || writable) primary=`<button class="btn btn-primary" onclick="ThinkWorkflow.submit()" ${disabled}>저장하기</button>`;
     }
     const backToChat=reflecting && mode==='writable' ? '<button type="button" class="btn btn-secondary" onclick="ThinkWorkflow.reflectionView(false,true)">대화로 돌아가기</button>' : '';
-    const reviewTabs=s==='N'&&ctx.peerReviewEnabled!==false, secondTab=reviewTabs?!!(ctx.readingReviews && (preview || r.submitted_at)):reflecting;
-    if((reviewTabs||s==='I') && (mode!=='hidden'||finishing)) {
-      const titles=reviewTabs?['내 생각 검토하기','친구의 검토 읽기']:['AI와 대화하기','대화 후 내 생각 정리하기'];
+    const reviewTabs=s==='N'&&ctx.peerReviewEnabled!==false, finalTabs=s==='K', secondTab=finalTabs?!!ctx.readingFinals:reviewTabs?!!(ctx.readingReviews && (preview || r.submitted_at)):reflecting;
+    if((finalTabs||reviewTabs||s==='I') && (mode!=='hidden'||finishing)) {
+      const titles=finalTabs?['나의 최종 글','친구들의 최종 글 읽기']:reviewTabs?['내 생각 검토하기','친구의 검토 읽기']:['AI와 대화하기','대화 후 내 생각 정리하기'];
       const tabs=titles.map((title,i)=>{
         const selected=Number(secondTab)===i;
-        const locked=reviewTabs?(i===1&&!preview&&!r.submitted_at):(!selected&&(ctx.chatBusy||finishing));
-        return `<button type="button" role="tab" id="think${s}Tab${i}" aria-selected="${selected}" aria-controls="think${s}Panel" tabindex="${selected?0:-1}" ${locked?'disabled':''} onclick="ThinkWorkflow.${reviewTabs?'reviewTab':'reflectionView'}(${i===1})">${title}</button>`;
+        const locked=finalTabs?(i===1&&mode==='hidden'):reviewTabs?(i===1&&!preview&&!r.submitted_at):(!selected&&(ctx.chatBusy||finishing));
+        return `<button type="button" role="tab" id="think${s}Tab${i}" aria-selected="${selected}" aria-controls="think${s}Panel" tabindex="${selected?0:-1}" ${locked?'disabled':''} onclick="ThinkWorkflow.${finalTabs?'finalTab':reviewTabs?'reviewTab':'reflectionView'}(${i===1})">${title}</button>`;
       }).join('');
-      const hint=reviewTabs&&!preview&&!r.submitted_at?'<p class="think-writing-hint">내 검토를 완료하면 친구들의 글을 읽을 수 있어요.</p>':'';
+      const hint=finalTabs&&!secondTab?'<p class="think-writing-hint">제출한 글은 선생님이 공개한 뒤 같은 반 친구들이 익명으로 읽을 수 있습니다.</p>':reviewTabs&&!preview&&!r.submitted_at?'<p class="think-writing-hint">내 검토를 완료하면 친구들의 글을 읽을 수 있어요.</p>':'';
       if(preview && reviewTabs && secondTab){body='<div data-teacher-review-rankings></div>';primary='';}
-      body=`<div class="think-i-tabs" data-stage="${s}" role="tablist" aria-label="${s}단계 활동">${tabs}</div>${hint}<div id="think${s}Panel" role="tabpanel" aria-labelledby="think${s}Tab${Number(secondTab)}">${body}</div>`;
+      body=`<div class="think-i-tabs" data-stage="${s}" role="tablist" aria-label="${s}단계 활동">${tabs}</div>${hint}${finalTabs&&ctx.finalError?`<p id="thinkKReadStatus" role="status">${escape(ctx.finalError)}</p>`:''}<div id="think${s}Panel" role="tabpanel" aria-labelledby="think${s}Tab${Number(secondTab)}">${body}</div>`;
     }
     box.innerHTML=`${finishing?'<p>단계가 마감되었습니다. 작성 중인 글을 마무리하고 저장할 수 있어요.</p>':mode==='read_only'?'<p>읽기 전용 단계입니다.</p>':''}${body}${statusHtml}${recovery}<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">${backToChat}${primary}</div>`;
     if(preview) {
       const ids=new Set([...box.querySelectorAll('[id]')].map(element=>element.id));
       box.querySelectorAll('*').forEach(element => {
-        const view=(s==='I'||reviewTabs) && element.getAttribute('onclick')?.match(/^ThinkWorkflow\.(?:reflectionView|reviewTab)\((true|false)/);
+        const view=(s==='I'||reviewTabs||finalTabs) && element.getAttribute('onclick')?.match(/^ThinkWorkflow\.(?:reflectionView|reviewTab|finalTab)\((true|false)/);
         for(const attribute of [...element.attributes]) if(attribute.name.startsWith('on')) element.removeAttribute(attribute.name);
         if(element.id) element.id='teacherPreview-'+element.id;
         for(const attr of ['for','aria-controls','aria-labelledby','aria-describedby']) {
@@ -515,14 +518,14 @@
         if(view) {
           element.disabled=false;
           element.dataset.previewView=view[1];
-          element.addEventListener('click',()=>{if(reviewTabs && ctx.readingReviews===(view[1]==='true'))return;if(reviewTabs)ctx.readingReviews=view[1]==='true';else ctx.reflecting=view[1]==='true';render(ctx,box);});
+          element.addEventListener('click',()=>{if(reviewTabs && ctx.readingReviews===(view[1]==='true'))return;if(finalTabs)ctx.readingFinals=view[1]==='true';else if(reviewTabs)ctx.readingReviews=view[1]==='true';else ctx.reflecting=view[1]==='true';render(ctx,box);});
         }
       });
       box.querySelector('.think-i-tabs')?.addEventListener('keydown',event=>{
-        if(s!=='I'&&!reviewTabs)return;
+        if(s!=='I'&&!reviewTabs&&!finalTabs)return;
         const keys={ArrowLeft:!secondTab,ArrowRight:!secondTab,Home:false,End:true};
         if(!Object.hasOwn(keys,event.key))return;
-        event.preventDefault();if(reviewTabs)ctx.readingReviews=keys[event.key];else ctx.reflecting=keys[event.key];render(ctx,box);
+        event.preventDefault();if(finalTabs)ctx.readingFinals=keys[event.key];else if(reviewTabs)ctx.readingReviews=keys[event.key];else ctx.reflecting=keys[event.key];render(ctx,box);
         box.querySelector('[role="tab"][aria-selected="true"]')?.focus();
       });
       const rankings=box.querySelector('[data-teacher-review-rankings]');
@@ -613,7 +616,7 @@
     renderTeacherPreview(lesson,stage,box,reflectionView=false,onReviewRankings=null) {
       const ctx={lesson,stage,access:Object.fromEntries(stages.map(s=>[s,'writable'])),records:{},leases:{},
         saved:{},dirty:{},status:{},closing:{},recovery:{},peers:[],turns:[],remaining:lesson.aiQuestionLimit||20,
-        onReviewRankings,finalSharingEnabled:lesson.finalSharingEnabled===true,reflecting:reflectionView,firstCount:0,peerReviewEnabled:lesson.peerReviewEnabled!==false};
+        onReviewRankings,reflecting:reflectionView,firstCount:0,peerReviewEnabled:lesson.peerReviewEnabled!==false};
       ctx.leases[stage]='preview';
       render(ctx,box);
     },
@@ -621,19 +624,47 @@
       document.querySelectorAll('[data-k-choice]').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.kChoice===stage));});
       document.querySelectorAll('[data-k-reference]').forEach(panel=>{panel.hidden=panel.dataset.kReference!==stage;});
     },
-    async readFinals(details) {
+    async finalTab(read) {
       const ctx=current;
-      if(!details.open || ctx?.stage!=='K' || !ctx.finalSharingEnabled)return;
-      const panel=details.querySelector('[role="status"]');
-      const loading=document.createElement('p');
-      loading.textContent='친구들의 최종 글을 불러오는 중…';
-      panel.replaceChildren(loading);
+      if(ctx?.stage!=='K'||ctx.finalPosts?.some(post=>post.saving))return;
+      const request=ctx.finalRequest=(ctx.finalRequest||0)+1;
+      if(read && ctx.access.K==='hidden')return;
       try {
-        const posts=await api(ctx,'final_list','K');
-        if(current!==ctx || !loading.isConnected || !details.open)return;
-        panel.innerHTML=posts.map((text,index)=>`<article class="think-activity-card"><h4>친구 글 ${index+1}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</p></article>`).join('')||'아직 친구가 제출한 최종 글이 없습니다.';
+        const posts=read?await api(ctx,'final_cards','K'):[];
+        if(current!==ctx||ctx.stage!=='K'||ctx.finalRequest!==request)return;
+        capture(ctx);
+        ctx.finalError='';ctx.finalPosts=posts;
+        ctx.readingFinals=read;
+        render();
+        document.getElementById('thinkKTab'+Number(read))?.focus();
       } catch(error) {
-        if(loading.isConnected)panel.textContent=error.message;
+        if(current!==ctx||ctx.stage!=='K'||ctx.finalRequest!==request)return;
+        capture(ctx);
+        ctx.readingFinals=false;ctx.finalPosts=[];
+        ctx.finalError=error.message;render();
+        document.getElementById('thinkKTab1')?.focus();
+      }
+    },
+    async finalReaction(index,action) {
+      const ctx=current, post=ctx?.finalPosts?.[index], card=document.getElementById('thinkFinal'+index);
+      if(ctx?.stage!=='K'||ctx.access.K!=='writable'||!card||!post||post.saving)return;
+      const next={id:post.id,reactions:action==='recommend'?selectedHearts(post):toggleHeart(post,action),
+        recommended:action==='recommend'?!post.recommended:post.recommended};
+      post.saving=true;
+      const buttons=[...card.querySelectorAll('button')];
+      buttons.forEach(button=>button.disabled=true);
+      const refresh=card.closest('[role="tabpanel"]').querySelector('[data-final-refresh]');
+      refresh.disabled=true;
+      try {
+        await api(ctx,'final_feedback','K',next);
+        Object.assign(post,next);
+        buttons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.reaction?
+          next.reactions.includes(button.dataset.reaction):next.recommended)));
+      } catch(error){if(card.isConnected)alert(error.message);}
+      finally {
+        post.saving=false;
+        buttons.forEach(button=>button.disabled=false);
+        refresh.disabled=ctx.finalPosts.some(item=>item.saving);
       }
     },
     async showRecommendedReviews(details) {
@@ -805,7 +836,7 @@
         }
         if(next!==previous && !await allowLeavingWriting(ctx))return;
         await flush(ctx,next!==previous);
-        if(next!==previous){delete ctx.leases[previous];ctx.readingReviews=false;}
+        if(next!==previous){delete ctx.leases[previous];ctx.readingReviews=false;ctx.readingFinals=false;ctx.finalError='';ctx.finalPosts=[];ctx.finalRequest=(ctx.finalRequest||0)+1;}
         ctx.stage=next;
         await refresh(ctx,false,null,snapshot);
         await open(ctx,next);

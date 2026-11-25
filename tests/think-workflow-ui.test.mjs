@@ -12,7 +12,8 @@ function fixture(timers={}) {
   const service={async invokeAccountFunction(name,b) {
     requests.push(structuredClone(b));
     if(intercept)await intercept(b);
-    if(b.action==='final_list')return structuredClone(data.finalPosts||[]);
+    if(b.action==='final_feedback')return {ok:true};
+    if(b.action==='final_cards')return structuredClone(data.finalPosts||[]);
     if(b.action==='review_list')return structuredClone(data.reviewPosts||[]);
     if(b.action==='review_feedback')return {ok:true};
     if(b.action==='stage_snapshot')return structuredClone({finalSharingEnabled:data.finalSharingEnabled,peerReviewEnabled:data.peerReviewEnabled,access:data.access,...(['H','K'].includes(b.stage)?{peers:data.peers,firstCount:data.firstCount}:{}),...(b.stage==='I'?{turns:data.turns.filter(t=>!b.payload.turnId||t.id===b.payload.turnId),remaining:data.remaining}:{})});
@@ -454,7 +455,7 @@ test('teacher preview reuses all activity forms without requests or student stat
     f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['T','H','I','N','K']},stage,box);
     assert.ok(box.textContent.length>10);
     for(const el of box.querySelectorAll('textarea,input,button,select')) {
-      if(['I','N'].includes(stage) && el.hasAttribute('data-preview-view'))assert.equal(el.disabled,false);
+      if(['I','N','K'].includes(stage) && el.hasAttribute('data-preview-view'))assert.equal(el.disabled,false);
       else assert.ok(el.disabled);
     }
     for(const el of box.querySelectorAll('*'))assert.ok([...el.attributes].every(a=>!a.name.startsWith('on')));
@@ -519,21 +520,25 @@ test('teacher N review tab loads rankings on demand without student submission o
  assert.equal(box.querySelector('[role="tab"]'),null);assert.equal(loads,1);
 });
 
-test('K final reading is optional and loads escaped peer writing on demand',async()=>{
+test('K reading tab checks teacher release on every entry and preserves writing',async()=>{
   const f=fixture(),flow=f.window.ThinkWorkflow;
   await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
   await flow.navigate(5);
-  const selector='details[ontoggle*="readFinals"]';
-  assert.equal(f.document.querySelector(selector),null);
-  f.data.finalSharingEnabled=true;
-  await flow.navigate(1);await flow.navigate(5);
-  const details=f.document.querySelector(selector);
-  assert.ok(details);
-  assert.equal(f.requests.filter(r=>r.action==='final_list').length,0);
-  f.data.finalPosts=['친구의 최종 글 <img src=x>'];
-  details.open=true;
-  await flow.readFinals(details);
-  assert.match(details.textContent,/친구의 최종 글 <img src=x>/);
-  assert.equal(details.querySelector('img'),null);
-  assert.equal(f.requests.filter(r=>r.action==='final_list').length,1);
+  assert.equal(f.document.querySelector('#thinkKTab1').textContent,'친구들의 최종 글 읽기');
+  const editor=f.document.querySelector('#thinkText');editor.value='작성 중';
+  f.intercept(b=>{if(b.action==='final_cards')throw Error('아직 공개 전');});
+  await flow.finalTab(true);
+  assert.equal(f.document.querySelector('#thinkKTab0').getAttribute('aria-selected'),'true');
+  assert.match(f.document.querySelector('#thinkKReadStatus').textContent,/공개 전/);
+  f.intercept(null);
+  f.data.finalPosts=[{id:'peer-token',text:'친구의 최종 글 <img src=x>',reactions:[],recommended:false}];
+  await flow.finalTab(true);
+  const panel=f.document.querySelector('#thinkKPanel');
+  assert.match(panel.textContent,/친구의 최종 글 <img src=x>/);
+  assert.equal(panel.querySelector('img'),null);
+  assert.equal(f.document.querySelector('#thinkText'),null);
+  await flow.finalReaction(0,'similar');await flow.finalReaction(0,'curious');await flow.finalReaction(0,'recommend');
+  assert.deepEqual(f.requests.at(-1).payload,{id:'peer-token',reactions:['similar','curious'],recommended:true});
+  await flow.finalTab(false);
+  assert.equal(f.document.querySelector('#thinkText').value,'작성 중');
 });
