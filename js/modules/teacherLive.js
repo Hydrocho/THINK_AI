@@ -17,14 +17,17 @@
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:12px">
         ${(lesson.think_stages||Object.keys(names)).includes('H')?`<label><input type="checkbox" data-plan-stage="H" ${(plan?.planned_stages||lesson.think_stages||[]).includes('H')?'checked':''} ${active?'disabled':''}> H · ${names.H}</label>`:''}
         ${(lesson.think_stages||Object.keys(names)).includes('N')?`<label><input type="checkbox" data-plan-peer-review ${plan?.peer_review_enabled!==false?'checked':''} ${active?'disabled':''}> N단계 ‘친구의 검토 읽기’ 허용</label>`:''}
+        ${(lesson.think_stages||Object.keys(names)).includes('K')?`<label><input type="checkbox" data-plan-final-sharing ${plan?.final_sharing_enabled?'checked':''} ${active?'disabled':''}> K단계 ‘최종 글 공유’ 허용</label>`:''}
         </div>
         ${(lesson.think_stages||Object.keys(names)).includes('N')?'<p class="teacher-live-hint">N단계 친구 읽기 허용을 해제하면 학생은 자신의 검토만 작성합니다. 이 학급의 현재 주제에만 적용됩니다.</p>':''}
+        ${(lesson.think_stages||Object.keys(names)).includes('K')?'<p class="teacher-live-hint">허용하면 같은 반 학생들이 이 주제에 제출한 최종 글을 익명으로 읽을 수 있습니다.</p>':''}
         <span role="status">${active?'진행 중인 수업입니다. 종료 후 계획을 수정할 수 있습니다.':''}</span></article>`;
     },
     async savePlan(classId,lessonId,input) {
       const card=input.closest('[data-plan-lesson]'),status=card.querySelector('[role="status"]');
       if(input.disabled)return;
       const payload={enabled:!!card.querySelector('[data-plan-enabled]').checked,
+        finalSharingEnabled:!!card.querySelector('[data-plan-final-sharing]')?.checked,
         peerReviewEnabled:card.querySelector('[data-plan-peer-review]')?.checked??true,
         stages:[...card.querySelectorAll('[data-plan-stage]')].filter(el=>el.checked).map(el=>el.dataset.planStage)};
       if(payload.enabled&&!payload.stages.length) {
@@ -189,7 +192,7 @@
     },
     renderPreview(reflection) {
       const l=this.lesson;
-      window.ThinkWorkflow.renderTeacherPreview({...l,peerReviewEnabled:l.plan.peer_review_enabled,thinkStages:l.plan.planned_stages,reviewResource:l.review_resource,aiQuestionLimit:l.ai_question_limit},this.stage,document.getElementById('teacherLivePreview'),reflection,target=>window.TeacherLiveResponses.openRankings({classId:this.classId,lessonId:l.id,stageCode:'N'},target));
+      window.ThinkWorkflow.renderTeacherPreview({...l,finalSharingEnabled:l.plan.final_sharing_enabled,peerReviewEnabled:l.plan.peer_review_enabled,thinkStages:l.plan.planned_stages,reviewResource:l.review_resource,aiQuestionLimit:l.ai_question_limit},this.stage,document.getElementById('teacherLivePreview'),reflection,target=>window.TeacherLiveResponses.openRankings({classId:this.classId,lessonId:l.id,stageCode:'N'},target));
     },
     async openStage(button) {
       return this.setStageAccess(button,'stage');

@@ -46,6 +46,7 @@ async function fixture() {
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122140000_teacher_ranking_author_names.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261123010000_multiple_hearts.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125010000_teacher_all_answers.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125020000_final_writing_sharing.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
@@ -348,4 +349,28 @@ test('N teacher rankings aggregate reactions only for submitted reviews and enfo
   await db.query('update think_records set submitted_at=null where student_id=$1',[id(2)]);
   assert.deepEqual((await query(id(1))).rows[0].value,[unread]);
  } finally {await db.close();}
+});
+
+test('K sharing is opt-in, class-scoped and returns only submitted peer text',async()=>{
+  const {db}=await fixture();
+  const read=async(actor=id(2))=>(await db.query('select think_final_reading($1,$2,$3) posts',[actor,id(10),id(20)])).rows[0].posts;
+  const manage=(action,payload={})=>db.query('select manage_live_teaching($1,$2,$3,$4,$5)',[id(1),id(10),id(20),action,JSON.stringify(payload)]);
+  try {
+    await assert.rejects(read(),/최종 글/);
+    await manage('end');
+    await manage('plan',{enabled:true,stages:['K'],finalSharingEnabled:true});
+    await manage('start');
+    await manage('stage',{stage:'K'});
+    await db.query("insert into think_records(class_id,lesson_id,student_id,stage,content,submitted_at) values($1,$2,$3,'K','본인 글',now()),($1,$2,$4,'K','친구 글',null)",[id(10),id(20),id(2),id(3)]);
+    assert.deepEqual(await read(),[]);
+    await db.query("update think_records set submitted_at=now() where student_id=$1",[id(3)]);
+    assert.deepEqual(await read(),['친구 글']);
+    await assert.rejects(read(id(4)),/최종 글/);
+    await manage('close_stage',{stage:'K'});
+    await assert.rejects(read(),/최종 글/);
+    await manage('end');
+    await manage('plan',{enabled:true,stages:['K'],finalSharingEnabled:false});
+    await manage('start');await manage('stage',{stage:'K'});
+    await assert.rejects(read(),/최종 글/);
+  } finally {await db.close();}
 });

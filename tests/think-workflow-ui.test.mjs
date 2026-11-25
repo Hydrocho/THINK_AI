@@ -12,9 +12,10 @@ function fixture(timers={}) {
   const service={async invokeAccountFunction(name,b) {
     requests.push(structuredClone(b));
     if(intercept)await intercept(b);
+    if(b.action==='final_list')return structuredClone(data.finalPosts||[]);
     if(b.action==='review_list')return structuredClone(data.reviewPosts||[]);
     if(b.action==='review_feedback')return {ok:true};
-    if(b.action==='stage_snapshot')return structuredClone({peerReviewEnabled:data.peerReviewEnabled,access:data.access,...(['H','K'].includes(b.stage)?{peers:data.peers,firstCount:data.firstCount}:{}),...(b.stage==='I'?{turns:data.turns.filter(t=>!b.payload.turnId||t.id===b.payload.turnId),remaining:data.remaining}:{})});
+    if(b.action==='stage_snapshot')return structuredClone({finalSharingEnabled:data.finalSharingEnabled,peerReviewEnabled:data.peerReviewEnabled,access:data.access,...(['H','K'].includes(b.stage)?{peers:data.peers,firstCount:data.firstCount}:{}),...(b.stage==='I'?{turns:data.turns.filter(t=>!b.payload.turnId||t.id===b.payload.turnId),remaining:data.remaining}:{})});
     if(b.action==='snapshot')return structuredClone(data);
     if(b.action==='open'){
       let row=data.records.find(r=>r.stage===b.stage);
@@ -516,4 +517,23 @@ test('teacher N review tab loads rankings on demand without student submission o
  assert.deepEqual(f.state,before);assert.equal(f.requests.length,0);
  f.window.ThinkWorkflow.renderTeacherPreview({thinkStages:['N'],peerReviewEnabled:false},'N',box,false,()=>{loads++;});
  assert.equal(box.querySelector('[role="tab"]'),null);assert.equal(loads,1);
+});
+
+test('K final reading is optional and loads escaped peer writing on demand',async()=>{
+  const f=fixture(),flow=f.window.ThinkWorkflow;
+  await f.window.StudentLobbyModule.enterSubjectClass(f.state,'class1');
+  await flow.navigate(5);
+  const selector='details[ontoggle*="readFinals"]';
+  assert.equal(f.document.querySelector(selector),null);
+  f.data.finalSharingEnabled=true;
+  await flow.navigate(1);await flow.navigate(5);
+  const details=f.document.querySelector(selector);
+  assert.ok(details);
+  assert.equal(f.requests.filter(r=>r.action==='final_list').length,0);
+  f.data.finalPosts=['친구의 최종 글 <img src=x>'];
+  details.open=true;
+  await flow.readFinals(details);
+  assert.match(details.textContent,/친구의 최종 글 <img src=x>/);
+  assert.equal(details.querySelector('img'),null);
+  assert.equal(f.requests.filter(r=>r.action==='final_list').length,1);
 });

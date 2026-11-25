@@ -359,7 +359,9 @@
       ctx.peerReviewEnabled=snapshot.peerReviewEnabled!==false;
       if(!ctx.peerReviewEnabled){ctx.readingReviews=false;ctx.reviewPosts=[];}
       const next=Object.fromEntries(stages.map(s=>[s,snapshot.access[s]||'hidden']));
-      const changed=reviewOptionChanged||JSON.stringify(previous)!==JSON.stringify(next);
+      const finalOptionChanged=snapshot.finalSharingEnabled!==undefined && ctx.finalSharingEnabled!==snapshot.finalSharingEnabled;
+      if(finalOptionChanged)ctx.finalSharingEnabled=snapshot.finalSharingEnabled===true;
+      const changed=finalOptionChanged||reviewOptionChanged||JSON.stringify(previous)!==JSON.stringify(next);
       ctx.access=next;
       const peerChanged=snapshot.peers && JSON.stringify(ctx.peers)!==JSON.stringify(snapshot.peers);
       const chatChanged=!!snapshot.turns;
@@ -421,6 +423,7 @@
       else body+=ctx.reviewPosts.map((p,i)=>peerCard(p,i,p,mode==='writable'&&!p.saving?'':'disabled',true)).join('');
     } else if(s==='N') body=reviewForm(ctx,r,writable);
     else if(s==='K') {
+      if(ctx.finalSharingEnabled && mode!=='hidden')body+='<p class="think-writing-hint">제출한 최종 글은 같은 반 친구들에게 익명으로 공유됩니다.</p><details class="think-t-example" ontoggle="ThinkWorkflow.readFinals(this)"><summary>친구들의 최종 글 읽기</summary><div role="status" aria-live="polite"></div></details>';
       body+=finalReferences(ctx)+`<div class="form-group think-activity-card" data-stage="K">
         <label class="form-label" for="thinkText">나의 최종 글</label>
         <p id="thinkWritingHint" class="think-writing-hint">핵심 질문에 대한 주장을 분명히 밝히고, 그 주장을 뒷받침하는 근거와 이유를 담아 한 편의 글로 써 보세요.</p>
@@ -610,13 +613,28 @@
     renderTeacherPreview(lesson,stage,box,reflectionView=false,onReviewRankings=null) {
       const ctx={lesson,stage,access:Object.fromEntries(stages.map(s=>[s,'writable'])),records:{},leases:{},
         saved:{},dirty:{},status:{},closing:{},recovery:{},peers:[],turns:[],remaining:lesson.aiQuestionLimit||20,
-        onReviewRankings,reflecting:reflectionView,firstCount:0,peerReviewEnabled:lesson.peerReviewEnabled!==false};
+        onReviewRankings,finalSharingEnabled:lesson.finalSharingEnabled===true,reflecting:reflectionView,firstCount:0,peerReviewEnabled:lesson.peerReviewEnabled!==false};
       ctx.leases[stage]='preview';
       render(ctx,box);
     },
     showKReference(stage) {
       document.querySelectorAll('[data-k-choice]').forEach(button=>{button.setAttribute('aria-pressed',String(button.dataset.kChoice===stage));});
       document.querySelectorAll('[data-k-reference]').forEach(panel=>{panel.hidden=panel.dataset.kReference!==stage;});
+    },
+    async readFinals(details) {
+      const ctx=current;
+      if(!details.open || ctx?.stage!=='K' || !ctx.finalSharingEnabled)return;
+      const panel=details.querySelector('[role="status"]');
+      const loading=document.createElement('p');
+      loading.textContent='친구들의 최종 글을 불러오는 중…';
+      panel.replaceChildren(loading);
+      try {
+        const posts=await api(ctx,'final_list','K');
+        if(current!==ctx || !loading.isConnected || !details.open)return;
+        panel.innerHTML=posts.map((text,index)=>`<article class="think-activity-card"><h4>친구 글 ${index+1}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">${escape(text)}</p></article>`).join('')||'아직 친구가 제출한 최종 글이 없습니다.';
+      } catch(error) {
+        if(loading.isConnected)panel.textContent=error.message+' · 접었다가 다시 열어 주세요.';
+      }
     },
     async showRecommendedReviews(details) {
       const ctx=current;
