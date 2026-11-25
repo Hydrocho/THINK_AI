@@ -45,6 +45,7 @@ async function fixture() {
   await db.exec("alter table student_accounts add column student_name text; update student_accounts set student_name='작성 학생' where student_number='30101';");
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261122140000_teacher_ranking_author_names.sql',import.meta.url),'utf8'));
   await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261123010000_multiple_hearts.sql',import.meta.url),'utf8'));
+  await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261125010000_teacher_all_answers.sql',import.meta.url),'utf8'));
   const rpc=async (action,stage='T',payload={},actor=id(2),classId=id(10),lesson=id(20))=>
     (await db.query('select think_workflow($1,$2,$3,$4,$5,$6) value',[actor,classId,lesson,action,stage,JSON.stringify(payload)])).rows[0].value;
   return {db,rpc};
@@ -78,6 +79,7 @@ test('H rankings count saved reactions against shared texts and enforce teacher 
       await db.query("insert into think_records(class_id,lesson_id,student_id,stage,metadata) values($1,$2,$3,'H',$4)",
         [id(10),id(20),student,JSON.stringify({feedback:{p1:{recommended:true,reaction:student===id(2)?'similar':'newView'},p2:{reaction:'curious'},unassigned:{recommended:true}}})]);
     }
+    await db.query("insert into auth.users(id) values($1)",[id(40)]);
     await db.query("insert into student_accounts values($1,'30103','김학생')",[id(40)]);
     const query=(actor=id(1))=>db.query('select teacher_h_rankings($1,$2,$3) value',[actor,id(10),id(20)]);
     const rows=(await query()).rows[0].value;
@@ -89,6 +91,9 @@ test('H rankings count saved reactions against shared texts and enforce teacher 
     assert.equal(rows.find(r=>r.content==='두 번째 글').curious,2);
     assert.equal(rows.find(r=>r.content==='두 번째 글').stars,0);
     assert.equal(JSON.stringify(rows).includes('student_id'),false);
+    await db.query("insert into think_records(class_id,lesson_id,student_id,stage,content,submitted_at) values($1,$2,$3,'T','새 제출',now())",[id(10),id(20),id(2)]);
+    const unread=(await query()).rows[0].value.find(row=>row.content==='새 제출');
+    assert.equal(unread.stars,0);assert.equal(unread.likes,0);
     await assert.rejects(query(id(4)),/권한/);
   } finally {await db.close();}
 });
@@ -337,9 +342,10 @@ test('N teacher rankings aggregate reactions only for submitted reviews and enfo
   await db.query("insert into think_review_readings(class_id,lesson_id,reader,author,position,reaction,recommended) values($1,$2,$3,$4,1,'newView',true)",[id(10),id(20),id(3),id(2)]);
   const query=actor=>db.query('select teacher_n_rankings($1,$2,$3) value',[actor,id(10),id(20)]);
   const rows=(await query(id(1))).rows[0].value;
-  assert.deepEqual(rows,[{studentName:'작성 학생',content:'검토 내용',review:null,stars:1,likes:1,similar:0,newView:1,curious:0}]);
+  const unread={studentName:null,content:'읽은 학생',review:null,stars:0,likes:0,similar:0,newView:0,curious:0};
+  assert.deepEqual(rows,[{studentName:'작성 학생',content:'검토 내용',review:null,stars:1,likes:1,similar:0,newView:1,curious:0},unread]);
   await assert.rejects(query(id(2)),/권한/);
   await db.query('update think_records set submitted_at=null where student_id=$1',[id(2)]);
-  assert.deepEqual((await query(id(1))).rows[0].value,[]);
+  assert.deepEqual((await query(id(1))).rows[0].value,[unread]);
  } finally {await db.close();}
 });

@@ -62,16 +62,37 @@
     });
   }
   const module=window.TeacherLiveResponses={
-    close() {current=null;},
+    close() {
+      if(current?.reader?.open)current.reader.close();
+      current=null;
+    },
     async openRankings(context,target) {
       this.close();
       const ctx=current={...context,target,rankings:[],sort:'stars'};
       const categories={similar:'♡ 내 생각과 비슷해요',newView:'♡ 새로운 관점이에요',curious:'♡ 더 궁금해요',stars:'★ 우리 반 함께 읽고 싶어요'};
-      target.innerHTML=`<div class="live-response-heading"><h2>${ctx.stageCode}단계 ${ctx.stageCode==='N'?'친구의 검토':'친구 글'} 반응</h2><button type="button" class="btn btn-secondary" data-query>다시 조회하기</button></div><p class="live-response-meta">선택한 반응이 많은 순으로 표시합니다. 항목 전환은 추가 조회 없이 정렬하며, 최신 반응은 ‘다시 조회하기’를 눌러 확인하세요.</p><div class="live-ranking-sort" role="group" aria-label="반응 순위 정렬">${Object.entries(categories).map(([key,label])=>`<button type="button" class="btn btn-secondary" data-sort="${key}" aria-pressed="${key===ctx.sort}">${label}</button>`).join('')}</div><p role="status" aria-live="polite"></p><div class="live-ranking-results"></div>`;
+      target.innerHTML=`<div class="live-response-heading"><h2>${ctx.stageCode}단계 ${ctx.stageCode==='N'?'친구의 검토':'친구 글'} 반응</h2><button type="button" class="btn btn-secondary" data-enlarge aria-haspopup="dialog" disabled>전체 글 크게 보기</button><button type="button" class="btn btn-secondary" data-query>다시 조회하기</button></div><p class="live-response-meta">선택한 반응이 많은 순으로 표시합니다. 항목 전환은 추가 조회 없이 정렬하며, 최신 반응은 ‘다시 조회하기’를 눌러 확인하세요.</p><div class="live-ranking-sort" role="group" aria-label="반응 순위 정렬">${Object.entries(categories).map(([key,label])=>`<button type="button" class="btn btn-secondary" data-sort="${key}" aria-pressed="${key===ctx.sort}">${label}</button>`).join('')}</div><p role="status" aria-live="polite"></p><div class="live-ranking-results"></div>`;
+      const reader=document.createElement('dialog');
+      reader.className='live-ranking-reader';
+      reader.setAttribute('aria-label','학생 글 크게 보기');
+      reader.innerHTML='<header><h2>함께 읽기</h2><form method="dialog"><button type="submit" class="btn btn-secondary" autofocus>닫기</button></form></header><div class="live-reader-scroll" tabindex="0" role="region" aria-label="글과 반응"></div>';
+      target.appendChild(reader);
+      ctx.reader=reader;
+      const results=target.querySelector('.live-ranking-results');
+      const enlarge=target.querySelector('[data-enlarge]');
+      const reading=row=>`<div class="live-ranking-counts">${Object.entries(categories).map(([key,label])=>`<span data-reaction-count="${key}">${label} <strong>${esc(row[key]??0)}명</strong></span>`).join('')}</div>${rankingContent(row,ctx.stageCode)}`;
+      let sortedRows=[];
+      enlarge.addEventListener('click',()=>{
+        const scroll=reader.querySelector('.live-reader-scroll');
+        scroll.innerHTML=sortedRows.map((row,index)=>`<article class="live-ranking-reading"><h3>글 ${index+1}</h3>${reading(row)}</article>`).join('');
+        reader.showModal();
+        scroll.scrollTop=0;
+      });
       const render=()=>{
         const other=ctx.sort==='stars'?'likes':'stars';
-        const rows=ctx.rankings.map((r,index)=>({...r,index})).filter(row=>Number(row[ctx.sort])>0).sort((a,b)=>b[ctx.sort]-a[ctx.sort]||b[other]-a[other]||a.index-b.index);
-        target.querySelector('.live-ranking-results').innerHTML=rows.map((row,index)=>`<article class="live-response-detail"><h3>${index+1}위 · ${categories[ctx.sort]} ${esc(row[ctx.sort])}명</h3><p class="live-response-meta">작성 학생: ${esc(row.studentName||'이름 확인 불가')}</p><div class="live-ranking-counts">${Object.entries(categories).map(([key,label])=>`<span data-reaction-count="${key}">${label} <strong>${esc(row[key]??0)}명</strong></span>`).join('')}</div>${rankingContent(row,ctx.stageCode)}</article>`).join('')||`<p class="live-response-empty">아직 ‘${categories[ctx.sort]}’ 반응을 받은 글이 없습니다.</p>`;
+        sortedRows=[...ctx.rankings].sort((a,b)=>(b[ctx.sort]??0)-(a[ctx.sort]??0)||(b[other]??0)-(a[other]??0));
+        enlarge.disabled=!sortedRows.length;
+        const rows=sortedRows.filter(row=>Number(row[ctx.sort])>0);
+        results.innerHTML=rows.map((row,index)=>`<article class="live-response-detail"><h3>${index+1}위 · ${categories[ctx.sort]} ${esc(row[ctx.sort])}명</h3><p class="live-response-meta">작성 학생: ${esc(row.studentName||'이름 확인 불가')}</p>${reading(row)}</article>`).join('')||`<p class="live-response-empty">아직 ‘${categories[ctx.sort]}’ 반응을 받은 글이 없습니다.</p>`;
       };
       target.querySelectorAll('[data-sort]').forEach(button=>button.addEventListener('click',()=>{
         ctx.sort=button.dataset.sort;

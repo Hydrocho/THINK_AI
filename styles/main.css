@@ -2584,6 +2584,21 @@ body.modal-open { overflow: hidden; }
 .live-ranking-counts { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:.85rem; }
 .live-ranking-counts span { padding:6px 10px; border:1px solid var(--border-light); border-radius:var(--radius-md); color:#166534; background:#f0fdf4; }
 .live-ranking-counts [data-reaction-count="stars"] { color:#855700; background:#fff4cc; }
+.live-ranking-reader {
+  position:fixed; inset:0; margin:auto; box-sizing:border-box; width:96vw; height:94dvh;
+  max-width:none; max-height:none; padding:0; border:0; border-radius:16px;
+  background:white; color:#162b22; overflow:hidden;
+}
+.live-ranking-reader[open] { display:flex; flex-direction:column; }
+.live-ranking-reader::backdrop { background:#14251f; }
+.live-ranking-reader header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem clamp(1rem,4vw,4rem); border-bottom:1px solid #d5e3da; }
+.live-ranking-reader h2 { margin:0; font-size:clamp(1.4rem,2.5vw,2rem); }
+.live-reader-scroll { overflow:auto; overscroll-behavior:contain; padding:1rem clamp(1rem,5vw,5rem) 3rem; }
+.live-reader-scroll .live-ranking-reading { max-width:70em; margin:auto; }
+.live-reader-scroll article + article { margin-top:3rem; padding-top:2rem; border-top:2px solid #c4d6cb; }
+.live-reader-scroll article h3 { font-size:clamp(1.25rem,2vw,1.8rem); }
+.live-reader-scroll .live-ranking-counts { font-size:clamp(1rem,1.7vw,1.5rem); }
+.live-reader-scroll .live-response-answer { font-size:clamp(1.5rem,3vw,3rem); line-height:1.65; overflow-wrap:anywhere; }
 .live-ranking-results { display:grid; gap:16px; margin-top:16px; }
 @media (max-width: 1024px) { .live-response-layout { grid-template-columns:minmax(0,1fr); } .live-response-roster { max-height:280px; } }
 @media (max-width: 768px) {
